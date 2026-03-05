@@ -1,5 +1,6 @@
 import {
   LayoutDashboard,
+  Home,
   Ticket,
   PlusCircle,
   Clock,
@@ -13,13 +14,14 @@ import {
   Settings,
   Building2,
   FileText,
+  UserCog,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   Tooltip,
   TooltipContent,
@@ -32,15 +34,17 @@ interface SidebarProps {
   onToggle: () => void
 }
 
+interface NavItem {
+  icon: React.ElementType
+  label: string
+  href: string
+  badge?: string
+}
+
 interface NavSectionProps {
   title: string
   collapsed: boolean
-  items: Array<{
-    icon: any
-    label: string
-    href: string
-    badge?: string
-  }>
+  items: NavItem[]
 }
 
 function NavSection({ title, collapsed, items }: NavSectionProps) {
@@ -53,7 +57,7 @@ function NavSection({ title, collapsed, items }: NavSectionProps) {
           {title}
         </h3>
       )}
-      <div className={cn("space-y-1", collapsed ? "mt-4" : "")}>
+      <div className={cn('space-y-1', collapsed ? 'mt-4' : '')}>
         {items.map((item) => {
           const isActive = location.pathname === item.href
           return (
@@ -71,15 +75,15 @@ function NavSection({ title, collapsed, items }: NavSectionProps) {
                           : 'text-text-secondary hover:bg-secondary'
                       )}
                     >
-                      <item.icon className={cn(
-                        "w-5 h-5 flex-shrink-0",
-                        isActive ? "text-brand" : "text-text-secondary"
-                      )} />
+                      <item.icon
+                        className={cn(
+                          'w-5 h-5 flex-shrink-0',
+                          isActive ? 'text-brand' : 'text-text-secondary'
+                        )}
+                      />
                       {!collapsed && (
                         <div className="flex flex-1 items-center justify-between overflow-hidden">
-                          <span className="text-sm font-medium truncate">
-                            {item.label}
-                          </span>
+                          <span className="text-sm font-medium truncate">{item.label}</span>
                           {item.badge && (
                             <span className="text-[10px] bg-brand text-white px-1.5 rounded-full">
                               {item.badge}
@@ -90,9 +94,7 @@ function NavSection({ title, collapsed, items }: NavSectionProps) {
                     </Button>
                   </Link>
                 </TooltipTrigger>
-                {collapsed && (
-                  <TooltipContent side="right">{item.label}</TooltipContent>
-                )}
+                {collapsed && <TooltipContent side="right">{item.label}</TooltipContent>}
               </Tooltip>
             </TooltipProvider>
           )
@@ -110,7 +112,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         collapsed ? 'w-16' : 'w-64'
       )}
     >
-      {/* Logo Area */}
+      {/* Logo */}
       <div className="flex items-center h-16 px-4 border-b">
         <div className="flex items-center gap-3 overflow-hidden">
           <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-brand flex items-center justify-center shadow-sm">
@@ -130,48 +132,47 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       </div>
 
       <ScrollArea className="flex-1">
+        {/* [ROLE: END_USER] — visível apenas para usuários finais */}
         <NavSection
-          title="Principal"
+          title="Usuário Final"
           collapsed={collapsed}
           items={[
-            { icon: LayoutDashboard, label: 'Dashboard', href: '/' },
+            { icon: Home, label: 'Home', href: '/app' },
+            { icon: Ticket, label: 'Meus Chamados', href: '/app/helpdesk/meus-chamados' },
+            { icon: PlusCircle, label: 'Abrir Chamado', href: '/app/helpdesk/novo' },
           ]}
         />
 
-        <NavSection
-          title="Usuário"
-          collapsed={collapsed}
-          items={[
-            { icon: Ticket, label: 'Meus Chamados', href: '/helpdesk/user' },
-            { icon: PlusCircle, label: 'Abrir Chamado', href: '/helpdesk/new' },
-          ]}
-        />
-
+        {/* [ROLE: TECHNICIAN] — visível apenas para técnicos */}
         <NavSection
           title="Técnico"
           collapsed={collapsed}
           items={[
-            { icon: Briefcase, label: 'Meus Trabalhos', href: '/helpdesk/tasks', badge: '3' },
-            { icon: Clock, label: 'Fila Global', href: '/helpdesk/queue' },
+            { icon: LayoutDashboard, label: 'Dashboard', href: '/app/dashboard' },
+            { icon: Briefcase, label: 'Meus Trabalhos', href: '/app/helpdesk/meus-trabalhos', badge: '3' },
+            { icon: Clock, label: 'Fila de Chamados', href: '/app/helpdesk/fila' },
           ]}
         />
 
+        {/* [ROLE: MANAGER, ADMIN] — visível para gestores e admins */}
         <NavSection
           title="Gestão"
           collapsed={collapsed}
           items={[
-            { icon: Users, label: 'Todos Chamados', href: '/helpdesk/all' },
-            { icon: Package, label: 'Inventário', href: '/inventory' },
-            { icon: ShieldCheck, label: 'Governança', href: '/governance' },
+            { icon: Users, label: 'Todos os Chamados', href: '/app/helpdesk/todos' },
+            { icon: Package, label: 'Inventário', href: '/app/inventory' },
+            { icon: ShieldCheck, label: 'Governança', href: '/app/governance' },
           ]}
         />
 
+        {/* [ROLE: ADMIN] — visível apenas para admins */}
         <NavSection
-          title="Sistema"
+          title="Administração"
           collapsed={collapsed}
           items={[
-            { icon: Building2, label: 'Departamentos', href: '/admin/depts' },
-            { icon: FileText, label: 'Tipos de Problema', href: '/admin/types' },
+            { icon: Building2, label: 'Departamentos', href: '/app/admin/departamentos' },
+            { icon: FileText, label: 'Tipos de Problema', href: '/app/admin/tipos-problema' },
+            { icon: UserCog, label: 'Usuários', href: '/app/admin/usuarios' },
           ]}
         />
       </ScrollArea>
@@ -193,18 +194,18 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                 )}
               </Button>
             </TooltipTrigger>
-            {collapsed && (
-              <TooltipContent side="right">Configurações</TooltipContent>
-            )}
+            {collapsed && <TooltipContent side="right">Configurações</TooltipContent>}
           </Tooltip>
         </TooltipProvider>
 
         <Separator className="my-2" />
 
-        <div className={cn(
-          "flex items-center gap-3 p-2 rounded-lg",
-          collapsed ? "justify-center" : "bg-background/50"
-        )}>
+        <div
+          className={cn(
+            'flex items-center gap-3 p-2 rounded-lg',
+            collapsed ? 'justify-center' : 'bg-background/50'
+          )}
+        >
           <Avatar className="h-8 w-8 border border-white">
             <AvatarFallback className="bg-brand text-white text-[10px] font-bold">CP</AvatarFallback>
           </Avatar>
@@ -215,19 +216,23 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             </div>
           )}
           {!collapsed && (
-            <Button variant="ghost" size="icon" className="h-8 w-8 text-text-muted hover:text-error transition-colors">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 text-text-muted hover:text-error transition-colors"
+            >
               <LogOut className="h-4 w-4" />
             </Button>
           )}
         </div>
       </div>
 
-      {/* Collapse Toggle - Moved inside for better reliability */}
+      {/* Toggle collapse */}
       <button
         onClick={onToggle}
         className={cn(
-          "absolute -right-3 top-20 h-6 w-6 rounded-full border bg-white flex items-center justify-center shadow-sm z-20 hover:bg-brand-subtle hover:border-brand transition-all group",
-          "hidden lg:flex"
+          'absolute -right-3 top-20 h-6 w-6 rounded-full border bg-white flex items-center justify-center shadow-sm z-20 hover:bg-brand-subtle hover:border-brand transition-all group',
+          'hidden lg:flex'
         )}
       >
         {collapsed ? (
