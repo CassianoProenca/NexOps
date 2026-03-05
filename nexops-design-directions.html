@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NexOps — Direções Visuais</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Syne:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0f0f0f;
+    color: #fff;
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+  }
+
+  .page-header {
+    padding: 48px 40px 32px;
+    border-bottom: 1px solid #1f1f1f;
+  }
+
+  .page-header h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #666;
+    margin-bottom: 8px;
+  }
+
+  .page-header p {
+    font-size: 22px;
+    font-weight: 500;
+    color: #e0e0e0;
+  }
+
+  .directions-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+    border-top: 1px solid #1f1f1f;
+  }
+
+  .direction {
+    border-right: 1px solid #1f1f1f;
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .direction:last-child { border-right: none; }
+
+  .direction-label {
+    padding: 20px 28px;
+    border-bottom: 1px solid #1f1f1f;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .direction-label h2 {
+    font-family: 'Syne', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #888;
+  }
+
+  .direction-label .tag {
+    font-size: 10px;
+    font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 100px;
+    letter-spacing: 0.05em;
+  }
+
+  .preview-area {
+    padding: 28px;
+    min-height: 600px;
+  }
+
+  /* ─── DIREÇÃO 1: SLATE REFINADO ─── */
+  .d1 { background: #fafafa; }
+
+  .d1 .direction-label { background: #fafafa; border-color: #e5e5e5; }
+  .d1 .direction-label h2 { color: #999; }
+  .d1 .tag-1 { background: #f0f0f0; color: #555; border: 1px solid #e0e0e0; }
+
+  .d1 .preview-area { background: #f5f5f5; }
+
+  .d1-sidebar {
+    width: 200px;
+    background: #fff;
+    border-radius: 12px;
+    padding: 16px 12px;
+    border: 1px solid #e8e8e8;
+    float: left;
+    margin-right: 14px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  .d1-logo {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: #1a1a2e;
+    padding: 4px 8px 14px;
+    border-bottom: 1px solid #f0f0f0;
+    margin-bottom: 12px;
+    letter-spacing: -0.02em;
+  }
+
+  .d1-logo span { color: #4f6ef7; }
+
+  .d1-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #888;
+    margin-bottom: 2px;
+    cursor: pointer;
+  }
+
+  .d1-nav-item.active {
+    background: #eef1ff;
+    color: #4f6ef7;
+  }
+
+  .d1-nav-icon {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    background: currentColor;
+    opacity: 0.5;
+    flex-shrink: 0;
+  }
+
+  .d1-main { overflow: hidden; }
+
+  .d1-card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 16px;
+    border: 1px solid #e8e8e8;
+    margin-bottom: 12px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+
+  .d1-card-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #aaa;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+
+  .d1-kpi-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .d1-kpi {
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    padding: 12px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  }
+
+  .d1-kpi-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: #1a1a2e;
+    line-height: 1;
+    margin-bottom: 3px;
+  }
+
+  .d1-kpi-label {
+    font-size: 10px;
+    color: #aaa;
+    font-weight: 500;
+  }
+
+  .d1-kpi-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 4px;
+  }
+
+  .d1-ticket {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f5f5f5;
+  }
+
+  .d1-ticket:last-child { border-bottom: none; padding-bottom: 0; }
+
+  .d1-ticket-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    background: #eef1ff;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .d1-ticket-icon-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    background: #4f6ef7;
+  }
+
+  .d1-ticket-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: #333;
+    flex: 1;
+  }
+
+  .d1-ticket-sub {
+    font-size: 10px;
+    color: #bbb;
+    margin-top: 1px;
+  }
+
+  .d1-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 100px;
+  }
+
+  .d1-badge-blue { background: #eef1ff; color: #4f6ef7; }
+  .d1-badge-green { background: #f0fdf4; color: #22c55e; }
+  .d1-badge-amber { background: #fffbeb; color: #f59e0b; }
+
+  .d1-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+  }
+
+  .d1-bar-label { font-size: 10px; color: #999; width: 60px; flex-shrink: 0; text-align: right; }
+  .d1-bar-track { flex: 1; height: 6px; background: #f0f0f0; border-radius: 3px; overflow: hidden; }
+  .d1-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #4f6ef7, #818cf8); }
+  .d1-bar-count { font-size: 10px; color: #bbb; width: 20px; }
+
+  /* ─── DIREÇÃO 2: ESCURO SOFISTICADO (RAYCAST-INSPIRED) ─── */
+  .d2 { background: #111113; }
+
+  .d2 .direction-label { background: #111113; border-color: #222; }
+  .d2 .direction-label h2 { color: #555; }
+  .d2 .tag-2 { background: #1a1a1a; color: #888; border: 1px solid #2a2a2a; }
+
+  .d2 .preview-area { background: #0d0d0f; }
+
+  .d2-sidebar {
+    width: 190px;
+    background: #18181b;
+    border-radius: 12px;
+    padding: 14px 10px;
+    border: 1px solid #27272a;
+    float: left;
+    margin-right: 14px;
+  }
+
+  .d2-logo {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    color: #fff;
+    padding: 4px 8px 13px;
+    border-bottom: 1px solid #27272a;
+    margin-bottom: 10px;
+    letter-spacing: -0.02em;
+  }
+
+  .d2-logo span {
+    background: linear-gradient(135deg, #a78bfa, #60a5fa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .d2-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #555;
+    margin-bottom: 1px;
+  }
+
+  .d2-nav-item.active {
+    background: rgba(167, 139, 250, 0.12);
+    color: #a78bfa;
+  }
+
+  .d2-nav-icon {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    background: currentColor;
+    opacity: 0.4;
+    flex-shrink: 0;
+  }
+
+  .d2-main { overflow: hidden; }
+
+  .d2-card {
+    background: #18181b;
+    border-radius: 10px;
+    padding: 14px;
+    border: 1px solid #27272a;
+    margin-bottom: 10px;
+  }
+
+  .d2-card-title {
+    font-size: 10px;
+    font-weight: 600;
+    color: #444;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 10px;
+  }
+
+  .d2-kpi-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .d2-kpi {
+    background: #1f1f23;
+    border: 1px solid #2d2d32;
+    border-radius: 8px;
+    padding: 12px 10px;
+  }
+
+  .d2-kpi-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1;
+    margin-bottom: 3px;
+  }
+
+  .d2-kpi-label {
+    font-size: 10px;
+    color: #555;
+    font-weight: 400;
+  }
+
+  .d2-ticket {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid #222;
+  }
+
+  .d2-ticket:last-child { border-bottom: none; padding-bottom: 0; }
+
+  .d2-ticket-icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .d2-icon-purple { background: rgba(167, 139, 250, 0.15); }
+  .d2-icon-blue { background: rgba(96, 165, 250, 0.15); }
+  .d2-icon-green { background: rgba(52, 211, 153, 0.15); }
+
+  .d2-icon-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 2px;
+  }
+
+  .d2-dot-purple { background: #a78bfa; }
+  .d2-dot-blue { background: #60a5fa; }
+  .d2-dot-green { background: #34d399; }
+
+  .d2-ticket-title {
+    font-size: 12px;
+    font-weight: 500;
+    color: #ccc;
+    flex: 1;
+  }
+
+  .d2-ticket-sub { font-size: 10px; color: #444; margin-top: 1px; }
+
+  .d2-badge {
+    font-size: 10px;
+    font-weight: 500;
+    padding: 2px 7px;
+    border-radius: 100px;
+    border: 1px solid;
+  }
+
+  .d2-badge-purple { color: #a78bfa; border-color: rgba(167,139,250,0.3); background: rgba(167,139,250,0.08); }
+  .d2-badge-blue { color: #60a5fa; border-color: rgba(96,165,250,0.3); background: rgba(96,165,250,0.08); }
+  .d2-badge-green { color: #34d399; border-color: rgba(52,211,153,0.3); background: rgba(52,211,153,0.08); }
+
+  .d2-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .d2-bar-label { font-size: 10px; color: #444; width: 60px; flex-shrink: 0; text-align: right; }
+  .d2-bar-track { flex: 1; height: 5px; background: #222; border-radius: 3px; overflow: hidden; }
+  .d2-bar-fill { height: 100%; border-radius: 3px; }
+  .d2-bar-purple { background: linear-gradient(90deg, #a78bfa, #c4b5fd); }
+  .d2-bar-blue { background: linear-gradient(90deg, #60a5fa, #93c5fd); }
+  .d2-bar-green { background: linear-gradient(90deg, #34d399, #6ee7b7); }
+  .d2-bar-count { font-size: 10px; color: #444; width: 20px; }
+
+  /* ─── DIREÇÃO 3: WARM NEUTRAL ─── */
+  .d3 { background: #faf9f7; }
+
+  .d3 .direction-label { background: #faf9f7; border-color: #e8e4df; }
+  .d3 .direction-label h2 { color: #aaa49c; }
+  .d3 .tag-3 { background: #f0ece6; color: #7a7469; border: 1px solid #e0dbd4; }
+
+  .d3 .preview-area { background: #f3f0ec; }
+
+  .d3-sidebar {
+    width: 195px;
+    background: #fff;
+    border-radius: 12px;
+    padding: 14px 11px;
+    border: 1px solid #e8e4df;
+    float: left;
+    margin-right: 14px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  }
+
+  .d3-logo {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: #1c1917;
+    padding: 4px 8px 13px;
+    border-bottom: 1px solid #f0ece6;
+    margin-bottom: 11px;
+    letter-spacing: -0.02em;
+  }
+
+  .d3-logo span { color: #e05c3a; }
+
+  .d3-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #a09890;
+    margin-bottom: 2px;
+  }
+
+  .d3-nav-item.active {
+    background: #fdf1ee;
+    color: #e05c3a;
+  }
+
+  .d3-nav-icon {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+    background: currentColor;
+    opacity: 0.45;
+    flex-shrink: 0;
+  }
+
+  .d3-main { overflow: hidden; }
+
+  .d3-card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 14px;
+    border: 1px solid #e8e4df;
+    margin-bottom: 10px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+  }
+
+  .d3-card-title {
+    font-size: 10px;
+    font-weight: 600;
+    color: #c4bdb6;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 10px;
+  }
+
+  .d3-kpi-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .d3-kpi {
+    background: #faf9f7;
+    border: 1px solid #e8e4df;
+    border-radius: 8px;
+    padding: 11px 10px;
+  }
+
+  .d3-kpi-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: #1c1917;
+    line-height: 1;
+    margin-bottom: 3px;
+  }
+
+  .d3-kpi-label { font-size: 10px; color: #c4bdb6; font-weight: 400; }
+
+  .d3-ticket {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 0;
+    border-bottom: 1px solid #f5f2ee;
+  }
+
+  .d3-ticket:last-child { border-bottom: none; padding-bottom: 0; }
+
+  .d3-ticket-icon {
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    background: #fdf1ee;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .d3-ticket-icon-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 2px;
+    background: #e05c3a;
+  }
+
+  .d3-ticket-title { font-size: 12px; font-weight: 500; color: #3c3530; flex: 1; }
+  .d3-ticket-sub { font-size: 10px; color: #c4bdb6; margin-top: 1px; }
+
+  .d3-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 100px;
+  }
+
+  .d3-badge-orange { background: #fdf1ee; color: #e05c3a; }
+  .d3-badge-green { background: #f0fdf4; color: #22c55e; }
+  .d3-badge-stone { background: #f5f2ee; color: #a09890; }
+
+  .d3-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .d3-bar-label { font-size: 10px; color: #c4bdb6; width: 60px; flex-shrink: 0; text-align: right; }
+  .d3-bar-track { flex: 1; height: 5px; background: #f0ece6; border-radius: 3px; overflow: hidden; }
+  .d3-bar-fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #e05c3a, #f4856a); }
+  .d3-bar-count { font-size: 10px; color: #c4bdb6; width: 20px; }
+
+  /* ─── DESCRIÇÕES ─── */
+  .descriptions {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    border-top: 1px solid #1f1f1f;
+  }
+
+  .desc-item {
+    padding: 24px 28px;
+    border-right: 1px solid #1f1f1f;
+  }
+
+  .desc-item:last-child { border-right: none; }
+
+  .desc-name {
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 6px;
+  }
+
+  .desc-subtitle {
+    font-size: 11px;
+    color: #555;
+    line-height: 1.6;
+  }
+
+  .desc-tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+  }
+
+  .desc-tag {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+    border: 1px solid #2a2a2a;
+    color: #666;
+  }
+
+  .clearfix::after { content: ''; display: table; clear: both; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>NexOps — Direções Visuais</h1>
+  <p>Três caminhos de identidade. Escolha uma direção ou combine elementos.</p>
+</div>
+
+<div class="directions-grid">
+
+  <!-- DIREÇÃO 1 -->
+  <div class="direction d1">
+    <div class="direction-label">
+      <h2>Direção 01</h2>
+      <span class="tag tag-1">Slate Refinado</span>
+    </div>
+    <div class="preview-area">
+      <!-- Sidebar -->
+      <div class="d1-sidebar">
+        <div class="d1-logo">Nex<span>Ops</span></div>
+        <div class="d1-nav-item active">
+          <div class="d1-nav-icon"></div> Helpdesk
+        </div>
+        <div class="d1-nav-item">
+          <div class="d1-nav-icon"></div> Inventário
+        </div>
+        <div class="d1-nav-item">
+          <div class="d1-nav-icon"></div> Governança
+        </div>
+        <div class="d1-nav-item">
+          <div class="d1-nav-icon"></div> Admin
+        </div>
+      </div>
+      <!-- Main -->
+      <div class="d1-main">
+        <div class="d1-kpi-row">
+          <div class="d1-kpi">
+            <div class="d1-kpi-value">24</div>
+            <div class="d1-kpi-label"><span class="d1-kpi-dot" style="background:#4f6ef7"></span>Abertos</div>
+          </div>
+          <div class="d1-kpi">
+            <div class="d1-kpi-value">8</div>
+            <div class="d1-kpi-label"><span class="d1-kpi-dot" style="background:#f59e0b"></span>Em andamento</div>
+          </div>
+          <div class="d1-kpi">
+            <div class="d1-kpi-value">142</div>
+            <div class="d1-kpi-label"><span class="d1-kpi-dot" style="background:#22c55e"></span>Finalizados</div>
+          </div>
+        </div>
+
+        <div class="d1-card">
+          <div class="d1-card-title">Chamados recentes</div>
+          <div class="d1-ticket">
+            <div class="d1-ticket-icon"><div class="d1-ticket-icon-dot"></div></div>
+            <div style="flex:1">
+              <div class="d1-ticket-title">Impressora não responde</div>
+              <div class="d1-ticket-sub">Secretaria de Finanças · 14min</div>
+            </div>
+            <span class="d1-badge d1-badge-amber">N2</span>
+          </div>
+          <div class="d1-ticket">
+            <div class="d1-ticket-icon"><div class="d1-ticket-icon-dot"></div></div>
+            <div style="flex:1">
+              <div class="d1-ticket-title">Reset de senha SAM</div>
+              <div class="d1-ticket-sub">RH · 32min</div>
+            </div>
+            <span class="d1-badge d1-badge-blue">N1</span>
+          </div>
+          <div class="d1-ticket">
+            <div class="d1-ticket-icon"><div class="d1-ticket-icon-dot"></div></div>
+            <div style="flex:1">
+              <div class="d1-ticket-title">Notebook não liga</div>
+              <div class="d1-ticket-sub">Saúde · 1h</div>
+            </div>
+            <span class="d1-badge d1-badge-green">N2</span>
+          </div>
+        </div>
+
+        <div class="d1-card">
+          <div class="d1-card-title">Por tipo de problema</div>
+          <div class="d1-bar-row">
+            <div class="d1-bar-label">Software</div>
+            <div class="d1-bar-track"><div class="d1-bar-fill" style="width:85%"></div></div>
+            <div class="d1-bar-count">34</div>
+          </div>
+          <div class="d1-bar-row">
+            <div class="d1-bar-label">Hardware</div>
+            <div class="d1-bar-track"><div class="d1-bar-fill" style="width:60%"></div></div>
+            <div class="d1-bar-count">24</div>
+          </div>
+          <div class="d1-bar-row">
+            <div class="d1-bar-label">Acessos</div>
+            <div class="d1-bar-track"><div class="d1-bar-fill" style="width:40%"></div></div>
+            <div class="d1-bar-count">16</div>
+          </div>
+          <div class="d1-bar-row">
+            <div class="d1-bar-label">Impressora</div>
+            <div class="d1-bar-track"><div class="d1-bar-fill" style="width:30%"></div></div>
+            <div class="d1-bar-count">12</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIREÇÃO 2 -->
+  <div class="direction d2">
+    <div class="direction-label">
+      <h2>Direção 02</h2>
+      <span class="tag tag-2">Escuro Sofisticado</span>
+    </div>
+    <div class="preview-area">
+      <div class="d2-sidebar">
+        <div class="d2-logo">Nex<span>Ops</span></div>
+        <div class="d2-nav-item active">
+          <div class="d2-nav-icon"></div> Helpdesk
+        </div>
+        <div class="d2-nav-item">
+          <div class="d2-nav-icon"></div> Inventário
+        </div>
+        <div class="d2-nav-item">
+          <div class="d2-nav-icon"></div> Governança
+        </div>
+        <div class="d2-nav-item">
+          <div class="d2-nav-icon"></div> Admin
+        </div>
+      </div>
+      <div class="d2-main">
+        <div class="d2-kpi-row">
+          <div class="d2-kpi">
+            <div class="d2-kpi-value">24</div>
+            <div class="d2-kpi-label">Abertos</div>
+          </div>
+          <div class="d2-kpi">
+            <div class="d2-kpi-value">8</div>
+            <div class="d2-kpi-label">Andamento</div>
+          </div>
+          <div class="d2-kpi">
+            <div class="d2-kpi-value">142</div>
+            <div class="d2-kpi-label">Finalizados</div>
+          </div>
+        </div>
+
+        <div class="d2-card">
+          <div class="d2-card-title">Chamados recentes</div>
+          <div class="d2-ticket">
+            <div class="d2-ticket-icon d2-icon-purple"><div class="d2-icon-dot d2-dot-purple"></div></div>
+            <div style="flex:1">
+              <div class="d2-ticket-title">Impressora não responde</div>
+              <div class="d2-ticket-sub">Secretaria de Finanças · 14min</div>
+            </div>
+            <span class="d2-badge d2-badge-purple">N2</span>
+          </div>
+          <div class="d2-ticket">
+            <div class="d2-ticket-icon d2-icon-blue"><div class="d2-icon-dot d2-dot-blue"></div></div>
+            <div style="flex:1">
+              <div class="d2-ticket-title">Reset de senha SAM</div>
+              <div class="d2-ticket-sub">RH · 32min</div>
+            </div>
+            <span class="d2-badge d2-badge-blue">N1</span>
+          </div>
+          <div class="d2-ticket">
+            <div class="d2-ticket-icon d2-icon-green"><div class="d2-icon-dot d2-dot-green"></div></div>
+            <div style="flex:1">
+              <div class="d2-ticket-title">Notebook não liga</div>
+              <div class="d2-ticket-sub">Saúde · 1h</div>
+            </div>
+            <span class="d2-badge d2-badge-green">N2</span>
+          </div>
+        </div>
+
+        <div class="d2-card">
+          <div class="d2-card-title">Por tipo de problema</div>
+          <div class="d2-bar-row">
+            <div class="d2-bar-label">Software</div>
+            <div class="d2-bar-track"><div class="d2-bar-fill d2-bar-purple" style="width:85%"></div></div>
+            <div class="d2-bar-count">34</div>
+          </div>
+          <div class="d2-bar-row">
+            <div class="d2-bar-label">Hardware</div>
+            <div class="d2-bar-track"><div class="d2-bar-fill d2-bar-blue" style="width:60%"></div></div>
+            <div class="d2-bar-count">24</div>
+          </div>
+          <div class="d2-bar-row">
+            <div class="d2-bar-label">Acessos</div>
+            <div class="d2-bar-track"><div class="d2-bar-fill d2-bar-green" style="width:40%"></div></div>
+            <div class="d2-bar-count">16</div>
+          </div>
+          <div class="d2-bar-row">
+            <div class="d2-bar-label">Impressora</div>
+            <div class="d2-bar-track"><div class="d2-bar-fill d2-bar-purple" style="width:30%"></div></div>
+            <div class="d2-bar-count">12</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIREÇÃO 3 -->
+  <div class="direction d3">
+    <div class="direction-label">
+      <h2>Direção 03</h2>
+      <span class="tag tag-3">Warm Neutral</span>
+    </div>
+    <div class="preview-area">
+      <div class="d3-sidebar">
+        <div class="d3-logo">Nex<span>Ops</span></div>
+        <div class="d3-nav-item active">
+          <div class="d3-nav-icon"></div> Helpdesk
+        </div>
+        <div class="d3-nav-item">
+          <div class="d3-nav-icon"></div> Inventário
+        </div>
+        <div class="d3-nav-item">
+          <div class="d3-nav-icon"></div> Governança
+        </div>
+        <div class="d3-nav-item">
+          <div class="d3-nav-icon"></div> Admin
+        </div>
+      </div>
+      <div class="d3-main">
+        <div class="d3-kpi-row">
+          <div class="d3-kpi">
+            <div class="d3-kpi-value">24</div>
+            <div class="d3-kpi-label">Abertos</div>
+          </div>
+          <div class="d3-kpi">
+            <div class="d3-kpi-value">8</div>
+            <div class="d3-kpi-label">Andamento</div>
+          </div>
+          <div class="d3-kpi">
+            <div class="d3-kpi-value">142</div>
+            <div class="d3-kpi-label">Finalizados</div>
+          </div>
+        </div>
+
+        <div class="d3-card">
+          <div class="d3-card-title">Chamados recentes</div>
+          <div class="d3-ticket">
+            <div class="d3-ticket-icon"><div class="d3-ticket-icon-dot"></div></div>
+            <div style="flex:1">
+              <div class="d3-ticket-title">Impressora não responde</div>
+              <div class="d3-ticket-sub">Secretaria de Finanças · 14min</div>
+            </div>
+            <span class="d3-badge d3-badge-orange">N2</span>
+          </div>
+          <div class="d3-ticket">
+            <div class="d3-ticket-icon"><div class="d3-ticket-icon-dot"></div></div>
+            <div style="flex:1">
+              <div class="d3-ticket-title">Reset de senha SAM</div>
+              <div class="d3-ticket-sub">RH · 32min</div>
+            </div>
+            <span class="d3-badge d3-badge-stone">N1</span>
+          </div>
+          <div class="d3-ticket">
+            <div class="d3-ticket-icon"><div class="d3-ticket-icon-dot"></div></div>
+            <div style="flex:1">
+              <div class="d3-ticket-title">Notebook não liga</div>
+              <div class="d3-ticket-sub">Saúde · 1h</div>
+            </div>
+            <span class="d3-badge d3-badge-green">N2</span>
+          </div>
+        </div>
+
+        <div class="d3-card">
+          <div class="d3-card-title">Por tipo de problema</div>
+          <div class="d3-bar-row">
+            <div class="d3-bar-label">Software</div>
+            <div class="d3-bar-track"><div class="d3-bar-fill" style="width:85%"></div></div>
+            <div class="d3-bar-count">34</div>
+          </div>
+          <div class="d3-bar-row">
+            <div class="d3-bar-label">Hardware</div>
+            <div class="d3-bar-track"><div class="d3-bar-fill" style="width:60%"></div></div>
+            <div class="d3-bar-count">24</div>
+          </div>
+          <div class="d3-bar-row">
+            <div class="d3-bar-label">Acessos</div>
+            <div class="d3-bar-track"><div class="d3-bar-fill" style="width:40%"></div></div>
+            <div class="d3-bar-count">16</div>
+          </div>
+          <div class="d3-bar-row">
+            <div class="d3-bar-label">Impressora</div>
+            <div class="d3-bar-track"><div class="d3-bar-fill" style="width:30%"></div></div>
+            <div class="d3-bar-count">12</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div class="descriptions">
+  <div class="desc-item">
+    <div class="desc-name">Slate Refinado</div>
+    <div class="desc-subtitle">Base zinc clara com acento azul-violeta (#4f6ef7). Sério e corporativo sem ser genérico. Foge do azul elétrico padrão com um tom mais frio e sofisticado. Melhor aceitação em demos para gestores.</div>
+    <div class="desc-tags">
+      <span class="desc-tag">Light mode</span>
+      <span class="desc-tag">Corporativo</span>
+      <span class="desc-tag">Seguro para demo</span>
+    </div>
+  </div>
+  <div class="desc-item">
+    <div class="desc-name">Escuro Sofisticado</div>
+    <div class="desc-subtitle">Inspirado no Raycast. Fundo quase preto com acentos em violeta, azul e verde. Multi-colorido por contexto. Altamente diferenciado no mercado de TI, mas pode gerar resistência em clientes mais conservadores.</div>
+    <div class="desc-tags">
+      <span class="desc-tag">Dark mode</span>
+      <span class="desc-tag">Diferenciado</span>
+      <span class="desc-tag">Developer-friendly</span>
+    </div>
+  </div>
+  <div class="desc-item">
+    <div class="desc-name">Warm Neutral</div>
+    <div class="desc-subtitle">Base warm stone com acento terracota (#e05c3a). Completamente fora do padrão de TI — mais próximo de produtos como Notion ou Linear. Memorável e único, mas pode parecer inesperado no segmento.</div>
+    <div class="desc-tags">
+      <span class="desc-tag">Light mode</span>
+      <span class="desc-tag">Único no segmento</span>
+      <span class="desc-tag">Alto risco/recompensa</span>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
