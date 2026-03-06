@@ -54,10 +54,10 @@ export default function HomePage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-8 space-y-6">
       {/* Cabeçalho */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-text-primary">Olá, Cassiano.</h1>
+        <h1 className="text-2xl font-semibold text-zinc-900">Olá, Cassiano.</h1>
         <p className="mt-1 text-text-secondary">Como podemos ajudar você hoje?</p>
       </div>
 
@@ -186,7 +186,7 @@ export default function HomePage() {
                   >
                     <div className="flex items-center gap-3 p-3 rounded-lg border border-[#e4e4e7] group-hover:border-[#4f6ef7]/40 group-hover:shadow-sm transition-all bg-background/30">
                       <div
-                        className="flex-shrink-0 w-2.5 h-2.5 rounded-full"
+                        className="shrink-0 w-2.5 h-2.5 rounded-full"
                         style={{ backgroundColor: STATUS_COLOR[ticket.status] }}
                       />
                       <div className="flex-1 min-w-0">
@@ -206,7 +206,7 @@ export default function HomePage() {
                           <span className="text-[10px] text-text-muted">{ticket.time}</span>
                         </div>
                       </div>
-                      <ChevronRight className="w-4 h-4 text-text-muted flex-shrink-0" />
+                      <ChevronRight className="w-4 h-4 text-text-muted shrink-0" />
                     </div>
                   </button>
                 ))}

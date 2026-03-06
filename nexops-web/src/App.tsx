@@ -13,6 +13,20 @@ import HomePage from '@/pages/helpdesk/user/HomePage'
 import MyCasesPage from '@/pages/helpdesk/user/MyCasesPage'
 import NewCasePage from '@/pages/helpdesk/user/NewCasePage'
 
+// Pages — helpdesk (técnico)
+import TechnicianHomePage    from '@/pages/helpdesk/tech/TechnicianHomePage'
+import TicketQueuePage       from '@/pages/helpdesk/tech/TicketQueuePage'
+import QueuePanelPage        from '@/pages/helpdesk/tech/QueuePanelPage'
+import MyTicketsPage         from '@/pages/helpdesk/tech/MyTicketsPage'
+import TicketDetailTechPage  from '@/pages/helpdesk/tech/TicketDetailTechPage'
+
+// Pages — administração
+import UsersPage            from '@/pages/admin/UsersPage'
+import ProfilesPage         from '@/pages/admin/ProfilesPage'
+import TenantSettingsPage   from '@/pages/admin/TenantSettingsPage'
+import SmtpPage             from '@/pages/admin/SmtpPage'
+import AISettingsPage       from '@/pages/admin/AISettingsPage'
+
 /* ── AppShell: injeta o Layout nas rotas autenticadas ── */
 function AppShell() {
   return (
@@ -146,6 +160,9 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/primeiro-acesso" element={<FirstAccessPage />} />
 
+          {/* Painel TV — sem layout base */}
+          <Route path="/app/helpdesk/painel" element={<QueuePanelPage />} />
+
           {/* Rotas autenticadas — dentro do AppShell (Layout) */}
           <Route path="/app" element={<AppShell />}>
 
@@ -160,11 +177,12 @@ export default function App() {
             {/* [ROLE: END_USER] */}
             <Route path="helpdesk/meus-chamados" element={<MyCasesPage />} />
             <Route path="helpdesk/novo"           element={<NewCasePage />} />
-            <Route path="helpdesk/chamado/:id"    element={<NotFound />} />
+            <Route path="helpdesk/chamado/:id"    element={<TicketDetailTechPage />} />
 
             {/* [ROLE: TECHNICIAN] */}
-            <Route path="helpdesk/meus-trabalhos" element={<NotFound />} />
-            <Route path="helpdesk/fila"           element={<NotFound />} />
+            <Route path="helpdesk/tecnico"        element={<TechnicianHomePage />} />
+            <Route path="helpdesk/meus-trabalhos" element={<MyTicketsPage />} />
+            <Route path="helpdesk/fila"           element={<TicketQueuePage />} />
 
             {/* [ROLE: MANAGER, ADMIN] */}
             <Route path="helpdesk/todos"          element={<NotFound />} />
@@ -179,9 +197,11 @@ export default function App() {
 
             {/* ── Administração ── */}
             {/* [ROLE: ADMIN] */}
-            <Route path="admin/departamentos"     element={<NotFound />} />
-            <Route path="admin/tipos-problema"    element={<NotFound />} />
-            <Route path="admin/usuarios"          element={<NotFound />} />
+            <Route path="admin/usuarios"          element={<UsersPage />} />
+            <Route path="admin/perfis"            element={<ProfilesPage />} />
+            <Route path="admin/configuracoes"     element={<TenantSettingsPage />} />
+            <Route path="admin/smtp"              element={<SmtpPage />} />
+            <Route path="admin/ia"                element={<AISettingsPage />} />
 
             {/* Fallback interno */}
             <Route path="*"                       element={<NotFound />} />

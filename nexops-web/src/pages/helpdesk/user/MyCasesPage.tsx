@@ -71,7 +71,7 @@ export default function MyCasesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-8 space-y-6">
       {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-text-muted">
         <span>Home</span>
@@ -83,7 +83,7 @@ export default function MyCasesPage() {
 
       {/* Título */}
       <div className="flex items-baseline gap-3">
-        <h1 className="text-2xl font-bold tracking-tight text-text-primary">Meus Chamados</h1>
+        <h1 className="text-2xl font-semibold text-zinc-900">Meus Chamados</h1>
         <span className="text-sm text-text-secondary">{MOCK_CASES.length} chamados encontrados</span>
       </div>
 
@@ -138,7 +138,7 @@ export default function MyCasesPage() {
             <div className="flex items-center gap-4 p-4 rounded-xl border border-[#e4e4e7] bg-surface group-hover:border-[#4f6ef7]/40 group-hover:shadow-sm transition-all">
               {/* Status dot */}
               <div
-                className="flex-shrink-0 w-2.5 h-2.5 rounded-full mt-0.5"
+                className="shrink-0 w-2.5 h-2.5 rounded-full mt-0.5"
                 style={{ backgroundColor: STATUS_DOT[c.status] }}
               />
 
@@ -148,7 +148,7 @@ export default function MyCasesPage() {
                   <span className="text-xs font-medium text-text-muted">#{c.id}</span>
                   <span className="text-sm font-semibold text-text-primary truncate">{c.title}</span>
                   <span
-                    className="text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+                    className="text-[11px] font-semibold px-2 py-0.5 rounded-full shrink-0"
                     style={{
                       backgroundColor: STATUS_STYLE[c.status].bg,
                       color: STATUS_STYLE[c.status].color,
@@ -168,7 +168,7 @@ export default function MyCasesPage() {
                 </div>
               </div>
 
-              <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-[#4f6ef7] flex-shrink-0 transition-colors" />
+              <ChevronRight className="w-4 h-4 text-text-muted group-hover:text-[#4f6ef7] shrink-0 transition-colors" />
             </div>
           </button>
         ))}

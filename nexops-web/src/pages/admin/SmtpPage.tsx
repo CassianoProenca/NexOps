@@ -1,0 +1,270 @@
+import { useState, useRef } from 'react'
+import { Info, Eye, EyeOff, Zap, Check, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+// ── Shared ─────────────────────────────────────────────────────────────────────
+
+function Toast({ message, visible }: { message: string; visible: boolean }) {
+  return (
+    <div className={cn(
+      'fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl bg-zinc-900 text-white text-sm font-medium shadow-xl transition-all duration-300',
+      visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
+    )}>
+      <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+      {message}
+    </div>
+  )
+}
+
+function Label({ children, htmlFor }: { children: React.ReactNode; htmlFor?: string }) {
+  return (
+    <label htmlFor={htmlFor} className="block text-xs font-semibold text-zinc-700 mb-1.5">
+      {children}
+    </label>
+  )
+}
+
+function FieldInput({
+  id, type = 'text', value, onChange, placeholder, disabled, className,
+}: {
+  id?: string
+  type?: string
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+  disabled?: boolean
+  className?: string
+}) {
+  return (
+    <input
+      id={id}
+      type={type}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      disabled={disabled}
+      className={cn(
+        'w-full border rounded-lg px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-[#4f6ef7]/30 focus:border-[#4f6ef7]',
+        disabled
+          ? 'bg-zinc-50 text-zinc-400 border-zinc-200 cursor-not-allowed'
+          : 'bg-white border-zinc-200 text-zinc-800',
+        className
+      )}
+    />
+  )
+}
+
+// ── Toggle ─────────────────────────────────────────────────────────────────────
+
+function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => !disabled && onChange(!checked)}
+      className={cn(
+        'relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors duration-200',
+        disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer',
+        checked ? 'bg-[#4f6ef7]' : 'bg-zinc-200'
+      )}
+    >
+      <span className={cn(
+        'pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200',
+        checked ? 'translate-x-4' : 'translate-x-0'
+      )} />
+    </button>
+  )
+}
+
+// ── Page ───────────────────────────────────────────────────────────────────────
+
+type TestState = 'idle' | 'loading' | 'success' | 'error'
+
+export default function SmtpPage() {
+  const [enabled, setEnabled]     = useState(false)
+  const [host, setHost]           = useState('')
+  const [port, setPort]           = useState('587')
+  const [user, setUser]           = useState('')
+  const [password, setPassword]   = useState('')
+  const [showPass, setShowPass]   = useState(false)
+  const [fromEmail, setFromEmail] = useState('')
+  const [fromName, setFromName]   = useState('')
+  const [useTls, setUseTls]       = useState(true)
+  const [testState, setTestState] = useState<TestState>('idle')
+  const [testMsg, setTestMsg]     = useState('')
+  const [toast, setToast]         = useState({ message: '', visible: false })
+  const toastTimer                = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const disabled = !enabled
+
+  function showToast(message: string) {
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    setToast({ message, visible: true })
+    toastTimer.current = setTimeout(() => setToast((t) => ({ ...t, visible: false })), 3000)
+  }
+
+  function handleTest() {
+    if (!host || !port || !user || !password) {
+      setTestState('error')
+      setTestMsg('Preencha todos os campos antes de testar.')
+      return
+    }
+    setTestState('loading')
+    setTestMsg('')
+    // Simulate async test
+    setTimeout(() => {
+      // Mock: fail if host doesn't look plausible
+      const ok = host.includes('.')
+      setTestState(ok ? 'success' : 'error')
+      setTestMsg(ok ? 'Conexão estabelecida com sucesso.' : 'Não foi possível conectar ao servidor SMTP.')
+    }, 1400)
+  }
+
+  function handleSave() {
+    showToast(enabled ? 'Configuração SMTP salva.' : 'SMTP desabilitado e configuração salva.')
+  }
+
+  return (
+    <div className="p-8 space-y-6 max-w-2xl">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-bold text-zinc-900">Configuração de E-mail (SMTP)</h1>
+          <p className="text-sm text-zinc-400 mt-0.5">Defina o servidor de e-mail para envio de notificações e convites.</p>
+        </div>
+        {enabled ? (
+          <span className="shrink-0 inline-flex items-center gap-1.5 text-[11px] font-semibold bg-green-50 text-green-700 border border-green-200 px-2.5 py-1 rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+            SMTP ativo
+          </span>
+        ) : (
+          <span className="shrink-0 inline-flex items-center gap-1.5 text-[11px] font-semibold bg-zinc-100 text-zinc-500 border border-zinc-200 px-2.5 py-1 rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
+            SMTP não configurado
+          </span>
+        )}
+      </div>
+
+      {/* Info banner */}
+      <div className="flex items-start gap-3 p-4 rounded-xl bg-blue-50 border border-blue-200">
+        <Info className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+        <p className="text-xs text-blue-700 leading-relaxed">
+          Quando o SMTP não está configurado, convites e notificações geram links copiáveis em vez de e-mails automáticos.
+          O sistema funciona normalmente sem SMTP.
+        </p>
+      </div>
+
+      {/* Config card */}
+      <div className="rounded-xl border bg-white p-6 space-y-5">
+        <h2 className="text-sm font-semibold text-zinc-800">Configuração SMTP</h2>
+
+        {/* Enable toggle */}
+        <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-50 border border-zinc-100">
+          <div>
+            <p className="text-sm font-medium text-zinc-800">Habilitar SMTP</p>
+            <p className="text-xs text-zinc-400 mt-0.5">Ativa o envio de e-mails automáticos pelo sistema.</p>
+          </div>
+          <Toggle checked={enabled} onChange={setEnabled} />
+        </div>
+
+        <div className={cn('space-y-4 transition-opacity', disabled && 'opacity-50')}>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="smtp-host">Servidor SMTP</Label>
+              <FieldInput id="smtp-host" value={host} onChange={setHost} placeholder="smtp.gmail.com" disabled={disabled} />
+            </div>
+            <div>
+              <Label htmlFor="smtp-port">Porta</Label>
+              <FieldInput id="smtp-port" type="number" value={port} onChange={setPort} placeholder="587" disabled={disabled} />
+            </div>
+          </div>
+
+          <div>
+            <Label htmlFor="smtp-user">Usuário</Label>
+            <FieldInput id="smtp-user" value={user} onChange={setUser} placeholder="usuario@empresa.com" disabled={disabled} />
+          </div>
+
+          <div>
+            <Label htmlFor="smtp-pass">Senha</Label>
+            <div className="relative">
+              <FieldInput
+                id="smtp-pass"
+                type={showPass ? 'text' : 'password'}
+                value={password}
+                onChange={setPassword}
+                placeholder="••••••••"
+                disabled={disabled}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                tabIndex={-1}
+                disabled={disabled}
+                onClick={() => setShowPass((v) => !v)}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 disabled:pointer-events-none"
+              >
+                {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="from-email">E-mail remetente</Label>
+              <FieldInput id="from-email" value={fromEmail} onChange={setFromEmail} placeholder="ti@prefeitura.sp.gov.br" disabled={disabled} />
+            </div>
+            <div>
+              <Label htmlFor="from-name">Nome do remetente</Label>
+              <FieldInput id="from-name" value={fromName} onChange={setFromName} placeholder="TI — NexOps" disabled={disabled} />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-50 border border-zinc-100">
+            <div>
+              <p className="text-sm font-medium text-zinc-800">Usar TLS</p>
+              <p className="text-xs text-zinc-400 mt-0.5">Recomendado para comunicação segura (porta 587).</p>
+            </div>
+            <Toggle checked={useTls} onChange={setUseTls} disabled={disabled} />
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between pt-4 border-t border-zinc-100 gap-4 flex-wrap">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              disabled={disabled}
+              onClick={handleTest}
+              className="flex items-center gap-1.5 text-sm font-medium text-zinc-600 hover:text-zinc-900 px-3 py-2 rounded-lg border border-zinc-200 hover:bg-zinc-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Zap className="w-4 h-4" />
+              {testState === 'loading' ? 'Testando...' : 'Testar Conexão'}
+            </button>
+
+            {testState === 'success' && (
+              <span className="flex items-center gap-1.5 text-xs font-medium text-green-600">
+                <Check className="w-3.5 h-3.5" /> {testMsg}
+              </span>
+            )}
+            {testState === 'error' && (
+              <span className="flex items-center gap-1.5 text-xs font-medium text-red-600">
+                <X className="w-3.5 h-3.5" /> {testMsg}
+              </span>
+            )}
+          </div>
+
+          <button
+            onClick={handleSave}
+            className="px-5 py-2 text-sm font-semibold text-white bg-[#4f6ef7] hover:bg-[#3d5ce6] rounded-lg transition-colors shadow-sm"
+          >
+            Salvar
+          </button>
+        </div>
+      </div>
+
+      <Toast {...toast} />
+    </div>
+  )
+}

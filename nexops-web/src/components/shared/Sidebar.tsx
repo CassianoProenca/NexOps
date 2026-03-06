@@ -1,20 +1,25 @@
+import { useState } from 'react'
 import {
   LayoutDashboard,
   Home,
   Ticket,
   PlusCircle,
-  Clock,
+  ListTodo,
+  Monitor,
   Briefcase,
   Users,
   Package,
   ShieldCheck,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   LogOut,
   Settings,
+  Settings2,
   Building2,
-  FileText,
-  UserCog,
+  Shield,
+  MailCheck,
+  Sparkles,
 } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { cn } from '@/lib/utils'
@@ -51,7 +56,7 @@ function NavSection({ title, collapsed, items }: NavSectionProps) {
   const location = useLocation()
 
   return (
-    <div className="space-y-1 px-2">
+    <div className="space-y-1">
       {!collapsed && (
         <h3 className="px-3 text-[10px] font-bold uppercase tracking-widest text-text-muted mt-6 mb-2">
           {title}
@@ -77,7 +82,7 @@ function NavSection({ title, collapsed, items }: NavSectionProps) {
                     >
                       <item.icon
                         className={cn(
-                          'w-5 h-5 flex-shrink-0',
+                          'w-5 h-5 shrink-0',
                           isActive ? 'text-brand' : 'text-text-secondary'
                         )}
                       />
@@ -104,18 +109,121 @@ function NavSection({ title, collapsed, items }: NavSectionProps) {
   )
 }
 
+// ── Admin nav subitems ────────────────────────────────────────────────────────
+
+const ADMIN_SUBITEMS: NavItem[] = [
+  { icon: Users,     label: 'Usuários',         href: '/app/admin/usuarios'      },
+  { icon: Shield,    label: 'Perfis de Acesso', href: '/app/admin/perfis'        },
+  { icon: Building2, label: 'Configurações',    href: '/app/admin/configuracoes' },
+  { icon: MailCheck, label: 'SMTP',             href: '/app/admin/smtp'          },
+  { icon: Sparkles,  label: 'IA (BYOK)',        href: '/app/admin/ia'            },
+]
+
+function AdminNavSection({ collapsed }: { collapsed: boolean }) {
+  const location = useLocation()
+  const [expanded, setExpanded] = useState(
+    () => localStorage.getItem('sidebar_admin_expanded') !== 'false'
+  )
+
+  const hasActiveChild = ADMIN_SUBITEMS.some((item) => location.pathname === item.href)
+
+  function toggle() {
+    const next = !expanded
+    setExpanded(next)
+    localStorage.setItem('sidebar_admin_expanded', String(next))
+  }
+
+  // Sidebar itself collapsed → show icon only with tooltip
+  if (collapsed) {
+    return (
+      <div className="space-y-1 mt-4">
+        <TooltipProvider delayDuration={0}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                className={cn(
+                  'w-full px-0 justify-center h-10 transition-all',
+                  hasActiveChild
+                    ? 'bg-brand/10 text-brand hover:bg-brand/15 hover:text-brand'
+                    : 'text-text-secondary hover:bg-secondary'
+                )}
+              >
+                <Settings2 className={cn('w-5 h-5 shrink-0', hasActiveChild ? 'text-brand' : 'text-text-secondary')} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Administração</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-1">
+      <h3 className="px-3 text-[10px] font-bold uppercase tracking-widest text-text-muted mt-6 mb-2">
+        Administração
+      </h3>
+
+      {/* Parent toggle */}
+      <button
+        onClick={toggle}
+        className={cn(
+          'w-full flex items-center gap-3 h-10 px-3 rounded-md text-sm font-medium transition-all',
+          hasActiveChild
+            ? 'text-brand bg-brand/10 hover:bg-brand/15'
+            : 'text-text-secondary hover:bg-secondary'
+        )}
+      >
+        <Settings2 className={cn('w-5 h-5 shrink-0', hasActiveChild ? 'text-brand' : 'text-text-secondary')} />
+        <span className="flex-1 text-left truncate">Sistema</span>
+        <ChevronDown
+          className={cn('w-4 h-4 shrink-0 transition-transform duration-200', expanded && 'rotate-180')}
+        />
+      </button>
+
+      {/* Subitems */}
+      {expanded && (
+        <div className="ml-4 pl-3 border-l border-zinc-200 space-y-0.5">
+          {ADMIN_SUBITEMS.map((item) => {
+            const isActive = location.pathname === item.href
+            return (
+              <Link key={item.label} to={item.href}>
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    'w-full justify-start gap-3 h-9 px-3 transition-all',
+                    isActive
+                      ? 'bg-brand/10 text-brand hover:bg-brand/15 hover:text-brand'
+                      : 'text-text-secondary hover:bg-secondary'
+                  )}
+                >
+                  <item.icon className={cn('w-4 h-4 shrink-0', isActive ? 'text-brand' : 'text-text-secondary')} />
+                  <span className="text-sm font-medium truncate">{item.label}</span>
+                </Button>
+              </Link>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   return (
     <aside
       className={cn(
-        'relative flex flex-col h-screen border-r bg-sidebar transition-all duration-300 ease-in-out',
+        'relative flex flex-col h-screen border-r border-zinc-200 bg-sidebar transition-all duration-300 ease-in-out',
         collapsed ? 'w-16' : 'w-64'
       )}
     >
       {/* Logo */}
-      <div className="flex items-center h-16 px-4 border-b">
+      <div className="flex items-center h-16 px-3 border-b border-zinc-200">
         <div className="flex items-center gap-3 overflow-hidden">
-          <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-brand flex items-center justify-center shadow-sm">
+          <div className="shrink-0 w-8 h-8 rounded-lg bg-brand flex items-center justify-center shadow-sm">
             <span className="text-white font-bold text-lg">N</span>
           </div>
           {!collapsed && (
@@ -148,9 +256,10 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           title="Técnico"
           collapsed={collapsed}
           items={[
-            { icon: LayoutDashboard, label: 'Dashboard', href: '/app/dashboard' },
-            { icon: Briefcase, label: 'Meus Trabalhos', href: '/app/helpdesk/meus-trabalhos', badge: '3' },
-            { icon: Clock, label: 'Fila de Chamados', href: '/app/helpdesk/fila' },
+            { icon: LayoutDashboard, label: 'Home', href: '/app/helpdesk/tecnico' },
+            { icon: Briefcase, label: 'Meus Trabalhos', href: '/app/helpdesk/meus-trabalhos', badge: '7' },
+            { icon: ListTodo, label: 'Fila de Chamados', href: '/app/helpdesk/fila' },
+            { icon: Monitor,  label: 'Painel TV',        href: '/app/helpdesk/painel' },
           ]}
         />
 
@@ -166,18 +275,10 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         />
 
         {/* [ROLE: ADMIN] — visível apenas para admins */}
-        <NavSection
-          title="Administração"
-          collapsed={collapsed}
-          items={[
-            { icon: Building2, label: 'Departamentos', href: '/app/admin/departamentos' },
-            { icon: FileText, label: 'Tipos de Problema', href: '/app/admin/tipos-problema' },
-            { icon: UserCog, label: 'Usuários', href: '/app/admin/usuarios' },
-          ]}
-        />
+        <AdminNavSection collapsed={collapsed} />
       </ScrollArea>
 
-      <div className="p-2 mt-auto border-t space-y-1">
+      <div className="px-3 py-2 mt-auto border-t border-zinc-200 space-y-1">
         <TooltipProvider delayDuration={0}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -188,7 +289,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                   collapsed ? 'px-0 justify-center' : ''
                 )}
               >
-                <Settings className="w-5 h-5 flex-shrink-0 text-text-secondary" />
+                <Settings className="w-5 h-5 shrink-0 text-text-secondary" />
                 {!collapsed && (
                   <span className="text-sm font-medium text-text-secondary">Configurações</span>
                 )}
@@ -202,7 +303,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
         <div
           className={cn(
-            'flex items-center gap-3 p-2 rounded-lg',
+            'flex items-center gap-3 py-2 rounded-lg',
             collapsed ? 'justify-center' : 'bg-background/50'
           )}
         >

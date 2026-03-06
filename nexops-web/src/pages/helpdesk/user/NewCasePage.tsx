@@ -99,7 +99,7 @@ export default function NewCasePage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-8 space-y-6">
       {/* Breadcrumb */}
       <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-text-muted">
         <span>Home</span>
@@ -111,7 +111,7 @@ export default function NewCasePage() {
 
       {/* Título */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-text-primary">Abrir Chamado</h1>
+        <h1 className="text-2xl font-semibold text-zinc-900">Abrir Chamado</h1>
         <p className="mt-1 text-sm text-text-secondary">
           Preencha as informações abaixo. Quanto mais detalhes, mais rápido o atendimento.
         </p>
@@ -122,7 +122,7 @@ export default function NewCasePage() {
         <div className="flex gap-8 items-start">
 
           {/* ── Formulário principal ── */}
-          <div className="flex-1 max-w-[720px]">
+          <div className="flex-1 max-w-180">
             <div className="p-6 rounded-xl border bg-surface space-y-5">
 
               {/* Título */}
@@ -218,7 +218,7 @@ export default function NewCasePage() {
           </div>
 
           {/* ── Painel lateral — Dica (desktop only) ── */}
-          <div className="hidden lg:block w-[280px] flex-shrink-0">
+          <div className="hidden lg:block w-70 shrink-0">
             <div className="p-5 rounded-xl border bg-surface">
               <div className="flex items-center gap-2 mb-3">
                 <Lightbulb className="w-4 h-4" style={{ color: '#d97706' }} />
@@ -232,7 +232,7 @@ export default function NewCasePage() {
                 {TIPS.map((tip, i) => (
                   <li key={i} className="flex items-start gap-2">
                     <span
-                      className="flex-shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white mt-0.5"
+                      className="shrink-0 w-4 h-4 rounded-full flex items-center justify-center text-[10px] font-bold text-white mt-0.5"
                       style={{ backgroundColor: '#4f6ef7' }}
                     >
                       {i + 1}

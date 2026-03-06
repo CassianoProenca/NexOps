@@ -1,4 +1,4 @@
-import { Bell, Search, Plus, Menu } from 'lucide-react'
+import { Bell, Search, Menu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -7,7 +7,6 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
-import { Separator } from '@/components/ui/separator'
 
 interface HeaderProps {
   onToggleSidebar: () => void
@@ -41,13 +40,6 @@ export function Header({ onToggleSidebar }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-3">
-          <Button className="bg-brand hover:bg-brand-hover text-white gap-2 shadow-sm font-medium">
-            <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Novo Chamado</span>
-          </Button>
-
-          <Separator orientation="vertical" className="h-6 mx-1" />
-
           <TooltipProvider delayDuration={200}>
             <Tooltip>
               <TooltipTrigger asChild>

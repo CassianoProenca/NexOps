@@ -39,7 +39,7 @@ export function Layout({ children }: LayoutProps) {
 
         {/* Main Content Area */}
         <main className="flex-1 overflow-y-auto overflow-x-hidden relative scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
-          <div className="max-w-[1400px] mx-auto p-4 lg:p-8 animate-in fade-in duration-500">
+          <div className="animate-in fade-in duration-300">
             {children}
           </div>
         </main>
