@@ -5,8 +5,10 @@ import { Ticket, Package, ShieldCheck, TrendingUp, Clock } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 
 // Pages — auth
-import LoginPage from '@/pages/auth/LoginPage'
-import FirstAccessPage from '@/pages/auth/FirstAccessPage'
+import LoginPage           from '@/pages/auth/LoginPage'
+import FirstAccessPage     from '@/pages/auth/FirstAccessPage'
+import ForgotPasswordPage  from '@/pages/auth/ForgotPasswordPage'
+import ExpiredInvitePage   from '@/pages/auth/ExpiredInvitePage'
 
 // Pages — helpdesk (usuário final)
 import HomePage from '@/pages/helpdesk/user/HomePage'
@@ -19,6 +21,15 @@ import TicketQueuePage       from '@/pages/helpdesk/tech/TicketQueuePage'
 import QueuePanelPage        from '@/pages/helpdesk/tech/QueuePanelPage'
 import MyTicketsPage         from '@/pages/helpdesk/tech/MyTicketsPage'
 import TicketDetailTechPage  from '@/pages/helpdesk/tech/TicketDetailTechPage'
+
+// Pages — transversais
+import NotificationsPage        from '@/pages/NotificationsPage'
+
+// Pages — helpdesk (admin/gestor)
+import AllTicketsPage           from '@/pages/helpdesk/admin/AllTicketsPage'
+import TicketDetailManagerPage  from '@/pages/helpdesk/admin/TicketDetailManagerPage'
+import DepartmentsPage          from '@/pages/helpdesk/admin/DepartmentsPage'
+import ProblemTypesPage         from '@/pages/helpdesk/admin/ProblemTypesPage'
 
 // Pages — administração
 import UsersPage            from '@/pages/admin/UsersPage'
@@ -157,8 +168,10 @@ export default function App() {
           <Route path="/" element={<Navigate to="/login" replace />} />
 
           {/* Rotas públicas — sem Layout */}
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/primeiro-acesso" element={<FirstAccessPage />} />
+          <Route path="/login"            element={<LoginPage />} />
+          <Route path="/primeiro-acesso"  element={<FirstAccessPage />} />
+          <Route path="/forgot-password"  element={<ForgotPasswordPage />} />
+          <Route path="/invite-expired"   element={<ExpiredInvitePage />} />
 
           {/* Painel TV — sem layout base */}
           <Route path="/app/helpdesk/painel" element={<QueuePanelPage />} />
@@ -170,7 +183,10 @@ export default function App() {
             <Route index element={<HomePage />} />
 
             {/* [ROLE: MANAGER, ADMIN] — Dashboard analítico */}
-            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="dashboard"      element={<Dashboard />} />
+
+            {/* [ROLE: ALL] — Notificações */}
+            <Route path="notificacoes"   element={<NotificationsPage />} />
 
             {/* ── Helpdesk ── */}
 
@@ -185,7 +201,10 @@ export default function App() {
             <Route path="helpdesk/fila"           element={<TicketQueuePage />} />
 
             {/* [ROLE: MANAGER, ADMIN] */}
-            <Route path="helpdesk/todos"          element={<NotFound />} />
+            <Route path="helpdesk/todos"                    element={<AllTicketsPage />} />
+            <Route path="helpdesk/chamado-gestor/:id"       element={<TicketDetailManagerPage />} />
+            <Route path="helpdesk/departamentos"           element={<DepartmentsPage />} />
+            <Route path="helpdesk/tipos-de-problema"       element={<ProblemTypesPage />} />
 
             {/* ── Inventário ── */}
             {/* [ROLE: MANAGER, ADMIN] */}

@@ -30,7 +30,7 @@ export function Layout({ children }: LayoutProps) {
 
       <div
         className={cn(
-          'flex flex-col flex-1 min-w-0 transition-all duration-300 ease-in-out relative',
+          'flex flex-col flex-1 min-w-0 transition-all duration-200 ease-in-out relative',
           'bg-background'
         )}
       >

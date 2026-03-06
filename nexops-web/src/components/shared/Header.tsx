@@ -1,4 +1,5 @@
 import { Bell, Search, Menu } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -12,7 +13,10 @@ interface HeaderProps {
   onToggleSidebar: () => void
 }
 
+const UNREAD_COUNT = 3
+
 export function Header({ onToggleSidebar }: HeaderProps) {
+  const navigate = useNavigate()
   return (
     <header className="sticky top-0 z-10 w-full h-16 border-b bg-surface/80 backdrop-blur-sm px-6">
       <div className="flex items-center justify-between h-full gap-4">
@@ -43,9 +47,18 @@ export function Header({ onToggleSidebar }: HeaderProps) {
           <TooltipProvider delayDuration={200}>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon" className="relative h-10 w-10 text-text-secondary">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative h-10 w-10 text-text-secondary"
+                  onClick={() => navigate('/app/notificacoes')}
+                >
                   <Bell className="h-5 w-5" />
-                  <span className="absolute top-2.5 right-2.5 h-2 w-2 rounded-full bg-error border-2 border-surface" />
+                  {UNREAD_COUNT > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-error border-2 border-surface text-[9px] font-bold text-white leading-none px-0.5">
+                      {UNREAD_COUNT}
+                    </span>
+                  )}
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Notificações</TooltipContent>

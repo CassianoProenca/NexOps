@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -21,6 +22,7 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>
 
 export default function LoginPage() {
+  const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -102,7 +104,7 @@ export default function LoginPage() {
                     fontWeight: 500,
                     fontFamily: "'DM Sans', sans-serif",
                   }}
-                  onClick={() => console.log('Esqueci minha senha')}
+                  onClick={() => navigate('/forgot-password')}
                 >
                   Esqueci minha senha
                 </button>

@@ -127,140 +127,168 @@ export default function SmtpPage() {
   }
 
   return (
-    <div className="p-8 space-y-6 max-w-2xl">
+    <div className="p-8 space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-zinc-900">Configuração de E-mail (SMTP)</h1>
-          <p className="text-sm text-zinc-400 mt-0.5">Defina o servidor de e-mail para envio de notificações e convites.</p>
-        </div>
-        {enabled ? (
-          <span className="shrink-0 inline-flex items-center gap-1.5 text-[11px] font-semibold bg-green-50 text-green-700 border border-green-200 px-2.5 py-1 rounded-full">
-            <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
-            SMTP ativo
-          </span>
-        ) : (
-          <span className="shrink-0 inline-flex items-center gap-1.5 text-[11px] font-semibold bg-zinc-100 text-zinc-500 border border-zinc-200 px-2.5 py-1 rounded-full">
-            <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
-            SMTP não configurado
-          </span>
-        )}
+      <div>
+        <h1 className="text-xl font-bold text-zinc-900">Configuração de E-mail (SMTP)</h1>
+        <p className="text-sm text-zinc-400 mt-0.5">Defina o servidor de e-mail para envio de notificações e convites.</p>
       </div>
 
-      {/* Info banner */}
-      <div className="flex items-start gap-3 p-4 rounded-xl bg-blue-50 border border-blue-200">
-        <Info className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
-        <p className="text-xs text-blue-700 leading-relaxed">
-          Quando o SMTP não está configurado, convites e notificações geram links copiáveis em vez de e-mails automáticos.
-          O sistema funciona normalmente sem SMTP.
-        </p>
-      </div>
-
-      {/* Config card */}
-      <div className="rounded-xl border bg-white p-6 space-y-5">
-        <h2 className="text-sm font-semibold text-zinc-800">Configuração SMTP</h2>
-
-        {/* Enable toggle */}
-        <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-50 border border-zinc-100">
-          <div>
-            <p className="text-sm font-medium text-zinc-800">Habilitar SMTP</p>
-            <p className="text-xs text-zinc-400 mt-0.5">Ativa o envio de e-mails automáticos pelo sistema.</p>
+      {/* Two-column layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8 items-start">
+        {/* Left: info banner + config card */}
+        <div className="space-y-5">
+          {/* Info banner */}
+          <div className="flex items-start gap-3 p-4 rounded-xl bg-blue-50 border border-blue-200">
+            <Info className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" />
+            <p className="text-xs text-blue-700 leading-relaxed">
+              Quando o SMTP não está configurado, convites e notificações geram links copiáveis em vez de e-mails automáticos.
+              O sistema funciona normalmente sem SMTP.
+            </p>
           </div>
-          <Toggle checked={enabled} onChange={setEnabled} />
-        </div>
 
-        <div className={cn('space-y-4 transition-opacity', disabled && 'opacity-50')}>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="smtp-host">Servidor SMTP</Label>
-              <FieldInput id="smtp-host" value={host} onChange={setHost} placeholder="smtp.gmail.com" disabled={disabled} />
+          {/* Config card */}
+          <div className="rounded-xl border bg-white p-6 space-y-5">
+            <h2 className="text-sm font-semibold text-zinc-800">Configuração SMTP</h2>
+
+            {/* Enable toggle */}
+            <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-50 border border-zinc-100">
+              <div>
+                <p className="text-sm font-medium text-zinc-800">Habilitar SMTP</p>
+                <p className="text-xs text-zinc-400 mt-0.5">Ativa o envio de e-mails automáticos pelo sistema.</p>
+              </div>
+              <Toggle checked={enabled} onChange={setEnabled} />
             </div>
-            <div>
-              <Label htmlFor="smtp-port">Porta</Label>
-              <FieldInput id="smtp-port" type="number" value={port} onChange={setPort} placeholder="587" disabled={disabled} />
+
+            <div className={cn('space-y-4 transition-opacity', disabled && 'opacity-50')}>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="smtp-host">Servidor SMTP</Label>
+                  <FieldInput id="smtp-host" value={host} onChange={setHost} placeholder="smtp.gmail.com" disabled={disabled} />
+                </div>
+                <div>
+                  <Label htmlFor="smtp-port">Porta</Label>
+                  <FieldInput id="smtp-port" type="number" value={port} onChange={setPort} placeholder="587" disabled={disabled} />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="smtp-user">Usuário</Label>
+                <FieldInput id="smtp-user" value={user} onChange={setUser} placeholder="usuario@empresa.com" disabled={disabled} />
+              </div>
+
+              <div>
+                <Label htmlFor="smtp-pass">Senha</Label>
+                <div className="relative">
+                  <FieldInput
+                    id="smtp-pass"
+                    type={showPass ? 'text' : 'password'}
+                    value={password}
+                    onChange={setPassword}
+                    placeholder="••••••••"
+                    disabled={disabled}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    disabled={disabled}
+                    onClick={() => setShowPass((v) => !v)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 disabled:pointer-events-none"
+                  >
+                    {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="from-email">E-mail remetente</Label>
+                  <FieldInput id="from-email" value={fromEmail} onChange={setFromEmail} placeholder="ti@prefeitura.sp.gov.br" disabled={disabled} />
+                </div>
+                <div>
+                  <Label htmlFor="from-name">Nome do remetente</Label>
+                  <FieldInput id="from-name" value={fromName} onChange={setFromName} placeholder="TI — NexOps" disabled={disabled} />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-50 border border-zinc-100">
+                <div>
+                  <p className="text-sm font-medium text-zinc-800">Usar TLS</p>
+                  <p className="text-xs text-zinc-400 mt-0.5">Recomendado para comunicação segura (porta 587).</p>
+                </div>
+                <Toggle checked={useTls} onChange={setUseTls} disabled={disabled} />
+              </div>
             </div>
-          </div>
 
-          <div>
-            <Label htmlFor="smtp-user">Usuário</Label>
-            <FieldInput id="smtp-user" value={user} onChange={setUser} placeholder="usuario@empresa.com" disabled={disabled} />
-          </div>
+            {/* Footer */}
+            <div className="flex items-center justify-between pt-4 border-t border-zinc-100 gap-4 flex-wrap">
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={handleTest}
+                  className="flex items-center gap-1.5 text-sm font-medium text-zinc-600 hover:text-zinc-900 px-3 py-2 rounded-lg border border-zinc-200 hover:bg-zinc-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <Zap className="w-4 h-4" />
+                  {testState === 'loading' ? 'Testando...' : 'Testar Conexão'}
+                </button>
 
-          <div>
-            <Label htmlFor="smtp-pass">Senha</Label>
-            <div className="relative">
-              <FieldInput
-                id="smtp-pass"
-                type={showPass ? 'text' : 'password'}
-                value={password}
-                onChange={setPassword}
-                placeholder="••••••••"
-                disabled={disabled}
-                className="pr-10"
-              />
+                {testState === 'success' && (
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-green-600">
+                    <Check className="w-3.5 h-3.5" /> {testMsg}
+                  </span>
+                )}
+                {testState === 'error' && (
+                  <span className="flex items-center gap-1.5 text-xs font-medium text-red-600">
+                    <X className="w-3.5 h-3.5" /> {testMsg}
+                  </span>
+                )}
+              </div>
+
               <button
-                type="button"
-                tabIndex={-1}
-                disabled={disabled}
-                onClick={() => setShowPass((v) => !v)}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 disabled:pointer-events-none"
+                onClick={handleSave}
+                className="px-5 py-2 text-sm font-semibold text-white bg-[#4f6ef7] hover:bg-[#3d5ce6] rounded-lg transition-colors shadow-sm"
               >
-                {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                Salvar
               </button>
             </div>
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="from-email">E-mail remetente</Label>
-              <FieldInput id="from-email" value={fromEmail} onChange={setFromEmail} placeholder="ti@prefeitura.sp.gov.br" disabled={disabled} />
-            </div>
-            <div>
-              <Label htmlFor="from-name">Nome do remetente</Label>
-              <FieldInput id="from-name" value={fromName} onChange={setFromName} placeholder="TI — NexOps" disabled={disabled} />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between p-3 rounded-lg bg-zinc-50 border border-zinc-100">
-            <div>
-              <p className="text-sm font-medium text-zinc-800">Usar TLS</p>
-              <p className="text-xs text-zinc-400 mt-0.5">Recomendado para comunicação segura (porta 587).</p>
-            </div>
-            <Toggle checked={useTls} onChange={setUseTls} disabled={disabled} />
-          </div>
         </div>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between pt-4 border-t border-zinc-100 gap-4 flex-wrap">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              disabled={disabled}
-              onClick={handleTest}
-              className="flex items-center gap-1.5 text-sm font-medium text-zinc-600 hover:text-zinc-900 px-3 py-2 rounded-lg border border-zinc-200 hover:bg-zinc-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Zap className="w-4 h-4" />
-              {testState === 'loading' ? 'Testando...' : 'Testar Conexão'}
-            </button>
+        {/* Right column */}
+        <div className="space-y-4">
+          {/* Status banner */}
+          {enabled ? (
+            <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-green-50 border border-green-200">
+              <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+              <span className="text-sm font-semibold text-green-700">SMTP ativo</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-zinc-100 border border-zinc-200">
+              <span className="w-2 h-2 rounded-full bg-zinc-400 shrink-0" />
+              <span className="text-sm font-semibold text-zinc-500">SMTP não configurado</span>
+            </div>
+          )}
 
-            {testState === 'success' && (
-              <span className="flex items-center gap-1.5 text-xs font-medium text-green-600">
-                <Check className="w-3.5 h-3.5" /> {testMsg}
-              </span>
-            )}
-            {testState === 'error' && (
-              <span className="flex items-center gap-1.5 text-xs font-medium text-red-600">
-                <X className="w-3.5 h-3.5" /> {testMsg}
-              </span>
-            )}
+          {/* How-to card */}
+          <div className="rounded-xl border bg-white p-6 space-y-4">
+            <h2 className="text-sm font-semibold text-zinc-800">Como configurar</h2>
+            <div className="space-y-4 text-xs text-zinc-500 leading-relaxed">
+              <div>
+                <p className="font-semibold text-zinc-700 mb-1">Gmail</p>
+                <p>Ative a autenticação de 2 fatores e gere uma senha de app em <span className="font-medium text-zinc-600">Segurança → Senhas de app</span>. Use a senha gerada no campo Senha acima.</p>
+              </div>
+              <div>
+                <p className="font-semibold text-zinc-700 mb-1">Outlook / Office 365</p>
+                <p>Use <span className="font-mono text-zinc-600">smtp.office365.com</span> porta <span className="font-mono text-zinc-600">587</span> com suas credenciais corporativas da Microsoft.</p>
+              </div>
+              <div>
+                <p className="font-semibold text-zinc-700 mb-1">SMTP próprio</p>
+                <p>Use as credenciais do seu servidor de e-mail. Consulte a documentação do provedor para obter host, porta e modo de autenticação.</p>
+              </div>
+            </div>
           </div>
-
-          <button
-            onClick={handleSave}
-            className="px-5 py-2 text-sm font-semibold text-white bg-[#4f6ef7] hover:bg-[#3d5ce6] rounded-lg transition-colors shadow-sm"
-          >
-            Salvar
-          </button>
         </div>
       </div>
 

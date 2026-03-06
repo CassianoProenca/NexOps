@@ -172,135 +172,159 @@ export default function TenantSettingsPage() {
   const initial = orgName.trim() ? orgName.trim()[0].toUpperCase() : 'O'
 
   return (
-    <div className="p-8 space-y-6 max-w-2xl">
+    <div className="p-8 space-y-6">
       {/* Header */}
       <div>
         <h1 className="text-xl font-bold text-zinc-900">Configurações da Organização</h1>
         <p className="text-sm text-zinc-400 mt-0.5">Personalize as informações e preferências do seu tenant.</p>
       </div>
 
-      {/* General info card */}
-      <div className="rounded-xl border bg-white p-6 space-y-5">
-        <h2 className="text-sm font-semibold text-zinc-800">Informações Gerais</h2>
+      {/* Two-column layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-[3fr_2fr] gap-8 items-start">
+        {/* Left: General info card */}
+        <div className="rounded-xl border bg-white p-6 space-y-5">
+          <h2 className="text-sm font-semibold text-zinc-800">Informações Gerais</h2>
 
-        <Field>
-          <Label htmlFor="org-name">Nome da organização</Label>
-          <Input id="org-name" value={orgName} onChange={setOrgName} placeholder="Ex: Prefeitura de Votorantim" />
-        </Field>
+          <Field>
+            <Label htmlFor="org-name">Nome da organização</Label>
+            <Input id="org-name" value={orgName} onChange={setOrgName} placeholder="Ex: Prefeitura de Votorantim" />
+          </Field>
 
-        <Field>
-          <div className="flex items-center gap-1.5 mb-1.5">
-            <Label htmlFor="subdomain">Subdomínio</Label>
-            <div className="group relative">
-              <Info className="w-3.5 h-3.5 text-zinc-400 cursor-default" />
-              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10">
-                <div className="bg-zinc-900 text-white text-[11px] px-2.5 py-1.5 rounded-lg whitespace-nowrap shadow-lg">
-                  Entre em contato para alterar
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-900" />
+          <Field>
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <Label htmlFor="subdomain">Subdomínio</Label>
+              <div className="group relative">
+                <Info className="w-3.5 h-3.5 text-zinc-400 cursor-default" />
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10">
+                  <div className="bg-zinc-900 text-white text-[11px] px-2.5 py-1.5 rounded-lg whitespace-nowrap shadow-lg">
+                    Entre em contato para alterar
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-900" />
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-          <div className="flex items-center">
-            <Input id="subdomain" value="votorantim" readOnly className="rounded-r-none border-r-0" />
-            <span className="border border-zinc-200 border-l-0 bg-zinc-50 text-zinc-400 text-sm px-3 py-2 rounded-r-lg whitespace-nowrap">.nexops.com.br</span>
-          </div>
-        </Field>
-
-        {/* Logo upload */}
-        <Field>
-          <Label>Logo da organização</Label>
-          <div className="flex items-center gap-4">
-            <div
-              className="w-16 h-16 rounded-xl border-2 border-dashed border-zinc-200 flex items-center justify-center overflow-hidden bg-zinc-50 shrink-0 cursor-pointer hover:border-[#4f6ef7] transition-colors group"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {logoPreview ? (
-                <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" />
-              ) : (
-                <div className="flex flex-col items-center gap-1 text-zinc-400 group-hover:text-[#4f6ef7] transition-colors">
-                  <span className="text-xl font-bold leading-none">{initial}</span>
-                  <Upload className="w-3.5 h-3.5" />
-                </div>
-              )}
+            <div className="flex items-center">
+              <Input id="subdomain" value="votorantim" readOnly className="rounded-r-none border-r-0" />
+              <span className="border border-zinc-200 border-l-0 bg-zinc-50 text-zinc-400 text-sm px-3 py-2 rounded-r-lg whitespace-nowrap">.nexops.com.br</span>
             </div>
-            <div className="space-y-1.5">
-              <button
+          </Field>
+
+          {/* Logo upload */}
+          <Field>
+            <Label>Logo da organização</Label>
+            <div className="flex items-center gap-4">
+              <div
+                className="w-16 h-16 rounded-xl border-2 border-dashed border-zinc-200 flex items-center justify-center overflow-hidden bg-zinc-50 shrink-0 cursor-pointer hover:border-[#4f6ef7] transition-colors group"
                 onClick={() => fileInputRef.current?.click()}
-                className="block text-xs font-medium text-[#4f6ef7] hover:underline"
               >
-                Carregar imagem
-              </button>
-              {logoPreview && (
+                {logoPreview ? (
+                  <img src={logoPreview} alt="Logo" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="flex flex-col items-center gap-1 text-zinc-400 group-hover:text-[#4f6ef7] transition-colors">
+                    <span className="text-xl font-bold leading-none">{initial}</span>
+                    <Upload className="w-3.5 h-3.5" />
+                  </div>
+                )}
+              </div>
+              <div className="space-y-1.5">
                 <button
-                  onClick={() => { setLogoPreview(null); if (fileInputRef.current) fileInputRef.current.value = '' }}
-                  className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="block text-xs font-medium text-[#4f6ef7] hover:underline"
                 >
-                  <X className="w-3 h-3" />
-                  Remover
+                  Carregar imagem
                 </button>
-              )}
-              <p className="text-[11px] text-zinc-400">PNG ou SVG, máx. 512 KB</p>
+                {logoPreview && (
+                  <button
+                    onClick={() => { setLogoPreview(null); if (fileInputRef.current) fileInputRef.current.value = '' }}
+                    className="flex items-center gap-1 text-xs text-red-500 hover:text-red-700"
+                  >
+                    <X className="w-3 h-3" />
+                    Remover
+                  </button>
+                )}
+                <p className="text-[11px] text-zinc-400">PNG ou SVG, máx. 512 KB</p>
+              </div>
+              <input ref={fileInputRef} type="file" accept="image/png,image/svg+xml,image/jpeg" className="hidden" onChange={handleLogoChange} />
             </div>
-            <input ref={fileInputRef} type="file" accept="image/png,image/svg+xml,image/jpeg" className="hidden" onChange={handleLogoChange} />
+          </Field>
+
+          <Field>
+            <Label htmlFor="timezone">Fuso horário</Label>
+            <NativeSelect
+              id="timezone"
+              value={timezone}
+              onChange={setTimezone}
+              options={[
+                { value: 'America/Sao_Paulo',  label: 'America/Sao_Paulo (GMT-3)' },
+                { value: 'America/Manaus',     label: 'America/Manaus (GMT-4)' },
+                { value: 'America/Belem',      label: 'America/Belem (GMT-3)' },
+                { value: 'America/Fortaleza',  label: 'America/Fortaleza (GMT-3)' },
+              ]}
+            />
+          </Field>
+
+          <Field>
+            <Label htmlFor="language">Idioma</Label>
+            <NativeSelect
+              id="language"
+              value="pt_BR"
+              onChange={() => {}}
+              options={[{ value: 'pt_BR', label: 'Português (BR)' }]}
+            />
+          </Field>
+
+          <div className="flex justify-end pt-2 border-t border-zinc-100">
+            <button
+              onClick={handleSave}
+              className="px-5 py-2 text-sm font-semibold text-white bg-[#4f6ef7] hover:bg-[#3d5ce6] rounded-lg transition-colors shadow-sm"
+            >
+              Salvar Alterações
+            </button>
           </div>
-        </Field>
-
-        <Field>
-          <Label htmlFor="timezone">Fuso horário</Label>
-          <NativeSelect
-            id="timezone"
-            value={timezone}
-            onChange={setTimezone}
-            options={[
-              { value: 'America/Sao_Paulo',  label: 'America/Sao_Paulo (GMT-3)' },
-              { value: 'America/Manaus',     label: 'America/Manaus (GMT-4)' },
-              { value: 'America/Belem',      label: 'America/Belem (GMT-3)' },
-              { value: 'America/Fortaleza',  label: 'America/Fortaleza (GMT-3)' },
-            ]}
-          />
-        </Field>
-
-        <Field>
-          <Label htmlFor="language">Idioma</Label>
-          <NativeSelect
-            id="language"
-            value="pt_BR"
-            onChange={() => {}}
-            options={[{ value: 'pt_BR', label: 'Português (BR)' }]}
-          />
-        </Field>
-
-        <div className="flex justify-end pt-2 border-t border-zinc-100">
-          <button
-            onClick={handleSave}
-            className="px-5 py-2 text-sm font-semibold text-white bg-[#4f6ef7] hover:bg-[#3d5ce6] rounded-lg transition-colors shadow-sm"
-          >
-            Salvar Alterações
-          </button>
         </div>
-      </div>
 
-      {/* Danger zone */}
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 space-y-4">
-        <h2 className="text-sm font-semibold text-red-600 flex items-center gap-2">
-          <AlertTriangle className="w-4 h-4" />
-          Zona de Perigo
-        </h2>
-
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium text-zinc-800">Desativar organização</p>
-            <p className="text-xs text-zinc-500 mt-0.5">
-              Suspende o acesso de todos os usuários. Os dados são preservados e o acesso pode ser restaurado pelo suporte.
-            </p>
+        {/* Right column */}
+        <div className="space-y-6">
+          {/* Info card */}
+          <div className="rounded-xl border bg-white p-6 space-y-4">
+            <h2 className="text-sm font-semibold text-zinc-800">Sobre as configurações</h2>
+            <div className="space-y-3 text-xs text-zinc-500 leading-relaxed">
+              <div>
+                <p className="font-semibold text-zinc-700 mb-0.5">Subdomínio</p>
+                <p>Identifica sua organização na plataforma (ex: <span className="font-mono text-zinc-600">votorantim.nexops.com.br</span>). Para alterá-lo, entre em contato com o suporte NexOps.</p>
+              </div>
+              <div>
+                <p className="font-semibold text-zinc-700 mb-0.5">Logo</p>
+                <p>Aparece no topo da sidebar e nos e-mails enviados pela plataforma. Formatos aceitos: PNG ou SVG com até 512 KB.</p>
+              </div>
+              <div>
+                <p className="font-semibold text-zinc-700 mb-0.5">Fuso horário</p>
+                <p>Usado para exibir datas e horários em chamados, relatórios e notificações de acordo com a região da organização.</p>
+              </div>
+            </div>
           </div>
-          <button
-            onClick={() => setShowDeactivate(true)}
-            className="shrink-0 px-4 py-2 text-sm font-medium text-red-600 border border-red-300 hover:bg-red-100 rounded-lg transition-colors"
-          >
-            Desativar
-          </button>
+
+          {/* Danger zone */}
+          <div className="rounded-xl border border-red-200 bg-red-50 p-6 space-y-4">
+            <h2 className="text-sm font-semibold text-red-600 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4" />
+              Zona de Perigo
+            </h2>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-zinc-800">Desativar organização</p>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  Suspende o acesso de todos os usuários. Os dados são preservados e o acesso pode ser restaurado pelo suporte.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowDeactivate(true)}
+                className="shrink-0 px-4 py-2 text-sm font-medium text-red-600 border border-red-300 hover:bg-red-100 rounded-lg transition-colors"
+              >
+                Desativar
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
