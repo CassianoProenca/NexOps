@@ -108,7 +108,7 @@ export default function TicketQueuePage() {
         </div>
 
         <button
-          onClick={() => navigate('/app/helpdesk/chamado/1')}
+          onClick={() => filtered[0] && navigate(`/app/helpdesk/chamado/${filtered[0].id}`)}
           className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white hover:opacity-90 transition-opacity shrink-0"
           style={{ background: ACCENT }}
         >
@@ -127,7 +127,7 @@ export default function TicketQueuePage() {
             placeholder="Buscar por título ou nº..."
             value={search}
             onChange={(e) => handleFilterChange(setSearch, e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-zinc-200 rounded-lg text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#4f6ef7] focus:ring-offset-1"
+            className="w-full pl-9 pr-3 py-2 text-sm border border-zinc-200 rounded-lg text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
           />
         </div>
 
@@ -135,7 +135,7 @@ export default function TicketQueuePage() {
         <select
           value={tierFilter}
           onChange={(e) => handleFilterChange(setTier, e.target.value)}
-          className="px-3 py-2 text-sm border border-zinc-200 rounded-lg text-zinc-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#4f6ef7] focus:ring-offset-1"
+          className="px-3 py-2 text-sm border border-zinc-200 rounded-lg text-zinc-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
         >
           <option value="">Nível SLA: Todos</option>
           <option value="N1">N1</option>
@@ -147,7 +147,7 @@ export default function TicketQueuePage() {
         <select
           value={typeFilter}
           onChange={(e) => handleFilterChange(setType, e.target.value)}
-          className="px-3 py-2 text-sm border border-zinc-200 rounded-lg text-zinc-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#4f6ef7] focus:ring-offset-1"
+          className="px-3 py-2 text-sm border border-zinc-200 rounded-lg text-zinc-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
         >
           <option value="">Tipo: Todos</option>
           <option value="Hardware">Hardware</option>
@@ -160,7 +160,7 @@ export default function TicketQueuePage() {
         <select
           value={sortBy}
           onChange={(e) => handleFilterChange(setSort, e.target.value as SortKey)}
-          className="px-3 py-2 text-sm border border-zinc-200 rounded-lg text-zinc-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#4f6ef7] focus:ring-offset-1"
+          className="px-3 py-2 text-sm border border-zinc-200 rounded-lg text-zinc-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
         >
           <option value="priority">Ordenar: Prioridade</option>
           <option value="time">Ordenar: Tempo na fila</option>

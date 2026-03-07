@@ -11,9 +11,10 @@ import ForgotPasswordPage  from '@/pages/auth/ForgotPasswordPage'
 import ExpiredInvitePage   from '@/pages/auth/ExpiredInvitePage'
 
 // Pages — helpdesk (usuário final)
-import HomePage from '@/pages/helpdesk/user/HomePage'
-import MyCasesPage from '@/pages/helpdesk/user/MyCasesPage'
-import NewCasePage from '@/pages/helpdesk/user/NewCasePage'
+import HomePage              from '@/pages/helpdesk/user/HomePage'
+import MyCasesPage           from '@/pages/helpdesk/user/MyCasesPage'
+import NewCasePage           from '@/pages/helpdesk/user/NewCasePage'
+import TicketDetailUserPage  from '@/pages/helpdesk/user/TicketDetailUserPage'
 
 // Pages — helpdesk (técnico)
 import TechnicianHomePage    from '@/pages/helpdesk/tech/TechnicianHomePage'
@@ -191,9 +192,12 @@ export default function App() {
             {/* ── Helpdesk ── */}
 
             {/* [ROLE: END_USER] */}
-            <Route path="helpdesk/meus-chamados" element={<MyCasesPage />} />
-            <Route path="helpdesk/novo"           element={<NewCasePage />} />
-            <Route path="helpdesk/chamado/:id"    element={<TicketDetailTechPage />} />
+            <Route path="helpdesk/meus-chamados"   element={<MyCasesPage />} />
+            <Route path="helpdesk/novo"             element={<NewCasePage />} />
+            <Route path="helpdesk/meu-chamado/:id"  element={<TicketDetailUserPage />} />
+
+            {/* [ROLE: TECHNICIAN] — detail view */}
+            <Route path="helpdesk/chamado/:id"      element={<TicketDetailTechPage />} />
 
             {/* [ROLE: TECHNICIAN] */}
             <Route path="helpdesk/tecnico"        element={<TechnicianHomePage />} />

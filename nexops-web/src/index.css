@@ -61,19 +61,19 @@
   --surface: #ffffff;
   --border: #e4e4e7;
   --input: #e4e4e7;
-  --ring: #2563eb;
+  --ring: #4f6ef7;
 
   --foreground: #18181b;
   --text-primary: #18181b;
   --text-secondary: #71717a;
   --text-muted: #a1a1aa;
 
-  --brand: #2563eb;
-  --brand-hover: #1d4ed8;
-  --brand-subtle: #eff6ff;
+  --brand: #4f6ef7;
+  --brand-hover: #3d5ce6;
+  --brand-subtle: #eef1ff;
 
   /* shadcn tokens mapped to NexOps palette */
-  --primary: #2563eb;
+  --primary: #4f6ef7;
   --primary-foreground: #ffffff;
 
   --secondary: #f4f4f5;
@@ -82,8 +82,8 @@
   --muted: #f4f4f5;
   --muted-foreground: #71717a;
 
-  --accent: #eff6ff;
-  --accent-foreground: #1d4ed8;
+  --accent: #eef1ff;
+  --accent-foreground: #3d5ce6;
 
   --card: #ffffff;
   --card-foreground: #18181b;
@@ -102,12 +102,12 @@
   /* Sidebar */
   --sidebar: #f4f4f5;
   --sidebar-foreground: #18181b;
-  --sidebar-primary: #2563eb;
+  --sidebar-primary: #4f6ef7;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #eff6ff;
-  --sidebar-accent-foreground: #1d4ed8;
+  --sidebar-accent: #eef1ff;
+  --sidebar-accent-foreground: #3d5ce6;
   --sidebar-border: #e4e4e7;
-  --sidebar-ring: #2563eb;
+  --sidebar-ring: #4f6ef7;
 }
 
 @layer base {

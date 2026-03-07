@@ -40,6 +40,7 @@ export default function LoginPage() {
     setTimeout(() => {
       console.log('Login:', data)
       setIsLoading(false)
+      navigate('/app')
     }, 1500)
   }
 

@@ -70,6 +70,7 @@ export default function TechnicianHomePage() {
 
           <div className="px-6 py-4 border-t border-zinc-100">
             <button
+              onClick={() => navigate('/app/helpdesk/fila')}
               className="w-full py-2.5 rounded-lg text-sm font-semibold text-white hover:opacity-90 transition-opacity"
               style={{ background: ACCENT }}
             >
@@ -82,7 +83,7 @@ export default function TechnicianHomePage() {
         <div className="flex flex-col gap-4">
           <button
             onClick={() => navigate('/app/helpdesk/fila')}
-            className="flex items-center gap-4 p-6 rounded-xl border border-zinc-200 bg-white text-left hover:border-[#4f6ef7] hover:shadow-sm transition-all group"
+            className="flex items-center gap-4 p-6 rounded-xl border border-zinc-200 bg-white text-left hover:border-brand hover:shadow-sm transition-all group"
           >
             <div className="rounded-lg p-3 shrink-0" style={{ background: ACCENT_SUBTLE }}>
               <ListTodo className="w-6 h-6" style={{ color: ACCENT }} />
@@ -91,12 +92,12 @@ export default function TechnicianHomePage() {
               <p className="font-semibold text-zinc-900">Ver Fila</p>
               <p className="text-sm text-zinc-500 mt-0.5">Chamados aguardando atendimento</p>
             </div>
-            <ArrowRight className="w-4 h-4 text-zinc-300 group-hover:text-[#4f6ef7] transition-colors shrink-0" />
+            <ArrowRight className="w-4 h-4 text-zinc-300 group-hover:text-brand transition-colors shrink-0" />
           </button>
 
           <button
             onClick={() => navigate('/app/helpdesk/meus-trabalhos')}
-            className="flex items-center gap-4 p-6 rounded-xl border border-zinc-200 bg-white text-left hover:border-[#4f6ef7] hover:shadow-sm transition-all group"
+            className="flex items-center gap-4 p-6 rounded-xl border border-zinc-200 bg-white text-left hover:border-brand hover:shadow-sm transition-all group"
           >
             <div className="rounded-lg p-3 shrink-0" style={{ background: ACCENT_SUBTLE }}>
               <Briefcase className="w-6 h-6" style={{ color: ACCENT }} />
@@ -105,7 +106,7 @@ export default function TechnicianHomePage() {
               <p className="font-semibold text-zinc-900">Meus Trabalhos</p>
               <p className="text-sm text-zinc-500 mt-0.5">Chamados vinculados a você</p>
             </div>
-            <ArrowRight className="w-4 h-4 text-zinc-300 group-hover:text-[#4f6ef7] transition-colors shrink-0" />
+            <ArrowRight className="w-4 h-4 text-zinc-300 group-hover:text-brand transition-colors shrink-0" />
           </button>
         </div>
       </div>
@@ -126,7 +127,7 @@ export default function TechnicianHomePage() {
             onChange={(e) => setPrompt(e.target.value)}
             maxLength={1000}
             placeholder="Ex: organize meus chamados por complexidade e me indique a melhor ordem de resolução..."
-            className="w-full resize-y rounded-lg border border-zinc-200 p-3 text-sm text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#4f6ef7] focus:ring-offset-1"
+            className="w-full resize-y rounded-lg border border-zinc-200 p-3 text-sm text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
             style={{ minHeight: 80, maxHeight: 240 }}
           />
           <p className="text-xs text-zinc-400 text-right -mt-1">{prompt.length}/1000</p>

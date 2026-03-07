@@ -131,7 +131,7 @@ export default function MyCasesPage() {
         {MOCK_CASES.map((c) => (
           <button
             key={c.id}
-            onClick={() => navigate(`/app/helpdesk/chamado/${c.id}`)}
+            onClick={() => navigate(`/app/helpdesk/meu-chamado/${c.id}`)}
             className="w-full text-left group"
             style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}
           >

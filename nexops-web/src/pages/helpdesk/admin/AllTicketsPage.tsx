@@ -146,7 +146,7 @@ function FilterSelect({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className={cn(
-          'appearance-none border border-zinc-200 rounded-lg px-3 py-2 pr-7 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#4f6ef7]/30 focus:border-[#4f6ef7] transition-colors',
+          'appearance-none border border-zinc-200 rounded-lg px-3 py-2 pr-7 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition-colors',
           value ? 'text-zinc-800' : 'text-zinc-400'
         )}
       >
@@ -246,7 +246,7 @@ export default function AllTicketsPage() {
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(1) }}
             placeholder="Buscar chamado ou #"
-            className="pl-9 pr-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white text-zinc-800 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#4f6ef7]/30 focus:border-[#4f6ef7] w-52"
+            className="pl-9 pr-3 py-2 text-sm border border-zinc-200 rounded-lg bg-white text-zinc-800 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand w-52"
           />
         </div>
 
@@ -316,7 +316,7 @@ export default function AllTicketsPage() {
                   <div className="flex flex-col items-center justify-center py-16 gap-3 text-zinc-400">
                     <SearchX className="w-10 h-10" />
                     <p className="text-sm font-medium">Nenhum chamado encontrado</p>
-                    <button onClick={clearFilters} className="text-xs text-[#4f6ef7] hover:underline">
+                    <button onClick={clearFilters} className="text-xs text-brand hover:underline">
                       Limpar filtros
                     </button>
                   </div>
@@ -372,8 +372,8 @@ export default function AllTicketsPage() {
 
                   <td className="px-4 py-3">
                     <button
-                      onClick={() => navigate('/app/helpdesk/chamado-gestor/1')}
-                      className="text-xs font-medium text-[#4f6ef7] hover:text-[#3d5ce6] hover:underline"
+                      onClick={() => navigate(`/app/helpdesk/chamado-gestor/${ticket.id}`)}
+                      className="text-xs font-medium text-brand hover:text-brand-hover hover:underline"
                     >
                       Ver
                     </button>
