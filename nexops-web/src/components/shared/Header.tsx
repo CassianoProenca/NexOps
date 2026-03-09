@@ -55,7 +55,7 @@ export function Header({ onToggleSidebar }: HeaderProps) {
                 >
                   <Bell className="h-5 w-5" />
                   {UNREAD_COUNT > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] flex items-center justify-center rounded-full bg-error border-2 border-surface text-[9px] font-bold text-white leading-none px-0.5">
+                    <span className="absolute -top-0.5 -right-0.5 min-w-4.5 h-4.5 flex items-center justify-center rounded-full bg-error border-2 border-surface text-[9px] font-bold text-white leading-none px-0.5">
                       {UNREAD_COUNT}
                     </span>
                   )}

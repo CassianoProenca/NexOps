@@ -9,7 +9,9 @@ import {
   Briefcase,
   Users,
   Package,
-  ShieldCheck,
+  BarChart2,
+  SlidersHorizontal,
+  Bell,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -120,6 +122,117 @@ function NavSection({ title, collapsed, items }: NavSectionProps) {
           )
         })}
       </div>
+    </div>
+  )
+}
+
+// ── Governance nav subitems ───────────────────────────────────────────────────
+
+const GOVERNANCE_SUBITEMS: NavItem[] = [
+  { icon: BarChart2,          label: 'Dashboard',           href: '/app/governance'               },
+  { icon: Bell,               label: 'Notificações',        href: '/app/governance/notificacoes'  }, // [ROLE: MANAGER, ADMIN]
+  { icon: SlidersHorizontal,  label: 'Configuração de SLA', href: '/app/governance/configuracao'  }, // [ROLE: ADMIN]
+]
+
+function GovernanceNavSection({ collapsed }: { collapsed: boolean }) {
+  const location = useLocation()
+  const [expanded, setExpanded] = useState(
+    () => localStorage.getItem('sidebar_governance_expanded') !== 'false'
+  )
+
+  const hasActiveChild = GOVERNANCE_SUBITEMS.some((item) => location.pathname === item.href)
+
+  function toggle() {
+    const next = !expanded
+    setExpanded(next)
+    localStorage.setItem('sidebar_governance_expanded', String(next))
+  }
+
+  if (collapsed) {
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="ghost"
+            className={cn(
+              'w-full px-0 justify-center h-10 transition-all',
+              hasActiveChild
+                ? 'bg-brand/10 text-brand hover:bg-brand/15 hover:text-brand'
+                : 'text-text-secondary hover:bg-secondary'
+            )}
+          >
+            <BarChart2 className={cn('w-5 h-5 shrink-0', hasActiveChild ? 'text-brand' : 'text-text-secondary')} />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent side="right" align="start" sideOffset={8} className="w-52 p-1.5">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-text-muted px-2 pt-1 pb-2">
+            Governança
+          </p>
+          {GOVERNANCE_SUBITEMS.map((item) => {
+            const isActive = location.pathname === item.href
+            return (
+              <Link key={item.label} to={item.href}>
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    'w-full justify-start gap-2.5 h-9 px-2 text-sm',
+                    isActive
+                      ? 'bg-brand/10 text-brand hover:bg-brand/15 hover:text-brand'
+                      : 'text-text-secondary hover:bg-secondary'
+                  )}
+                >
+                  <item.icon className={cn('w-4 h-4 shrink-0', isActive ? 'text-brand' : 'text-text-secondary')} />
+                  <span className="font-medium">{item.label}</span>
+                </Button>
+              </Link>
+            )
+          })}
+        </PopoverContent>
+      </Popover>
+    )
+  }
+
+  return (
+    <div className="space-y-1">
+      <button
+        onClick={toggle}
+        className={cn(
+          'w-full flex items-center gap-3 h-10 px-3 rounded-md text-sm font-medium transition-all',
+          hasActiveChild
+            ? 'text-brand bg-brand/10 hover:bg-brand/15'
+            : 'text-text-secondary hover:bg-secondary'
+        )}
+      >
+        <BarChart2 className={cn('w-5 h-5 shrink-0', hasActiveChild ? 'text-brand' : 'text-text-secondary')} />
+        <span className="flex-1 text-left truncate">Governança</span>
+        <ChevronDown
+          className={cn('w-4 h-4 shrink-0 transition-transform duration-200', expanded && 'rotate-180')}
+        />
+      </button>
+
+      {expanded && (
+        <div className="ml-4 pl-3 border-l border-zinc-200 space-y-0.5">
+          {GOVERNANCE_SUBITEMS.map((item) => {
+            const isActive = location.pathname === item.href
+            return (
+              <Link key={item.label} to={item.href}>
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    'w-full justify-start gap-3 h-9 px-3 transition-all',
+                    isActive
+                      ? 'bg-brand/10 text-brand hover:bg-brand/15 hover:text-brand'
+                      : 'text-text-secondary hover:bg-secondary'
+                  )}
+                >
+                  <item.icon className={cn('w-4 h-4 shrink-0', isActive ? 'text-brand' : 'text-text-secondary')} />
+                  <span className="text-sm font-medium truncate">{item.label}</span>
+                </Button>
+              </Link>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
@@ -309,11 +422,13 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           title="Gestão"
           collapsed={collapsed}
           items={[
-            { icon: Users,      label: 'Todos os Chamados', href: '/app/helpdesk/todos' },
-            { icon: Package,    label: 'Inventário',        href: '/app/inventory'      },
-            { icon: ShieldCheck,label: 'Governança',        href: '/app/governance'     },
+            { icon: Users,   label: 'Todos os Chamados', href: '/app/helpdesk/todos' },
+            { icon: Package, label: 'Inventário',        href: '/app/inventory'      },
           ]}
         />
+
+        {/* [ROLE: MANAGER, ADMIN] — Governança com subitem de configuração */}
+        <GovernanceNavSection collapsed={collapsed} />
 
         {/* [ROLE: ADMIN] */}
         <AdminNavSection collapsed={collapsed} />

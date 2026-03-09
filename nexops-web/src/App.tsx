@@ -32,6 +32,12 @@ import TicketDetailManagerPage  from '@/pages/helpdesk/admin/TicketDetailManager
 import DepartmentsPage          from '@/pages/helpdesk/admin/DepartmentsPage'
 import ProblemTypesPage         from '@/pages/helpdesk/admin/ProblemTypesPage'
 
+// Pages — governança
+import GovernanceDashboardPage    from '@/pages/governance/GovernanceDashboardPage'
+import TechnicianSLADetailPage    from '@/pages/governance/TechnicianSLADetailPage'
+import SLAConfigPage              from '@/pages/governance/SLAConfigPage'
+import SLANotificationsPage       from '@/pages/governance/SLANotificationsPage'
+
 // Pages — administração
 import UsersPage            from '@/pages/admin/UsersPage'
 import ProfilesPage         from '@/pages/admin/ProfilesPage'
@@ -216,7 +222,12 @@ export default function App() {
 
             {/* ── Governança ── */}
             {/* [ROLE: MANAGER, ADMIN] */}
-            <Route path="governance"              element={<NotFound />} />
+            <Route path="governance"                    element={<GovernanceDashboardPage />} />
+            <Route path="governance/tecnico/:id"        element={<TechnicianSLADetailPage />} />
+            {/* [ROLE: MANAGER, ADMIN] */}
+            <Route path="governance/notificacoes"       element={<SLANotificationsPage />} />
+            {/* [ROLE: ADMIN] */}
+            <Route path="governance/configuracao"       element={<SLAConfigPage />} />
 
             {/* ── Administração ── */}
             {/* [ROLE: ADMIN] */}
