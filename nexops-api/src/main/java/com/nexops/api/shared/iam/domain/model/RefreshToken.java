@@ -1,40 +1,57 @@
 package com.nexops.api.shared.iam.domain.model;
 
-import jakarta.persistence.*;
-import lombok.*;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-@Entity @Table(name = "refresh_tokens")
-@Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class RefreshToken {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
-
-    @Column(name = "token_hash", nullable = false, unique = true)
+    private UUID userId;
     private String tokenHash;
-
-    @Column(name = "expires_at", nullable = false)
     private OffsetDateTime expiresAt;
-
-    @Column(nullable = false)
     private boolean revoked;
-
-    @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
 
-    @PrePersist
-    void prePersist() {
-        createdAt = OffsetDateTime.now();
+    public RefreshToken() {}
+
+    public RefreshToken(UUID id, UUID userId, String tokenHash,
+                        OffsetDateTime expiresAt, boolean revoked,
+                        OffsetDateTime createdAt) {
+        this.id = id;
+        this.userId = userId;
+        this.tokenHash = tokenHash;
+        this.expiresAt = expiresAt;
+        this.revoked = revoked;
+        this.createdAt = createdAt;
+    }
+
+    public static RefreshToken create(UUID userId, String tokenHash, long expirationMs) {
+        RefreshToken t = new RefreshToken();
+        t.id = UUID.randomUUID();
+        t.userId = userId;
+        t.tokenHash = tokenHash;
+        t.expiresAt = OffsetDateTime.now().plusNanos(expirationMs * 1_000_000L);
+        t.revoked = false;
+        t.createdAt = OffsetDateTime.now();
+        return t;
     }
 
     public boolean isExpired() {
         return OffsetDateTime.now().isAfter(expiresAt);
     }
+
+    public boolean isValid() {
+        return !revoked && !isExpired();
+    }
+
+    public void revoke() {
+        this.revoked = true;
+    }
+
+    public UUID getId() { return id; }
+    public UUID getUserId() { return userId; }
+    public String getTokenHash() { return tokenHash; }
+    public OffsetDateTime getExpiresAt() { return expiresAt; }
+    public boolean isRevoked() { return revoked; }
+    public OffsetDateTime getCreatedAt() { return createdAt; }
 }

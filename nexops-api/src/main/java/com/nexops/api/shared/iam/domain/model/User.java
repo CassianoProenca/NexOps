@@ -1,72 +1,82 @@
 package com.nexops.api.shared.iam.domain.model;
 
-import jakarta.persistence.*;
-import lombok.*;
 import java.time.OffsetDateTime;
 import java.util.*;
 
-@Entity
-@Table(name = "users")
-@Getter @Setter @Builder
-@NoArgsConstructor @AllArgsConstructor
 public class User {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-
-    @Column(nullable = false)
     private String name;
-
-    @Column(nullable = false, unique = true)
     private String email;
-
-    @Column(name = "password_hash")
     private String passwordHash;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private UserStatus status;
-
-    @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
-
-    @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
-
-    @Column(name = "last_login_at")
     private OffsetDateTime lastLoginAt;
+    private Set<Role> roles;
+    private Map<Permission, Boolean> permissionOverrides;
 
-    @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(
-        name = "user_roles",
-        joinColumns = @JoinColumn(name = "user_id"),
-        inverseJoinColumns = @JoinColumn(name = "role_id")
-    )
-    private Set<Role> roles = new HashSet<>();
-
-    @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(
-        name = "user_permission_overrides",
-        joinColumns = @JoinColumn(name = "user_id"),
-        inverseJoinColumns = @JoinColumn(name = "permission_id")
-    )
-    private Set<Permission> permissionOverrides = new HashSet<>();
-
-    @PrePersist
-    void prePersist() {
-        createdAt = updatedAt = OffsetDateTime.now();
-        if (status == null) status = UserStatus.PENDING;
+    public User() {
+        this.roles = new HashSet<>();
+        this.permissionOverrides = new HashMap<>();
     }
 
-    @PreUpdate
-    void preUpdate() {
-        updatedAt = OffsetDateTime.now();
+    public User(UUID id, String name, String email, String passwordHash,
+                UserStatus status, OffsetDateTime createdAt, OffsetDateTime updatedAt,
+                OffsetDateTime lastLoginAt, Set<Role> roles,
+                Map<Permission, Boolean> permissionOverrides) {
+        this.id = id;
+        this.name = name;
+        this.email = email;
+        this.passwordHash = passwordHash;
+        this.status = status;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
+        this.lastLoginAt = lastLoginAt;
+        this.roles = roles != null ? roles : new HashSet<>();
+        this.permissionOverrides = permissionOverrides != null ? permissionOverrides : new HashMap<>();
+    }
+
+    public static User create(String name, String email, String passwordHash) {
+        User u = new User();
+        u.id = UUID.randomUUID();
+        u.name = name;
+        u.email = email;
+        u.passwordHash = passwordHash;
+        u.status = UserStatus.PENDING;
+        u.createdAt = OffsetDateTime.now();
+        u.updatedAt = OffsetDateTime.now();
+        return u;
     }
 
     public Set<String> resolvedPermissions() {
         Set<String> perms = new HashSet<>();
         roles.forEach(r -> r.getPermissions().forEach(p -> perms.add(p.getCode())));
-        return perms;
+        permissionOverrides.forEach((permission, granted) -> {
+            if (granted) perms.add(permission.getCode());
+            else perms.remove(permission.getCode());
+        });
+        return Collections.unmodifiableSet(perms);
     }
+
+    public void activate() {
+        this.status = UserStatus.ACTIVE;
+        this.updatedAt = OffsetDateTime.now();
+    }
+
+    public void recordLogin() {
+        this.lastLoginAt = OffsetDateTime.now();
+        this.updatedAt = OffsetDateTime.now();
+    }
+
+    public UUID getId() { return id; }
+    public String getName() { return name; }
+    public String getEmail() { return email; }
+    public String getPasswordHash() { return passwordHash; }
+    public UserStatus getStatus() { return status; }
+    public OffsetDateTime getCreatedAt() { return createdAt; }
+    public OffsetDateTime getUpdatedAt() { return updatedAt; }
+    public OffsetDateTime getLastLoginAt() { return lastLoginAt; }
+    public Set<Role> getRoles() { return Collections.unmodifiableSet(roles); }
+    public Map<Permission, Boolean> getPermissionOverrides() { return Collections.unmodifiableMap(permissionOverrides); }
 }

@@ -1,24 +1,25 @@
 package com.nexops.api.shared.iam.domain.model;
 
-import jakarta.persistence.*;
-import lombok.*;
 import java.util.UUID;
 
-@Entity
-@Table(name = "permissions")
-@Getter @Setter @Builder
-@NoArgsConstructor @AllArgsConstructor
 public class Permission {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-
-    @Column(nullable = false, unique = true)
     private String code;
-
     private String description;
-
-    @Column(nullable = false)
     private String module;
+
+    public Permission() {}
+
+    public Permission(UUID id, String code, String description, String module) {
+        this.id = id;
+        this.code = code;
+        this.description = description;
+        this.module = module;
+    }
+
+    public UUID getId() { return id; }
+    public String getCode() { return code; }
+    public String getDescription() { return description; }
+    public String getModule() { return module; }
 }

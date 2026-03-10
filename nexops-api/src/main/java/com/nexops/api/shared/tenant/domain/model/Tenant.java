@@ -1,53 +1,67 @@
 package com.nexops.api.shared.tenant.domain.model;
 
-import jakarta.persistence.*;
-import lombok.*;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
-@Entity
-@Table(name = "tenants", schema = "public")
-@Getter @Setter @Builder
-@NoArgsConstructor @AllArgsConstructor
 public class Tenant {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-
-    @Column(nullable = false)
     private String name;
-
-    @Column(nullable = false, unique = true)
     private String slug;
-
-    @Column(name = "schema_name", nullable = false, unique = true)
     private String schemaName;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
     private TenantStatus status;
-
-    @Column(nullable = false)
     private String plan;
-
-    @Column(name = "max_users", nullable = false)
     private Integer maxUsers;
-
-    @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
-
-    @Column(name = "updated_at")
     private OffsetDateTime updatedAt;
 
-    @PrePersist
-    void prePersist() {
-        createdAt = updatedAt = OffsetDateTime.now();
-        if (status == null) status = TenantStatus.ACTIVE;
+    public Tenant() {}
+
+    public Tenant(UUID id, String name, String slug, String schemaName,
+                  TenantStatus status, String plan, Integer maxUsers,
+                  OffsetDateTime createdAt, OffsetDateTime updatedAt) {
+        this.id = id;
+        this.name = name;
+        this.slug = slug;
+        this.schemaName = schemaName;
+        this.status = status;
+        this.plan = plan;
+        this.maxUsers = maxUsers;
+        this.createdAt = createdAt;
+        this.updatedAt = updatedAt;
     }
 
-    @PreUpdate
-    void preUpdate() {
-        updatedAt = OffsetDateTime.now();
+    public static Tenant create(String name, String slug, String plan, Integer maxUsers) {
+        Tenant t = new Tenant();
+        t.id = UUID.randomUUID();
+        t.name = name;
+        t.slug = slug;
+        t.schemaName = "tenant_" + slug.replace("-", "_");
+        t.status = TenantStatus.ACTIVE;
+        t.plan = plan;
+        t.maxUsers = maxUsers;
+        t.createdAt = OffsetDateTime.now();
+        t.updatedAt = OffsetDateTime.now();
+        return t;
+    }
+
+    public UUID getId() { return id; }
+    public String getName() { return name; }
+    public String getSlug() { return slug; }
+    public String getSchemaName() { return schemaName; }
+    public TenantStatus getStatus() { return status; }
+    public String getPlan() { return plan; }
+    public Integer getMaxUsers() { return maxUsers; }
+    public OffsetDateTime getCreatedAt() { return createdAt; }
+    public OffsetDateTime getUpdatedAt() { return updatedAt; }
+
+    public void suspend() {
+        this.status = TenantStatus.SUSPENDED;
+        this.updatedAt = OffsetDateTime.now();
+    }
+
+    public void activate() {
+        this.status = TenantStatus.ACTIVE;
+        this.updatedAt = OffsetDateTime.now();
     }
 }

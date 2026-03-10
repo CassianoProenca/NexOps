@@ -1,11 +1,12 @@
-package com.nexops.api.shared.iam.infrastructure.persistence;
+package com.nexops.api.shared.iam.domain.ports.out;
 
 import com.nexops.api.shared.iam.domain.model.User;
-import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface UserRepository extends JpaRepository<User, UUID> {
+public interface UserRepository {
+    User save(User user);
     Optional<User> findByEmail(String email);
+    Optional<User> findById(UUID id);
     boolean existsByEmail(String email);
 }

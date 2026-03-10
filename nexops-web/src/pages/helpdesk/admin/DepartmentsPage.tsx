@@ -190,7 +190,7 @@ export default function DepartmentsPage() {
                     <td className="px-4 py-3">
                       <p className="font-medium text-zinc-900">{dept.name}</p>
                       {dept.description && (
-                        <p className="text-xs text-zinc-400 mt-0.5 truncate max-w-[220px]">{dept.description}</p>
+                        <p className="text-xs text-zinc-400 mt-0.5 truncate max-w-55">{dept.description}</p>
                       )}
                     </td>
 
@@ -248,7 +248,7 @@ export default function DepartmentsPage() {
           {formMode === 'idle' ? (
             <div className="rounded-xl border-2 border-dashed border-zinc-200 p-10 flex flex-col items-center justify-center gap-3 text-center">
               <Building2 className="w-10 h-10 text-zinc-300" />
-              <p className="text-sm text-zinc-400 max-w-[180px] leading-relaxed">
+              <p className="text-sm text-zinc-400 max-w-45 leading-relaxed">
                 Selecione um departamento para editar ou crie um novo
               </p>
             </div>
