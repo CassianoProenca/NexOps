@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/governance")
+@RequestMapping("/v1/governance")
 @RequiredArgsConstructor
 @Tag(name = "Governance", description = "SLA metrics and configurations")
 public class GovernanceController {

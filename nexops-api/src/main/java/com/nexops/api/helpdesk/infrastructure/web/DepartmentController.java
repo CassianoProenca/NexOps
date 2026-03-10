@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/departments")
+@RequestMapping("/v1/departments")
 @RequiredArgsConstructor
 @Tag(name = "Departments", description = "Department management")
 public class DepartmentController {

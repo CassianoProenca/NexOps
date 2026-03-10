@@ -21,7 +21,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/v1/assets")
+@RequestMapping("/v1/assets")
 @RequiredArgsConstructor
 @Tag(name = "Assets", description = "IT Asset management")
 public class AssetController {

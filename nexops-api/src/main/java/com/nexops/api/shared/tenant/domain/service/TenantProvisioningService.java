@@ -21,7 +21,6 @@ public class TenantProvisioningService implements TenantProvisioningUseCase {
     private final JdbcTemplate jdbcTemplate;
 
     @Override
-    @Transactional
     public Tenant provision(String name, String slug, String plan, Integer maxUsers) {
         tenantRepository.findBySlug(slug).ifPresent(t -> {
             throw new BusinessException("Slug already in use: " + slug);

@@ -13,6 +13,8 @@ import {
   PrimaryButton,
 } from '@/components/layout/AuthLeftPanel'
 import { useAuth } from '@/hooks/auth/useAuth'
+import { Navigate } from 'react-router-dom'
+import { useAppStore } from '@/store/appStore'
 
 const schema = z.object({
   tenantSlug: z.string().min(1, 'Identificador da organização obrigatório'),
@@ -27,6 +29,10 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const { login, isLoggingIn } = useAuth()
+  const user = useAppStore((s) => s.user)
+
+  // Se já está autenticado (ex: após login bem-sucedido), redireciona
+  if (user) return <Navigate to="/app" replace />
 
   const {
     register,

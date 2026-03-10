@@ -1,13 +1,12 @@
 package com.nexops.api.shared.tenant.infrastructure;
 
+import com.zaxxer.hikari.HikariDataSource;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
 
 import javax.sql.DataSource;
-import java.util.HashMap;
 
 @Configuration
 public class DataSourceConfig {
@@ -24,17 +23,10 @@ public class DataSourceConfig {
     @Bean
     @Primary
     public DataSource dataSource() {
-        TenantAwareDataSource ds = new TenantAwareDataSource();
-
-        DataSource defaultDs = DataSourceBuilder.create()
-                .url(url)
-                .username(username)
-                .password(password)
-                .build();
-
-        ds.setDefaultTargetDataSource(defaultDs);
-        ds.setTargetDataSources(new HashMap<>());
-        ds.afterPropertiesSet();
-        return ds;
+        HikariDataSource hikari = new HikariDataSource();
+        hikari.setJdbcUrl(url);
+        hikari.setUsername(username);
+        hikari.setPassword(password);
+        return new TenantAwareDataSource(hikari);
     }
 }

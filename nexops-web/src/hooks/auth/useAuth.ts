@@ -22,7 +22,9 @@ export function useAuth() {
   const loginMutation = useMutation({
     mutationFn: (data: LoginRequest) => authService.login(data),
     onSuccess: (tokens) => {
+      console.log('[useAuth] onSuccess fired', tokens)
       const decoded = jwtDecode<JwtPayload>(tokens.accessToken)
+      console.log('[useAuth] decoded JWT', decoded)
       const authUser: AuthenticatedUser = {
         userId: decoded.sub,
         email: decoded.email,
@@ -35,6 +37,7 @@ export function useAuth() {
         tokens.refreshToken,
         decoded.permissions ?? [],
       )
+      console.log('[useAuth] setAuth called, navigating to /app')
       navigate('/app')
     },
   })

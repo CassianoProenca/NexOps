@@ -347,7 +347,7 @@ export default function FirstAccessPage() {
       <div className="w-full lg:w-1/2 flex flex-col justify-center items-center px-6 py-12 overflow-y-auto">
         <AuthMobileLogo />
 
-        <div className="w-full max-w-[440px]">
+        <div className="w-full max-w-110">
           {pageState === 'loading' && <LoadingState />}
           {pageState === 'invalid' && (
             <InvalidState onBack={() => navigate('/login')} />

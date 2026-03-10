@@ -21,7 +21,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/v1/stock")
+@RequestMapping("/v1/stock")
 @RequiredArgsConstructor
 @Tag(name = "Stock", description = "Inventory stock management")
 public class StockController {

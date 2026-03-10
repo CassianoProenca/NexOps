@@ -14,7 +14,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/v1/tenants")
+@RequestMapping("/v1/tenants")
 @RequiredArgsConstructor
 @Tag(name = "Tenants", description = "Tenant management (Super-admin only)")
 public class TenantController {

@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/v1/problem-types")
+@RequestMapping("/v1/problem-types")
 @RequiredArgsConstructor
 @Tag(name = "Problem Types", description = "Problem type management")
 public class ProblemTypeController {

@@ -3,7 +3,9 @@ import type { LoginRequest, RefreshRequest, TokenPairResponse } from '@/types/au
 
 export const authService = {
   login: (data: LoginRequest): Promise<TokenPairResponse> =>
-    api.post('/v1/auth/login', data).then((r) => r.data),
+    api.post('/v1/auth/login', data, {
+      headers: { 'X-Tenant-ID': data.tenantSlug },
+    }).then((r) => r.data),
 
   refresh: (data: RefreshRequest): Promise<TokenPairResponse> =>
     api.post('/v1/auth/refresh', data).then((r) => r.data),
