@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react'
 import { Plus, Pencil, Trash2, Tag, X, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useProblemTypes, useCreateProblemType, useDeactivateProblemType } from '@/hooks/useProblemTypes'
+import { useProblemTypes, useCreateProblemType, useDeactivateProblemType } from '@/hooks/helpdesk/useProblemTypes'
 import type { ProblemType, SlaLevel } from '@/types/helpdesk.types'
 
 // ── Styles ─────────────────────────────────────────────────────────────────────

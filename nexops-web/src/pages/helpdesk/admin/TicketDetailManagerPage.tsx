@@ -6,7 +6,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTicket, useTicketComments, useAddComment, useAssignTicket, useCloseTicket } from '@/hooks/helpdesk/useTickets'
-import { useAppStore } from '@/store/useAppStore'
+import { useAppStore } from '@/store/appStore'
 import { formatDateTime } from '@/lib/utils'
 
 // ── constants ─────────────────────────────────────────────────────────────────

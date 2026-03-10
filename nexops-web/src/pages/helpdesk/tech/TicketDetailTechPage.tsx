@@ -8,7 +8,7 @@ import {
 import { useTicket, useTicketComments, useAddComment, usePauseTicket, useResumeTicket, useCloseTicket, useCreateChildTicket } from '@/hooks/helpdesk/useTickets'
 import { useDepartments } from '@/hooks/helpdesk/useDepartments'
 import { useProblemTypes } from '@/hooks/helpdesk/useProblemTypes'
-import { useAppStore } from '@/store/useAppStore'
+import { useAppStore } from '@/store/appStore'
 import { formatDateTime } from '@/lib/utils'
 
 // ── constants ─────────────────────────────────────────────────────────────────
