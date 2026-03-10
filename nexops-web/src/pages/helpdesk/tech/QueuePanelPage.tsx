@@ -1,63 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Building2, Clock, Sun, Moon } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-// ── Mock data ─────────────────────────────────────────────────────────────────
-
-interface OpenTicket {
-  id: string
-  type: string
-  department: string
-  openMinutes: number
-}
-
-interface ActiveTicket {
-  id: string
-  type: string
-  department: string
-  techName: string
-  techInitials: string
-}
-
-const OPEN_SETS: OpenTicket[][] = [
-  [
-    { id: '#1042', type: 'Impressora não responde',     department: 'Secretaria de Finanças', openMinutes: 148 },
-    { id: '#1039', type: 'VPN sem acesso',              department: 'RH',                    openMinutes: 127 },
-    { id: '#1031', type: 'Servidor de arquivos offline', department: 'Saúde',                openMinutes: 95  },
-    { id: '#1028', type: 'Monitor com tela piscando',   department: 'Educação',              openMinutes: 74  },
-    { id: '#1024', type: 'E-mail não sincroniza',       department: 'Secretaria de Finanças', openMinutes: 52 },
-    { id: '#1019', type: 'Teclado sem resposta',        department: 'RH',                    openMinutes: 35  },
-    { id: '#1014', type: 'Sistema lento',               department: 'Saúde',                 openMinutes: 18  },
-    { id: '#1008', type: 'Reset de senha AD',           department: 'Educação',              openMinutes: 7   },
-  ],
-  [
-    { id: '#1043', type: 'Switch de andar offline',     department: 'Saúde',                 openMinutes: 163 },
-    { id: '#1040', type: 'Notebook não liga',           department: 'RH',                    openMinutes: 131 },
-    { id: '#1033', type: 'Impressora HP sem toner',     department: 'Educação',              openMinutes: 88  },
-    { id: '#1029', type: 'Acesso bloqueado no sistema', department: 'Secretaria de Finanças', openMinutes: 65 },
-    { id: '#1025', type: 'HD barulhento',               department: 'RH',                    openMinutes: 47  },
-    { id: '#1020', type: 'Mouse sem funcionar',         department: 'Saúde',                 openMinutes: 29  },
-    { id: '#1015', type: 'Atualização travada',         department: 'Secretaria de Finanças', openMinutes: 14 },
-    { id: '#1009', type: 'Conta sem permissão de rede', department: 'Educação',              openMinutes: 4   },
-  ],
-]
-
-const ACTIVE_SETS: ActiveTicket[][] = [
-  [
-    { id: '#1037', type: 'Troca de HD defeituoso',    department: 'Saúde',                 techName: 'Carlos Mendes', techInitials: 'CM' },
-    { id: '#1035', type: 'Configuração de VPN',       department: 'RH',                    techName: 'Ana Lima',      techInitials: 'AL' },
-    { id: '#1032', type: 'Formatação de workstation', department: 'Educação',              techName: 'Pedro Alves',   techInitials: 'PA' },
-    { id: '#1027', type: 'Instalação de software',    department: 'Secretaria de Finanças', techName: 'Carlos Mendes', techInitials: 'CM' },
-    { id: '#1021', type: 'Backup de dados',           department: 'Saúde',                 techName: 'Ana Lima',      techInitials: 'AL' },
-  ],
-  [
-    { id: '#1038', type: 'Reinstalação do Windows',   department: 'Educação',              techName: 'Pedro Alves',   techInitials: 'PA' },
-    { id: '#1036', type: 'Expansão de memória RAM',   department: 'Secretaria de Finanças', techName: 'Carlos Mendes', techInitials: 'CM' },
-    { id: '#1030', type: 'Configuração de e-mail',    department: 'RH',                    techName: 'Ana Lima',      techInitials: 'AL' },
-    { id: '#1026', type: 'Troca de cabo de rede',     department: 'Saúde',                 techName: 'Pedro Alves',   techInitials: 'PA' },
-    { id: '#1018', type: 'Deploy de atualização',     department: 'Educação',              techName: 'Carlos Mendes', techInitials: 'CM' },
-  ],
-]
+import { useQueuePanelHttp } from '@/hooks/helpdesk/useTickets'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -135,22 +79,17 @@ const light = {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function QueuePanelPage() {
-  const [tick,  setTick]  = useState(0)
-  const [time,  setTime]  = useState(new Date())
-  const [isDark, setIsDark] = useState(false) // light is default
+  const { data } = useQueuePanelHttp()
+  const [time,   setTime]   = useState(new Date())
+  const [isDark, setIsDark] = useState(false)
 
   useEffect(() => {
     const id = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(id)
   }, [])
 
-  useEffect(() => {
-    const id = setInterval(() => setTick((t) => (t + 1) % 2), 30_000)
-    return () => clearInterval(id)
-  }, [])
-
-  const openTickets   = OPEN_SETS[tick]
-  const activeTickets = ACTIVE_SETS[tick]
+  const openTickets   = data?.openTickets   ?? []
+  const activeTickets = data?.inProgressTickets ?? []
   const T = isDark ? dark : light
 
   const hh = zeroPad(time.getHours())
@@ -212,17 +151,20 @@ export default function QueuePanelPage() {
             {openTickets.map((t) => (
               <div key={t.id} className={cn('border rounded-lg p-4 space-y-1.5 transition-colors duration-300', T.card)}>
                 <div className="flex items-center gap-2">
-                  <span className={cn('text-xs font-mono', T.cardId)}>{t.id}</span>
+                  <span className={cn('text-xs font-mono', T.cardId)}>#{t.id.slice(0, 8)}</span>
                   <span className={cn('text-xs rounded-full px-2 py-px', T.statusOpen)}>Aberto</span>
+                  {t.isSlaBreached && (
+                    <span className="text-xs rounded-full px-2 py-px bg-red-500/20 text-red-500">SLA</span>
+                  )}
                 </div>
-                <p className={cn('font-medium text-sm', T.cardTitle)}>{t.type}</p>
+                <p className={cn('font-medium text-sm', T.cardTitle)}>{t.title}</p>
                 <div className="flex items-center gap-1.5">
                   <Building2 className={cn('h-3 w-3 shrink-0', T.cardDept)} />
-                  <span className={cn('text-xs', T.cardDeptText)}>{t.department}</span>
+                  <span className={cn('text-xs', T.cardDeptText)}>{t.departmentName}</span>
                 </div>
-                <div className={cn('flex items-center gap-1.5', T.timeColor(t.openMinutes))}>
+                <div className={cn('flex items-center gap-1.5', T.timeColor(t.minutesOpen))}>
                   <Clock className="h-3 w-3 shrink-0" />
-                  <span className="text-xs font-semibold">Aberto há {formatMinutes(t.openMinutes)}</span>
+                  <span className="text-xs font-semibold">Aberto há {formatMinutes(t.minutesOpen)}</span>
                 </div>
               </div>
             ))}
@@ -239,28 +181,38 @@ export default function QueuePanelPage() {
           </div>
 
           <div className="flex flex-col gap-3 overflow-y-auto scrollbar-none">
-            {activeTickets.map((t) => (
-              <div
-                key={t.id}
-                className={cn('border border-l-[3px] border-l-[#4f6ef7] rounded-lg p-4 space-y-1.5 transition-colors duration-300', T.card)}
-              >
-                <div className="flex items-center gap-2">
-                  <span className={cn('text-xs font-mono', T.cardId)}>{t.id}</span>
-                  <span className={cn('text-xs rounded-full px-2 py-px', T.statusActive)}>Em Andamento</span>
-                </div>
-                <p className={cn('font-medium text-sm', T.cardTitle)}>{t.type}</p>
-                <div className="flex items-center gap-1.5">
-                  <Building2 className={cn('h-3 w-3 shrink-0', T.cardDept)} />
-                  <span className={cn('text-xs', T.cardDeptText)}>{t.department}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded-full bg-[#4f6ef7] flex items-center justify-center shrink-0">
-                    <span className="text-white text-[10px] font-bold leading-none">{t.techInitials}</span>
+            {activeTickets.map((t) => {
+              const initials = t.assigneeName
+                ? t.assigneeName.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase()
+                : '?'
+              return (
+                <div
+                  key={t.id}
+                  className={cn('border border-l-[3px] border-l-[#4f6ef7] rounded-lg p-4 space-y-1.5 transition-colors duration-300', T.card)}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={cn('text-xs font-mono', T.cardId)}>#{t.id.slice(0, 8)}</span>
+                    <span className={cn('text-xs rounded-full px-2 py-px', T.statusActive)}>Em Andamento</span>
+                    {t.isSlaBreached && (
+                      <span className="text-xs rounded-full px-2 py-px bg-red-500/20 text-red-500">SLA</span>
+                    )}
                   </div>
-                  <span className={cn('text-sm', T.techName)}>{t.techName}</span>
+                  <p className={cn('font-medium text-sm', T.cardTitle)}>{t.title}</p>
+                  <div className="flex items-center gap-1.5">
+                    <Building2 className={cn('h-3 w-3 shrink-0', T.cardDept)} />
+                    <span className={cn('text-xs', T.cardDeptText)}>{t.departmentName}</span>
+                  </div>
+                  {t.assigneeName && (
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 rounded-full bg-[#4f6ef7] flex items-center justify-center shrink-0">
+                        <span className="text-white text-[10px] font-bold leading-none">{initials}</span>
+                      </div>
+                      <span className={cn('text-sm', T.techName)}>{t.assigneeName}</span>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       </div>
@@ -268,8 +220,12 @@ export default function QueuePanelPage() {
       {/* ── Footer ── */}
       <div className={cn('border-t shrink-0', T.separator)} />
       <div className="flex items-center justify-between shrink-0">
-        <p className={cn('text-xs', T.footer)}>Atualizado automaticamente · NexOps</p>
-        <p className={cn('text-xs', T.footerRight)}>Total hoje: 47 chamados finalizados</p>
+        <p className={cn('text-xs', T.footer)}>Atualizado automaticamente a cada 30s · NexOps</p>
+        {data?.updatedAt && (
+          <p className={cn('text-xs', T.footerRight)}>
+            Última atualização: {new Date(data.updatedAt).toLocaleTimeString('pt-BR')}
+          </p>
+        )}
       </div>
 
     </div>

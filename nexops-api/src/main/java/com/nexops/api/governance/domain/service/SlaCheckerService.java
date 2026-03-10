@@ -6,6 +6,7 @@ import com.nexops.api.governance.domain.ports.out.GovernanceTicketQueryPort;
 import com.nexops.api.governance.domain.ports.out.SlaBreachEventRepository;
 import com.nexops.api.governance.domain.ports.out.SlaNotificationRepository;
 import com.nexops.api.helpdesk.domain.ports.out.TicketRepository;
+import com.nexops.api.shared.tenant.domain.service.TenantRunner;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -21,10 +22,17 @@ public class SlaCheckerService {
     private final SlaBreachEventRepository breachEventRepository;
     private final SlaNotificationRepository notificationRepository;
     private final TicketRepository ticketRepository;
+    private final TenantRunner tenantRunner;
 
     @Scheduled(fixedDelay = 60_000)
-    @Transactional
     public void checkSlaBreaches() {
+        tenantRunner.runForAllTenants(tenant -> {
+            processSlaForCurrentTenant();
+        });
+    }
+
+    @Transactional
+    public void processSlaForCurrentTenant() {
         // 1. findBreachedTickets() — tickets past slaDeadline, not closed
         var breachedIds = ticketQueryPort.findBreachedTickets();
         
@@ -37,11 +45,6 @@ public class SlaCheckerService {
                 ticketRepository.findById(ticketId).ifPresent(ticket -> {
                     SlaBreachEvent breach = SlaBreachEvent.record(ticketId, SlaBreachEvent.BreachType.RESOLUTION_BREACH, ticket.getSlaDeadline());
                     breachEventRepository.save(breach);
-                    
-                    // Save SlaNotification for the manager (recipientId = null for now as per TODO)
-                    // In a real scenario, we'd find the manager's ID
-                    // SlaNotification notification = SlaNotification.create(ticketId, managerId, SlaNotification.NotificationType.SLA_BREACH, SlaNotification.NotificationChannel.IN_APP);
-                    // notificationRepository.save(notification);
                 });
             }
         }
@@ -50,9 +53,6 @@ public class SlaCheckerService {
         var nearingIds = ticketQueryPort.findTicketsNearingSlaDeadline(30);
         for (UUID ticketId : nearingIds) {
             // Logic to send SLA_WARNING if not already sent today
-            // Simplified for now: just log or save if no notification exists for today
-            // SlaNotification notification = SlaNotification.create(ticketId, technicianId, SlaNotification.NotificationType.SLA_WARNING, SlaNotification.NotificationChannel.IN_APP);
-            // notificationRepository.save(notification);
         }
     }
 }

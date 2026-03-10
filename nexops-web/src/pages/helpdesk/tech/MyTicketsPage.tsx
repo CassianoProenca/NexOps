@@ -1,43 +1,18 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   PauseCircle, CheckCircle, PlayCircle,
   Inbox, Coffee, AlertCircle, X, Info,
   ChevronDown, ChevronRight,
 } from 'lucide-react'
+import { useAssignedTickets, usePauseTicket, useResumeTicket, useCloseTicket } from '@/hooks/helpdesk/useTickets'
+import { useDepartments } from '@/hooks/helpdesk/useDepartments'
+import { useProblemTypes } from '@/hooks/helpdesk/useProblemTypes'
 
 // ── constants ─────────────────────────────────────────────────────────────────
 
 const ACCENT  = '#4f6ef7'
 const SUCCESS = '#16a34a'
-
-// ── types ─────────────────────────────────────────────────────────────────────
-
-type TicketStatus = 'assigned' | 'inProgress' | 'paused'
-
-interface MyTicket {
-  id:           number
-  title:        string
-  description:  string
-  type:         string
-  tier:         'N1' | 'N2' | 'N3'
-  department:   string
-  status:       TicketStatus
-  minutesSince: number
-  pauseReason?: string
-}
-
-// ── mock data ─────────────────────────────────────────────────────────────────
-
-const INITIAL: MyTicket[] = [
-  { id: 1042, title: 'Impressora não responde',             description: 'Impressora HP do setor não imprime desde ontem',        type: 'Impressora', tier: 'N2', department: 'RH',            status: 'assigned',   minutesSince: 45  },
-  { id: 1043, title: 'Reset de senha SAM',                  description: 'Usuário bloqueado após tentativas incorretas de login', type: 'Acessos',    tier: 'N1', department: 'Finanças',      status: 'assigned',   minutesSince: 120 },
-  { id: 1047, title: 'Excel travando ao abrir planilha',    description: 'Arquivo de controle orçamentário trava ao abrir',       type: 'Software',   tier: 'N1', department: 'Finanças',      status: 'assigned',   minutesSince: 30  },
-  { id: 1044, title: 'Notebook não liga',                   description: 'Notebook da diretoria não inicializa após queda',       type: 'Hardware',   tier: 'N3', department: 'Administração', status: 'inProgress', minutesSince: 25  },
-  { id: 1051, title: 'E-mail institucional não sincroniza', description: 'Outlook não recebe e-mails desde as 8h',               type: 'Software',   tier: 'N2', department: 'Saúde',         status: 'inProgress', minutesSince: 10  },
-  { id: 1048, title: 'Acesso ao sistema SIAD negado',       description: 'Permissão removida após troca de departamento',         type: 'Acessos',    tier: 'N2', department: 'Administração', status: 'paused',     minutesSince: 180, pauseReason: 'Aguardando peça de reposição'    },
-  { id: 1050, title: 'Impressora fiscal offline',           description: 'Impressora fiscal do caixa aparece como offline',       type: 'Impressora', tier: 'N3', department: 'Finanças',      status: 'paused',     minutesSince: 60,  pauseReason: 'Aguardando retorno do usuário' },
-]
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -48,6 +23,10 @@ function formatTime(minutes: number): string {
   return m > 0 ? `${h}h ${m}min` : `${h}h`
 }
 
+function minutesSince(iso: string): number {
+  return Math.floor((new Date().getTime() - new Date(iso).getTime()) / 60000)
+}
+
 const TIER_BADGE: Record<string, string> = {
   N1: 'bg-zinc-100 text-zinc-600',
   N2: 'bg-amber-50 text-amber-600',
@@ -56,19 +35,20 @@ const TIER_BADGE: Record<string, string> = {
 
 // ── modals ────────────────────────────────────────────────────────────────────
 
-function PauseModal({ ticketId, reason, onChangeReason, onConfirm, onClose }: {
-  ticketId:       number
+function PauseModal({ ticketId, reason, onChangeReason, onConfirm, onClose, isPending }: {
+  ticketId:       string
   reason:         string
   onChangeReason: (v: string) => void
   onConfirm:      () => void
   onClose:        () => void
+  isPending:      boolean
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-zinc-900">
-            Pausar Chamado <span className="font-mono text-zinc-400">#{ticketId}</span>
+            Pausar Chamado <span className="font-mono text-zinc-400">#{ticketId.slice(0, 8)}</span>
           </h3>
           <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600 transition-colors">
             <X className="w-4 h-4" />
@@ -91,11 +71,11 @@ function PauseModal({ ticketId, reason, onChangeReason, onConfirm, onClose }: {
           </button>
           <button
             onClick={onConfirm}
-            disabled={!reason.trim()}
+            disabled={!reason.trim() || isPending}
             className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
             style={{ background: ACCENT }}
           >
-            Confirmar
+            {isPending ? 'Pausando...' : 'Confirmar'}
           </button>
         </div>
       </div>
@@ -103,10 +83,11 @@ function PauseModal({ ticketId, reason, onChangeReason, onConfirm, onClose }: {
   )
 }
 
-function FinalizeModal({ ticketId, onConfirm, onClose }: {
-  ticketId:  number
+function FinalizeModal({ ticketId, onConfirm, onClose, isPending }: {
+  ticketId:  string
   onConfirm: () => void
   onClose:   () => void
+  isPending: boolean
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
@@ -119,7 +100,7 @@ function FinalizeModal({ ticketId, onConfirm, onClose }: {
         </div>
         <p className="text-sm text-zinc-500">
           Confirmar finalização do chamado{' '}
-          <span className="font-mono font-semibold text-zinc-700">#{ticketId}</span>?
+          <span className="font-mono font-semibold text-zinc-700">#{ticketId.slice(0, 8)}</span>?
           Esta ação não pode ser desfeita.
         </p>
         <div className="flex gap-2 justify-end">
@@ -128,10 +109,11 @@ function FinalizeModal({ ticketId, onConfirm, onClose }: {
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 rounded-lg text-sm font-semibold text-white hover:opacity-90 transition-opacity"
+            disabled={isPending}
+            className="px-4 py-2 rounded-lg text-sm font-semibold text-white hover:opacity-90 transition-opacity disabled:opacity-40"
             style={{ background: SUCCESS }}
           >
-            Finalizar
+            {isPending ? 'Finalizando...' : 'Finalizar'}
           </button>
         </div>
       </div>
@@ -176,20 +158,32 @@ function THead({ showChevronCol }: { showChevronCol: boolean }) {
 
 // ── page ──────────────────────────────────────────────────────────────────────
 
+type TabKey = 'assigned' | 'inProgress' | 'paused'
+
 export default function MyTicketsPage() {
   const navigate = useNavigate()
 
-  const [tickets, setTickets]             = useState<MyTicket[]>(INITIAL)
-  const [activeTab, setActiveTab]         = useState<TicketStatus>('assigned')
-  const [pauseTargetId, setPauseTarget]   = useState<number | null>(null)
-  const [pauseReason, setPauseReason]     = useState('')
-  const [finalizeTargetId, setFinalizeId] = useState<number | null>(null)
-  const [expandedIds, setExpandedIds]     = useState<Set<number>>(new Set())
+  const { data: allAssigned = [], isLoading } = useAssignedTickets()
+  const { data: departments = [] } = useDepartments()
+  const { data: problemTypes = [] } = useProblemTypes()
 
-  const assigned   = tickets.filter((t) => t.status === 'assigned')
-  const inProgress = tickets.filter((t) => t.status === 'inProgress')
-  const paused     = tickets.filter((t) => t.status === 'paused')
-  const total      = tickets.length
+  const deptMap = useMemo(() => Object.fromEntries(departments.map((d) => [d.id, d.name])), [departments])
+  const ptMap   = useMemo(() => Object.fromEntries(problemTypes.map((p) => [p.id, p.name])), [problemTypes])
+
+  const pauseTicket    = usePauseTicket()
+  const resumeTicket   = useResumeTicket()
+  const closeTicket    = useCloseTicket()
+
+  const [activeTab, setActiveTab]         = useState<TabKey>('assigned')
+  const [pauseTargetId, setPauseTarget]   = useState<string | null>(null)
+  const [pauseReason, setPauseReason]     = useState('')
+  const [finalizeTargetId, setFinalizeId] = useState<string | null>(null)
+  const [expandedIds, setExpandedIds]     = useState<Set<string>>(new Set())
+
+  const assigned   = allAssigned.filter((t) => t.status === 'OPEN')
+  const inProgress = allAssigned.filter((t) => t.status === 'IN_PROGRESS')
+  const paused     = allAssigned.filter((t) => t.status === 'PAUSED')
+  const total      = allAssigned.filter((t) => t.status !== 'CLOSED').length
 
   const displayed =
     activeTab === 'assigned'   ? assigned   :
@@ -197,44 +191,29 @@ export default function MyTicketsPage() {
 
   // ── actions ──
 
-  function startTicket(id: number) {
-    setTickets((prev) => prev.map((t) => t.id === id ? { ...t, status: 'inProgress', minutesSince: 0 } : t))
-    setActiveTab('inProgress')
-  }
-
-  function openPauseModal(id: number) {
+  function openPauseModal(id: string) {
     setPauseTarget(id)
     setPauseReason('')
   }
 
   function confirmPause() {
     if (!pauseTargetId || !pauseReason.trim()) return
-    setTickets((prev) =>
-      prev.map((t) =>
-        t.id === pauseTargetId
-          ? { ...t, status: 'paused', minutesSince: 0, pauseReason: pauseReason.trim() }
-          : t
-      )
+    pauseTicket.mutate(
+      { id: pauseTargetId, data: { reason: pauseReason.trim() } },
+      { onSuccess: () => { setPauseTarget(null); setPauseReason(''); setActiveTab('paused') } }
     )
-    setPauseTarget(null)
-    setPauseReason('')
-    setActiveTab('paused')
   }
 
-  function resumeTicket(id: number) {
-    setTickets((prev) =>
-      prev.map((t) => t.id === id ? { ...t, status: 'inProgress', minutesSince: 0, pauseReason: undefined } : t)
-    )
-    setActiveTab('inProgress')
+  function handleResume(id: string) {
+    resumeTicket.mutate(id, { onSuccess: () => setActiveTab('inProgress') })
   }
 
   function confirmFinalize() {
     if (!finalizeTargetId) return
-    setTickets((prev) => prev.filter((t) => t.id !== finalizeTargetId))
-    setFinalizeId(null)
+    closeTicket.mutate(finalizeTargetId, { onSuccess: () => setFinalizeId(null) })
   }
 
-  function toggleExpanded(id: number) {
+  function toggleExpanded(id: string) {
     setExpandedIds((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id); else next.add(id)
@@ -244,7 +223,7 @@ export default function MyTicketsPage() {
 
   // ── tabs ──
 
-  const TABS: { key: TicketStatus; label: string; count: number }[] = [
+  const TABS: { key: TabKey; label: string; count: number }[] = [
     { key: 'assigned',   label: 'Atribuídos',  count: assigned.length   },
     { key: 'inProgress', label: 'Em Andamento', count: inProgress.length },
     { key: 'paused',     label: 'Pausados',     count: paused.length     },
@@ -255,6 +234,16 @@ export default function MyTicketsPage() {
     activeTab === 'inProgress' ? 'Iniciado'  : 'Pausado'
 
   const isPaused = activeTab === 'paused'
+
+  if (isLoading) {
+    return (
+      <div className="p-8 space-y-4">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="h-12 bg-zinc-100 rounded-lg animate-pulse" />
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div className="p-8 space-y-6">
@@ -315,6 +304,7 @@ export default function MyTicketsPage() {
               {displayed.map((ticket) => {
                 const isExpanded = expandedIds.has(ticket.id)
                 const rowBg = isPaused ? 'bg-amber-50/30 hover:bg-amber-50/60' : 'hover:bg-zinc-50'
+                const mins = minutesSince(ticket.openedAt)
 
                 return (
                   <tr key={ticket.id} className={`transition-colors ${rowBg}`}>
@@ -334,7 +324,7 @@ export default function MyTicketsPage() {
                     )}
 
                     {/* # */}
-                    <td className="px-5 py-4 font-mono text-zinc-400">#{ticket.id}</td>
+                    <td className="px-5 py-4 font-mono text-zinc-400 text-xs">#{ticket.id.slice(0, 8)}</td>
 
                     {/* Chamado */}
                     <td className="px-5 py-4">
@@ -342,33 +332,31 @@ export default function MyTicketsPage() {
                       {isPaused && isExpanded ? (
                         <div className="flex items-start gap-2 mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                           <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-                          <p className="text-xs text-amber-800">{ticket.pauseReason}</p>
+                          <p className="text-xs text-amber-800">Chamado pausado</p>
                         </div>
-                      ) : (
-                        <p className="text-xs text-zinc-400 mt-0.5 truncate max-w-xs">{ticket.description}</p>
-                      )}
+                      ) : null}
                     </td>
 
                     {/* Tipo */}
                     <td className="px-5 py-4">
                       <span className="text-xs bg-zinc-100 text-zinc-600 px-2 py-0.5 rounded-full font-medium">
-                        {ticket.type}
+                        {ptMap[ticket.problemTypeId] ?? '—'}
                       </span>
                     </td>
 
                     {/* Nível */}
                     <td className="px-5 py-4">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${TIER_BADGE[ticket.tier]}`}>
-                        {ticket.tier}
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${TIER_BADGE[ticket.slaLevel]}`}>
+                        {ticket.slaLevel}
                       </span>
                     </td>
 
                     {/* Departamento */}
-                    <td className="px-5 py-4 text-zinc-500">{ticket.department}</td>
+                    <td className="px-5 py-4 text-zinc-500">{deptMap[ticket.departmentId] ?? '—'}</td>
 
                     {/* Tempo */}
                     <td className="px-5 py-4 text-zinc-500 text-xs">
-                      {metaLabel} há {formatTime(ticket.minutesSince)}
+                      {metaLabel} há {formatTime(mins)}
                     </td>
 
                     {/* Ações */}
@@ -377,7 +365,7 @@ export default function MyTicketsPage() {
                         {activeTab === 'assigned' && (
                           <>
                             <button
-                              onClick={() => startTicket(ticket.id)}
+                              onClick={() => navigate(`/app/helpdesk/chamado/${ticket.id}`)}
                               className="px-3 py-1.5 rounded-md text-xs font-semibold text-white hover:opacity-90 transition-opacity"
                               style={{ background: ACCENT }}
                             >
@@ -421,7 +409,7 @@ export default function MyTicketsPage() {
                         {activeTab === 'paused' && (
                           <>
                             <button
-                              onClick={() => resumeTicket(ticket.id)}
+                              onClick={() => handleResume(ticket.id)}
                               className="flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-semibold text-white hover:opacity-90 transition-opacity"
                               style={{ background: ACCENT }}
                             >
@@ -462,6 +450,7 @@ export default function MyTicketsPage() {
           onChangeReason={setPauseReason}
           onConfirm={confirmPause}
           onClose={() => setPauseTarget(null)}
+          isPending={pauseTicket.isPending}
         />
       )}
       {finalizeTargetId !== null && (
@@ -469,6 +458,7 @@ export default function MyTicketsPage() {
           ticketId={finalizeTargetId}
           onConfirm={confirmFinalize}
           onClose={() => setFinalizeId(null)}
+          isPending={closeTicket.isPending}
         />
       )}
 

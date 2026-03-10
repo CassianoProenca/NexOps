@@ -3,36 +3,24 @@ import { Save, Trash2, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
+import { useSlaConfigs, useUpdateSlaConfig } from '@/hooks/governance/useGovernance'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface LevelConfig {
-  response: number
-  resolution: number
+  id: string
+  response: number    // hours
+  resolution: number  // hours
+  notifyAt: number    // percent
 }
 
 interface DepartmentRow {
   id: number
   name: string
-  n1: LevelConfig
-  n2: LevelConfig
-  n3: LevelConfig
+  n1: { response: number; resolution: number }
+  n2: { response: number; resolution: number }
+  n3: { response: number; resolution: number }
 }
-
-// ── Initial state ─────────────────────────────────────────────────────────────
-
-const INITIAL_LEVELS: Record<'N1' | 'N2' | 'N3', LevelConfig> = {
-  N1: { response: 2,  resolution: 8  },
-  N2: { response: 4,  resolution: 24 },
-  N3: { response: 8,  resolution: 72 },
-}
-
-const INITIAL_DEPARTMENTS: DepartmentRow[] = [
-  { id: 1, name: 'Secretaria de Finanças', n1: { response: 1, resolution: 6  }, n2: { response: 3,  resolution: 18 }, n3: { response: 6,  resolution: 48 } },
-  { id: 2, name: 'RH',                     n1: { response: 2, resolution: 8  }, n2: { response: 4,  resolution: 24 }, n3: { response: 8,  resolution: 72 } },
-  { id: 3, name: 'Saúde',                  n1: { response: 1, resolution: 4  }, n2: { response: 2,  resolution: 12 }, n3: { response: 4,  resolution: 24 } },
-  { id: 4, name: 'Educação',               n1: { response: 2, resolution: 10 }, n2: { response: 6,  resolution: 30 }, n3: { response: 10, resolution: 80 } },
-]
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -41,6 +29,9 @@ const LEVEL_META = {
   N2: { label: 'N2', color: 'bg-amber-100 text-amber-700', desc: 'Suporte especializado'     },
   N3: { label: 'N3', color: 'bg-red-100 text-red-700',     desc: 'Escalado / Hardware'        },
 }
+
+function minutesToHours(min: number) { return Math.round(min / 60) }
+function hoursToMinutes(h: number)   { return h * 60 }
 
 function NumInput({
   value,
@@ -70,18 +61,45 @@ function NumInput({
 // [ROLE: ADMIN]
 
 export default function SLAConfigPage() {
-  const [levels, setLevels]           = useState(INITIAL_LEVELS)
-  const [departments, setDepartments] = useState(INITIAL_DEPARTMENTS)
+  const { data: slaConfigs = [] } = useSlaConfigs()
+  const updateSlaConfig = useUpdateSlaConfig()
 
-  const [notify80,   setNotify80]   = useState(true)
-  const [notifyBreach, setNotifyBreach] = useState(true)
-  const [dailyReport,  setDailyReport]  = useState(false)
+  // Build initial levels from API data (first config per level)
+  function buildInitialLevels(): Record<'N1' | 'N2' | 'N3', LevelConfig> {
+    const defaults: Record<'N1' | 'N2' | 'N3', LevelConfig> = {
+      N1: { id: '', response: 2,  resolution: 8,  notifyAt: 80 },
+      N2: { id: '', response: 4,  resolution: 24, notifyAt: 80 },
+      N3: { id: '', response: 8,  resolution: 72, notifyAt: 80 },
+    }
+    for (const cfg of slaConfigs) {
+      const lvl = cfg.slaLevel as 'N1' | 'N2' | 'N3'
+      if (!defaults[lvl].id) {
+        defaults[lvl] = {
+          id:         cfg.id,
+          response:   minutesToHours(cfg.responseMinutes),
+          resolution: minutesToHours(cfg.resolutionMinutes),
+          notifyAt:   cfg.notifyManagerAtPercent,
+        }
+      }
+    }
+    return defaults
+  }
 
-  function updateLevel(level: 'N1' | 'N2' | 'N3', field: keyof LevelConfig, value: number) {
+  // Editable local state: one entry per SLA level
+  const [levels, setLevels] = useState<Record<'N1' | 'N2' | 'N3', LevelConfig>>(buildInitialLevels)
+
+  // Departament exceptions — local only, no backend endpoint
+  const [departments, setDepartments] = useState<DepartmentRow[]>([])
+
+  const [notify80,      setNotify80]      = useState(true)
+  const [notifyBreach,  setNotifyBreach]  = useState(true)
+  const [dailyReport,   setDailyReport]   = useState(false)
+
+  function updateLevel(level: 'N1' | 'N2' | 'N3', field: keyof LevelConfig, value: number | string) {
     setLevels((prev) => ({ ...prev, [level]: { ...prev[level], [field]: value } }))
   }
 
-  function updateDept(id: number, level: 'n1' | 'n2' | 'n3', field: keyof LevelConfig, value: number) {
+  function updateDept(id: number, level: 'n1' | 'n2' | 'n3', field: 'response' | 'resolution', value: number) {
     setDepartments((prev) =>
       prev.map((d) => d.id === id ? { ...d, [level]: { ...d[level], [field]: value } } : d)
     )
@@ -89,6 +107,30 @@ export default function SLAConfigPage() {
 
   function removeDept(id: number) {
     setDepartments((prev) => prev.filter((d) => d.id !== id))
+  }
+
+  async function handleSave() {
+    const promises: Promise<unknown>[] = []
+    for (const lvl of ['N1', 'N2', 'N3'] as const) {
+      const cfg = levels[lvl]
+      if (!cfg.id) continue
+      promises.push(
+        new Promise<void>((resolve, reject) =>
+          updateSlaConfig.mutate(
+            {
+              id: cfg.id,
+              data: {
+                responseMinutes:        hoursToMinutes(cfg.response),
+                resolutionMinutes:      hoursToMinutes(cfg.resolution),
+                notifyManagerAtPercent: cfg.notifyAt,
+              },
+            },
+            { onSuccess: () => resolve(), onError: reject }
+          )
+        )
+      )
+    }
+    await Promise.allSettled(promises)
   }
 
   return (
@@ -110,9 +152,13 @@ export default function SLAConfigPage() {
           </p>
         </div>
 
-        <Button className="bg-[#4f6ef7] hover:bg-[#3d5de6] text-white gap-2 shrink-0">
+        <Button
+          className="bg-[#4f6ef7] hover:bg-[#3d5de6] text-white gap-2 shrink-0"
+          onClick={handleSave}
+          disabled={updateSlaConfig.isPending}
+        >
           <Save className="h-4 w-4" />
-          Salvar alterações
+          {updateSlaConfig.isPending ? 'Salvando…' : 'Salvar alterações'}
         </Button>
       </div>
 

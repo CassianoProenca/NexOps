@@ -21,6 +21,11 @@ public class TenantRepositoryAdapter implements TenantRepository {
     }
 
     @Override
+    public java.util.List<Tenant> findAll() {
+        return jpa.findAll().stream().map(TenantMapper::toDomain).toList();
+    }
+
+    @Override
     public Tenant save(Tenant tenant) {
         return TenantMapper.toDomain(jpa.save(TenantMapper.toEntity(tenant)));
     }

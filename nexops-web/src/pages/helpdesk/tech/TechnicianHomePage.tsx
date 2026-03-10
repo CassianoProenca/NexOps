@@ -1,17 +1,11 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ListTodo, Briefcase, Sparkles, ArrowRight } from 'lucide-react'
+import { useAssignedTickets } from '@/hooks/helpdesk/useTickets'
+import { useAppStore } from '@/store/appStore'
 
 const ACCENT = '#4f6ef7'
 const ACCENT_SUBTLE = '#eef1ff'
-
-const MOCK_QUEUE = [
-  { id: 1, title: 'Impressora não responde', tier: 'N2', time: '14min' },
-  { id: 2, title: 'Reset de senha SAM', tier: 'N1', time: '32min' },
-  { id: 3, title: 'Notebook não liga', tier: 'N3', time: '1h' },
-  { id: 4, title: 'VPN sem conexão após atualização', tier: 'N2', time: '2h' },
-  { id: 5, title: 'Monitor sem sinal na sala 204', tier: 'N1', time: '3h' },
-]
 
 const TIER_STYLE: Record<string, string> = {
   N1: 'bg-zinc-100 text-zinc-600',
@@ -30,6 +24,24 @@ export default function TechnicianHomePage() {
   const [prompt, setPrompt] = useState('')
   const [response, setResponse] = useState<string | null>(null)
 
+  const user = useAppStore((s) => s.user)
+  const firstName = user?.name?.split(' ')[0] ?? user?.email ?? 'Técnico'
+
+  const { data: assignedTickets = [] } = useAssignedTickets()
+
+  // Show open/in-progress tickets, up to 5
+  const queueTickets = useMemo(
+    () => assignedTickets.filter((t) => t.status !== 'CLOSED').slice(0, 5),
+    [assignedTickets]
+  )
+
+  function formatMinutes(iso: string): string {
+    const diffMin = Math.floor((new Date().getTime() - new Date(iso).getTime()) / 60000)
+    if (diffMin < 60) return `${diffMin}min`
+    const h = Math.floor(diffMin / 60)
+    return `${h}h`
+  }
+
   function handleSend() {
     if (!prompt.trim()) return
     setResponse('Funcionalidade disponível após configuração do provider de IA.')
@@ -40,7 +52,7 @@ export default function TechnicianHomePage() {
 
       {/* Linha 1 — Header */}
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">Bom dia, Cassiano</h1>
+        <h1 className="text-2xl font-semibold text-zinc-900">Bom dia, {firstName}</h1>
         <p className="text-sm text-zinc-500 mt-0.5">Aqui está um resumo do seu dia.</p>
       </div>
 
@@ -50,22 +62,26 @@ export default function TechnicianHomePage() {
         {/* Coluna esquerda — Fila de Chamados */}
         <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden flex flex-col">
           <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-100">
-            <h2 className="text-sm font-semibold text-zinc-900">Fila de Chamados</h2>
+            <h2 className="text-sm font-semibold text-zinc-900">Meus Chamados</h2>
             <span className="text-xs bg-zinc-100 text-zinc-600 px-2.5 py-1 rounded-full font-medium">
-              12 aguardando
+              {queueTickets.length} ativos
             </span>
           </div>
 
           <div className="flex-1 divide-y divide-zinc-100">
-            {MOCK_QUEUE.map((ticket) => (
-              <div key={ticket.id} className="flex items-center gap-3 px-6 py-3.5">
-                <p className="flex-1 text-sm text-zinc-700 truncate">{ticket.title}</p>
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${TIER_STYLE[ticket.tier]}`}>
-                  {ticket.tier}
-                </span>
-                <span className="text-xs text-zinc-400 whitespace-nowrap">{ticket.time}</span>
-              </div>
-            ))}
+            {queueTickets.length === 0 ? (
+              <p className="px-6 py-8 text-sm text-zinc-400 text-center">Nenhum chamado atribuído.</p>
+            ) : (
+              queueTickets.map((ticket) => (
+                <div key={ticket.id} className="flex items-center gap-3 px-6 py-3.5">
+                  <p className="flex-1 text-sm text-zinc-700 truncate">{ticket.title}</p>
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${TIER_STYLE[ticket.slaLevel]}`}>
+                    {ticket.slaLevel}
+                  </span>
+                  <span className="text-xs text-zinc-400 whitespace-nowrap">{formatMinutes(ticket.openedAt)}</span>
+                </div>
+              ))
+            )}
           </div>
 
           <div className="px-6 py-4 border-t border-zinc-100">

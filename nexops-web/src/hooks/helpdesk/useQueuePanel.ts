@@ -41,7 +41,8 @@ export function useQueuePanel() {
       heartbeatOutgoing: 4_000,
       onConnect: () => {
         setConnected(true)
-        client.subscribe('/topic/queue-panel', (message) => {
+        const topic = `/topic/${tenant ?? 'public'}/queue-panel`
+        client.subscribe(topic, (message) => {
           try {
             setData(JSON.parse(message.body) as QueuePanelPayload)
           } catch {

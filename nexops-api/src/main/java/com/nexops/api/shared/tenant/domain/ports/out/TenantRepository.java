@@ -5,5 +5,6 @@ import java.util.Optional;
 
 public interface TenantRepository {
     Optional<Tenant> findBySlug(String slug);
+    java.util.List<Tenant> findAll();
     Tenant save(Tenant tenant);
 }

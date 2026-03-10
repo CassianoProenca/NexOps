@@ -1,29 +1,21 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Zap, Search, Inbox, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useAllTickets } from '@/hooks/helpdesk/useTickets'
+import { useDepartments } from '@/hooks/helpdesk/useDepartments'
+import { useProblemTypes } from '@/hooks/helpdesk/useProblemTypes'
 
 const ACCENT = '#4f6ef7'
-
-const MOCK_TICKETS = [
-  { id: 1042, title: 'Impressora não responde', description: 'Impressora HP do setor não imprime desde ontem', type: 'Impressora', tier: 'N2', minutes: 14,  department: 'RH' },
-  { id: 1043, title: 'Reset de senha SAM', description: 'Usuário bloqueado após tentativas incorretas', type: 'Acessos',    tier: 'N1', minutes: 32,  department: 'Finanças' },
-  { id: 1044, title: 'Notebook não liga', description: 'Notebook da diretoria não inicializa após queda', type: 'Hardware',   tier: 'N3', minutes: 60,  department: 'Administração' },
-  { id: 1045, title: 'VPN sem conexão após atualização', description: 'Atualização do Windows quebrou o cliente VPN', type: 'Software',   tier: 'N2', minutes: 120, department: 'Saúde' },
-  { id: 1046, title: 'Monitor sem sinal na sala 204', description: 'Monitor exibe "no signal" ao ligar o computador', type: 'Hardware',   tier: 'N1', minutes: 180, department: 'Educação' },
-  { id: 1047, title: 'Excel travando ao abrir planilha', description: 'Arquivo de controle orçamentário não abre', type: 'Software',   tier: 'N1', minutes: 45,  department: 'Finanças' },
-  { id: 1048, title: 'Acesso ao sistema SIAD negado', description: 'Permissão removida após troca de departamento', type: 'Acessos',    tier: 'N2', minutes: 200, department: 'Administração' },
-  { id: 1049, title: 'Teclado com teclas travadas', description: 'Teclas Ctrl e Alt não funcionam no teclado físico', type: 'Hardware',   tier: 'N1', minutes: 25,  department: 'RH' },
-  { id: 1050, title: 'Impressora fiscal offline', description: 'Impressora fiscal do caixa aparece como offline', type: 'Impressora', tier: 'N3', minutes: 310, department: 'Finanças' },
-  { id: 1051, title: 'E-mail institucional não sincroniza', description: 'Outlook não recebe e-mails desde as 8h', type: 'Software',   tier: 'N2', minutes: 90,  department: 'Saúde' },
-  { id: 1052, title: 'HD externo não reconhecido', description: 'Dispositivo não aparece no Gerenciador de Dispositivos', type: 'Hardware',   tier: 'N1', minutes: 15,  department: 'Educação' },
-  { id: 1053, title: 'Login único (SSO) falha no portal', description: 'Erro 401 ao tentar autenticar via SSO corporativo', type: 'Acessos',    tier: 'N3', minutes: 260, department: 'Administração' },
-]
 
 const PAGE_SIZE = 10
 
 type SortKey = 'priority' | 'time' | 'tier'
 
 const TIER_ORDER: Record<string, number> = { N3: 0, N2: 1, N1: 2 }
+
+function minutesOpen(iso: string): number {
+  return Math.floor((new Date().getTime() - new Date(iso).getTime()) / 60000)
+}
 
 function formatTime(minutes: number): string {
   if (minutes < 60) return `${minutes}min`
@@ -43,6 +35,19 @@ const TYPE_STYLE = 'bg-zinc-100 text-zinc-600'
 export default function TicketQueuePage() {
   const navigate = useNavigate()
 
+  const { data: allTickets = [] } = useAllTickets()
+  const { data: departments = [] } = useDepartments()
+  const { data: problemTypes = [] } = useProblemTypes()
+
+  const deptMap = useMemo(() => Object.fromEntries(departments.map((d) => [d.id, d.name])), [departments])
+  const ptMap   = useMemo(() => Object.fromEntries(problemTypes.map((p) => [p.id, p.name])), [problemTypes])
+
+  // Only show OPEN tickets in the queue
+  const openTickets = useMemo(
+    () => allTickets.filter((t) => t.status === 'OPEN'),
+    [allTickets]
+  )
+
   const [search, setSearch]     = useState('')
   const [tierFilter, setTier]   = useState('')
   const [typeFilter, setType]   = useState('')
@@ -59,27 +64,34 @@ export default function TicketQueuePage() {
   }
 
   const filtered = useMemo(() => {
-    let result = [...MOCK_TICKETS]
+    let result = openTickets.map((t) => ({
+      ...t,
+      typeName: ptMap[t.problemTypeId] ?? '—',
+      deptName: deptMap[t.departmentId] ?? '—',
+      minutes: minutesOpen(t.openedAt),
+    }))
 
     if (search.trim()) {
       const q = search.toLowerCase()
       result = result.filter(
-        (t) => t.title.toLowerCase().includes(q) || String(t.id).includes(q)
+        (t) => t.title.toLowerCase().includes(q) || t.id.toLowerCase().includes(q)
       )
     }
-    if (tierFilter) result = result.filter((t) => t.tier === tierFilter)
-    if (typeFilter) result = result.filter((t) => t.type === typeFilter)
+    if (tierFilter) result = result.filter((t) => t.slaLevel === tierFilter)
+    if (typeFilter) result = result.filter((t) => t.typeName === typeFilter)
 
     result.sort((a, b) => {
-      if (sortBy === 'time')     return b.minutes - a.minutes
-      if (sortBy === 'tier')     return TIER_ORDER[a.tier] - TIER_ORDER[b.tier]
-      // priority: tier first, then time
-      const tierDiff = TIER_ORDER[a.tier] - TIER_ORDER[b.tier]
+      if (sortBy === 'time')  return b.minutes - a.minutes
+      if (sortBy === 'tier')  return TIER_ORDER[a.slaLevel] - TIER_ORDER[b.slaLevel]
+      const tierDiff = TIER_ORDER[a.slaLevel] - TIER_ORDER[b.slaLevel]
       return tierDiff !== 0 ? tierDiff : b.minutes - a.minutes
     })
 
     return result
-  }, [search, tierFilter, typeFilter, sortBy])
+  }, [openTickets, search, tierFilter, typeFilter, sortBy, ptMap, deptMap])
+
+  // Dynamic problem type options for the select
+  const typeOptions = useMemo(() => [...new Set(filtered.map((t) => t.typeName).filter(Boolean))], [filtered])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const safePage   = Math.min(page, totalPages)
@@ -150,10 +162,9 @@ export default function TicketQueuePage() {
           className="px-3 py-2 text-sm border border-zinc-200 rounded-lg text-zinc-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
         >
           <option value="">Tipo: Todos</option>
-          <option value="Hardware">Hardware</option>
-          <option value="Software">Software</option>
-          <option value="Acessos">Acessos</option>
-          <option value="Impressora">Impressora</option>
+          {typeOptions.map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
         </select>
 
         {/* Ordenar */}
@@ -204,27 +215,27 @@ export default function TicketQueuePage() {
                   return (
                     <tr
                       key={ticket.id}
-                      className="group hover:bg-zinc-50 transition-colors"
+                      onClick={() => navigate(`/app/helpdesk/chamado/${ticket.id}`)}
+                      className="group hover:bg-zinc-50 transition-colors cursor-pointer"
                     >
-                      <td className="px-5 py-4 font-mono text-zinc-400">#{ticket.id}</td>
+                      <td className="px-5 py-4 font-mono text-zinc-400 text-xs">#{ticket.id.slice(0, 8)}</td>
                       <td className="px-5 py-4">
                         <p className="font-medium text-zinc-900">{ticket.title}</p>
-                        <p className="text-xs text-zinc-400 truncate max-w-xs mt-0.5">{ticket.description}</p>
                       </td>
                       <td className="px-5 py-4">
                         <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${TYPE_STYLE}`}>
-                          {ticket.type}
+                          {ticket.typeName}
                         </span>
                       </td>
                       <td className="px-5 py-4">
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${TIER_STYLE[ticket.tier]}`}>
-                          {ticket.tier}
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${TIER_STYLE[ticket.slaLevel]}`}>
+                          {ticket.slaLevel}
                         </span>
                       </td>
                       <td className={`px-5 py-4 text-sm font-medium ${isLate ? 'text-red-500' : 'text-zinc-500'}`}>
                         {formatTime(ticket.minutes)}
                       </td>
-                      <td className="px-5 py-4 text-zinc-500">{ticket.department}</td>
+                      <td className="px-5 py-4 text-zinc-500">{ticket.deptName}</td>
                     </tr>
                   )
                 })}

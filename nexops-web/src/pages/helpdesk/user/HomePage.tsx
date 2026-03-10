@@ -1,47 +1,55 @@
-// [ROLE: END_USER] — Esta página é exclusiva para usuários finais.
-// Quando o AuthContext existir, renderizar a home correta por role:
-// END_USER    → HomePage (este arquivo)
-// TECHNICIAN  → TechHomePage (a criar)
-// MANAGER | ADMIN → ManagerHomePage (a criar)
+// [ROLE: END_USER]
 
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Sparkles, CheckCircle2, ChevronRight } from 'lucide-react'
+import { useMyTickets } from '@/hooks/helpdesk/useTickets'
+import { useAppStore } from '@/store/appStore'
+import { formatRelativeTime } from '@/lib/utils'
+import type { TicketStatus } from '@/types/helpdesk.types'
 
-type TicketStatus = 'Aberto' | 'Em Andamento' | 'Pausado'
+// ── Status mapping (backend enum → display) ───────────────────────────────────
 
-interface ActiveTicket {
-  id: number
-  title: string
-  status: TicketStatus
-  time: string
+type DisplayStatus = 'Aberto' | 'Em Andamento' | 'Pausado' | 'Finalizado'
+
+const STATUS_DISPLAY: Record<TicketStatus, DisplayStatus> = {
+  OPEN:        'Aberto',
+  IN_PROGRESS: 'Em Andamento',
+  PAUSED:      'Pausado',
+  CLOSED:      'Finalizado',
 }
 
-const STATUS_COLOR: Record<TicketStatus, string> = {
-  'Aberto': '#4f6ef7',
+const STATUS_COLOR: Record<DisplayStatus, string> = {
+  'Aberto':       '#4f6ef7',
   'Em Andamento': '#d97706',
-  'Pausado': '#71717a',
+  'Pausado':      '#71717a',
+  'Finalizado':   '#16a34a',
 }
 
-const STATUS_BADGE_BG: Record<TicketStatus, string> = {
-  'Aberto': '#eef1ff',
+const STATUS_BADGE_BG: Record<DisplayStatus, string> = {
+  'Aberto':       '#eef1ff',
   'Em Andamento': '#fffbeb',
-  'Pausado': '#f4f4f5',
+  'Pausado':      '#f4f4f5',
+  'Finalizado':   '#f0fdf4',
 }
-
-const MOCK_TICKETS: ActiveTicket[] = [
-  { id: 1042, title: 'Impressora não imprime', status: 'Em Andamento', time: 'há 2h' },
-  { id: 1038, title: 'Acesso ao sistema RH bloqueado', status: 'Aberto', time: 'há 1 dia' },
-  { id: 1031, title: 'Notebook travando constantemente', status: 'Pausado', time: 'há 3 dias' },
-]
 
 const MAX_CHARS = 1000
 
 export default function HomePage() {
   const navigate = useNavigate()
+  const user = useAppStore((s) => s.user)
+  const firstName = user?.name?.split(' ')[0] ?? user?.email ?? 'Olá'
+
   const [description, setDescription] = useState('')
   const [textareaFocused, setTextareaFocused] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const { data: tickets = [], isLoading } = useMyTickets()
+
+  // Only show active (non-closed) tickets — up to 3
+  const activeTickets = tickets
+    .filter((t) => t.status !== 'CLOSED')
+    .slice(0, 3)
 
   const isDisabled = !description.trim() || isSubmitting
 
@@ -57,7 +65,7 @@ export default function HomePage() {
     <div className="p-8 space-y-6">
       {/* Cabeçalho */}
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">Olá, Cassiano.</h1>
+        <h1 className="text-2xl font-semibold text-zinc-900">Olá, {firstName}.</h1>
         <p className="mt-1 text-text-secondary">Como podemos ajudar você hoje?</p>
       </div>
 
@@ -109,7 +117,6 @@ export default function HomePage() {
             </div>
 
             <div className="flex items-center justify-between gap-4">
-              {/* [AI] Quando AIProvider configurado: trocar para "Sugestões ativadas" com cor #4f6ef7 */}
               <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#f4f4f5]">
                 <Sparkles className="w-3.5 h-3.5 text-[#a1a1aa]" />
                 <span className="text-xs text-[#a1a1aa]">IA indisponível</span>
@@ -156,19 +163,19 @@ export default function HomePage() {
               <button
                 onClick={() => navigate('/app/helpdesk/meus-chamados')}
                 className="text-xs font-medium transition-colors"
-                style={{
-                  color: '#4f6ef7',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                }}
+                style={{ color: '#4f6ef7', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
               >
                 Ver todos →
               </button>
             </div>
 
-            {MOCK_TICKETS.length === 0 ? (
+            {isLoading ? (
+              <div className="space-y-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-14 rounded-lg border border-[#e4e4e7] bg-zinc-50 animate-pulse" />
+                ))}
+              </div>
+            ) : activeTickets.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 gap-2">
                 <CheckCircle2 className="w-8 h-8" style={{ color: '#16a34a' }} />
                 <p className="text-sm text-text-secondary text-center">
@@ -177,39 +184,44 @@ export default function HomePage() {
               </div>
             ) : (
               <div className="space-y-2">
-                {MOCK_TICKETS.map((ticket) => (
-                  <button
-                    key={ticket.id}
-                    onClick={() => navigate('/app/helpdesk/meus-chamados')}
-                    className="w-full text-left group"
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}
-                  >
-                    <div className="flex items-center gap-3 p-3 rounded-lg border border-[#e4e4e7] group-hover:border-[#4f6ef7]/40 group-hover:shadow-sm transition-all bg-background/30">
-                      <div
-                        className="shrink-0 w-2.5 h-2.5 rounded-full"
-                        style={{ backgroundColor: STATUS_COLOR[ticket.status] }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-text-primary truncate">
-                          {ticket.title}
-                        </p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span
-                            className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-                            style={{
-                              backgroundColor: STATUS_BADGE_BG[ticket.status],
-                              color: STATUS_COLOR[ticket.status],
-                            }}
-                          >
-                            {ticket.status}
-                          </span>
-                          <span className="text-[10px] text-text-muted">{ticket.time}</span>
+                {activeTickets.map((ticket) => {
+                  const displayStatus = STATUS_DISPLAY[ticket.status]
+                  return (
+                    <button
+                      key={ticket.id}
+                      onClick={() => navigate(`/app/helpdesk/chamado-usuario/${ticket.id}`)}
+                      className="w-full text-left group"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}
+                    >
+                      <div className="flex items-center gap-3 p-3 rounded-lg border border-[#e4e4e7] group-hover:border-[#4f6ef7]/40 group-hover:shadow-sm transition-all bg-background/30">
+                        <div
+                          className="shrink-0 w-2.5 h-2.5 rounded-full"
+                          style={{ backgroundColor: STATUS_COLOR[displayStatus] }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-text-primary truncate">
+                            {ticket.title}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span
+                              className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                              style={{
+                                backgroundColor: STATUS_BADGE_BG[displayStatus],
+                                color: STATUS_COLOR[displayStatus],
+                              }}
+                            >
+                              {displayStatus}
+                            </span>
+                            <span className="text-[10px] text-text-muted">
+                              {formatRelativeTime(ticket.openedAt)}
+                            </span>
+                          </div>
                         </div>
+                        <ChevronRight className="w-4 h-4 text-text-muted shrink-0" />
                       </div>
-                      <ChevronRight className="w-4 h-4 text-text-muted shrink-0" />
-                    </div>
-                  </button>
-                ))}
+                    </button>
+                  )
+                })}
               </div>
             )}
           </div>

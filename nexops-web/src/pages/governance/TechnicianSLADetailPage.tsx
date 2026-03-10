@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip as RTooltip, ReferenceLine, ResponsiveContainer,
@@ -12,18 +12,17 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
+import { useTechnicianMetrics } from '@/hooks/governance/useGovernance'
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
+// ── Date helpers ──────────────────────────────────────────────────────────────
 
-const TECHNICIAN = {
-  id: '1',
-  name: 'Carlos Mendes',
-  role: 'Técnico de Suporte',
-  initials: 'CM',
-  sla: 91,
-  attended: 38,
-  tmr: '3h 47min',
-  late: 3,
+function firstDayOfMonth(): string {
+  const d = new Date()
+  d.setDate(1)
+  return d.toISOString().slice(0, 10)
+}
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10)
 }
 
 const SLA_OVER_TIME = [
@@ -87,13 +86,58 @@ function SlaBadge({ pct }: { pct: number }) {
 
 export default function TechnicianSLADetailPage() {
   const navigate = useNavigate()
-  const [period, setPeriod] = useState('this_month')
-  const [page, setPage] = useState(0)
-  const pageSize = 4
-  const totalPages = Math.ceil(TICKET_HISTORY.length / pageSize)
-  const visibleTickets = TICKET_HISTORY.slice(page * pageSize, page * pageSize + pageSize)
+  const { id = '' } = useParams<{ id: string }>()
 
+  const [period, setPeriod] = useState('this_month')
+  const [page,   setPage]   = useState(0)
+
+  // Date range derived from period selector
+  const { dateFrom, dateTo } = (() => {
+    const today = todayIso()
+    const d = new Date()
+    if (period === 'last_month') {
+      d.setMonth(d.getMonth() - 1)
+      const from = new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10)
+      const to   = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10)
+      return { dateFrom: from, dateTo: to }
+    }
+    if (period === 'last_3') {
+      d.setMonth(d.getMonth() - 3)
+      return { dateFrom: d.toISOString().slice(0, 10), dateTo: today }
+    }
+    if (period === 'last_6') {
+      d.setMonth(d.getMonth() - 6)
+      return { dateFrom: d.toISOString().slice(0, 10), dateTo: today }
+    }
+    // this_month
+    return { dateFrom: firstDayOfMonth(), dateTo: today }
+  })()
+
+  const { data: metrics, isLoading } = useTechnicianMetrics(id, dateFrom, dateTo)
+
+  const pageSize   = 4
+  const visibleTickets = TICKET_HISTORY.slice(page * pageSize, page * pageSize + pageSize)
+  const totalPages = Math.ceil(TICKET_HISTORY.length / pageSize)
   const levelTotal = LEVEL_DIST.reduce((s, d) => s + d.value, 0)
+
+  // Derived from API metrics
+  const attended = metrics?.totalTickets ?? 0
+  const sla      = metrics ? Math.round(metrics.slaCompliancePercent) : 0
+  const tmrTotal = metrics?.avgResolutionMinutes ?? 0
+  const tmrH     = Math.floor(tmrTotal / 60)
+  const tmrM     = tmrTotal % 60
+  const late     = metrics?.slaBreachCount ?? 0
+  const initials = id.slice(0, 2).toUpperCase()
+
+  if (isLoading) {
+    return (
+      <div className="p-8 space-y-4">
+        {[...Array(6)].map((_, i) => (
+          <div key={i} className="h-12 bg-zinc-100 rounded-lg animate-pulse" />
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div className="p-8 space-y-6">
@@ -112,16 +156,16 @@ export default function TechnicianSLADetailPage() {
 
           <Avatar className="h-12 w-12 border border-zinc-200 shrink-0">
             <AvatarFallback className="bg-[#4f6ef7] text-white text-sm font-bold">
-              {TECHNICIAN.initials}
+              {initials}
             </AvatarFallback>
           </Avatar>
 
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-bold text-zinc-900">{TECHNICIAN.name}</h1>
-              <SlaBadge pct={TECHNICIAN.sla} />
+              <h1 className="text-xl font-bold text-zinc-900 font-mono">{id.slice(0, 8)}…</h1>
+              <SlaBadge pct={sla} />
             </div>
-            <p className="text-sm text-zinc-500">{TECHNICIAN.role}</p>
+            <p className="text-sm text-zinc-500">Técnico</p>
           </div>
         </div>
 
@@ -143,7 +187,7 @@ export default function TechnicianSLADetailPage() {
         {/* Chamados Atendidos */}
         <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-1">
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400">Chamados Atendidos</p>
-          <p className="text-3xl font-bold text-zinc-900">{TECHNICIAN.attended}</p>
+          <p className="text-3xl font-bold text-zinc-900">{attended}</p>
           <p className="text-xs text-zinc-400">no período</p>
         </div>
 
@@ -151,8 +195,10 @@ export default function TechnicianSLADetailPage() {
         <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-1">
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400">SLA Cumprido</p>
           <div className="flex items-baseline gap-2">
-            <p className="text-3xl font-bold text-zinc-900">{TECHNICIAN.sla}%</p>
-            <span className="text-xs font-semibold text-green-600">Acima da meta</span>
+            <p className="text-3xl font-bold text-zinc-900">{sla}%</p>
+            <span className={cn('text-xs font-semibold', sla >= 80 ? 'text-green-600' : 'text-red-500')}>
+              {sla >= 80 ? 'Acima da meta' : 'Abaixo da meta'}
+            </span>
           </div>
           <p className="text-xs text-zinc-400">meta: 80%</p>
         </div>
@@ -160,15 +206,15 @@ export default function TechnicianSLADetailPage() {
         {/* TMR */}
         <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-1">
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400">Tempo Médio de Resolução</p>
-          <p className="text-3xl font-bold text-zinc-900">{TECHNICIAN.tmr}</p>
+          <p className="text-3xl font-bold text-zinc-900">{tmrH}h {String(tmrM).padStart(2, '0')}m</p>
           <p className="text-xs text-zinc-400">por chamado</p>
         </div>
 
         {/* Em Atraso */}
         <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-1">
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400">Chamados em Atraso</p>
-          <p className={cn('text-3xl font-bold', TECHNICIAN.late > 0 ? 'text-red-600' : 'text-green-600')}>
-            {TECHNICIAN.late}
+          <p className={cn('text-3xl font-bold', late > 0 ? 'text-red-600' : 'text-green-600')}>
+            {late}
           </p>
           <p className="text-xs text-zinc-400">com SLA vencido</p>
         </div>

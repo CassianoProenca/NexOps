@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
+import { useGovernanceDashboard } from '@/hooks/governance/useGovernance'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -254,10 +255,40 @@ export default function GovernanceDashboardPage() {
     setActiveQuick('this_month')
   }
 
+  // ── Dados da API ─────────────────────────────────────────────────────────
+  const { data: metrics } = useGovernanceDashboard(dateFrom, dateTo)
+
   // ── Dados derivados do período ───────────────────────────────────────────
   const chart      = useMemo(() => buildChartData(dateFrom, dateTo),  [dateFrom, dateTo])
-  const kpis       = useMemo(() => buildKpis(dateFrom, dateTo),       [dateFrom, dateTo])
-  const statusData = useMemo(() => buildStatus(dateFrom, dateTo),     [dateFrom, dateTo])
+
+  // KPIs: usa dados reais quando disponíveis, fallback para mock durante loading
+  const kpis = useMemo(() => {
+    if (metrics) {
+      const tmrTotal = metrics.avgResolutionMinutes ?? 0
+      return {
+        sla:      Math.round(metrics.slaCompliancePercent),
+        onTime:   metrics.totalTickets - metrics.slaBreachCount,
+        total:    metrics.totalTickets,
+        tmrH:     Math.floor(tmrTotal / 60),
+        tmrM:     tmrTotal % 60,
+        critical: metrics.slaBreachCount,
+      }
+    }
+    return buildKpis(dateFrom, dateTo)
+  }, [metrics, dateFrom, dateTo])
+
+  // Status: usa dados reais quando disponíveis
+  const statusData = useMemo(() => {
+    if (metrics) {
+      return [
+        { name: 'Abertos',      value: metrics.openTickets,       color: '#4f6ef7' },
+        { name: 'Em Andamento', value: metrics.inProgressTickets, color: '#d97706' },
+        { name: 'Finalizados',  value: metrics.closedTickets,     color: '#16a34a' },
+      ]
+    }
+    return buildStatus(dateFrom, dateTo)
+  }, [metrics, dateFrom, dateTo])
+
   const statusTotal = useMemo(() => statusData.reduce((s, d) => s + d.value, 0), [statusData])
   const slaByType  = useMemo(() => buildSlaByType(dateFrom, dateTo),  [dateFrom, dateTo])
   const ranking    = useMemo(() => buildRanking(dateFrom, dateTo),    [dateFrom, dateTo])

@@ -8,10 +8,12 @@ import com.nexops.api.helpdesk.domain.ports.out.TicketRepository;
 import com.nexops.api.helpdesk.infrastructure.web.dto.QueuePanelPayload;
 import com.nexops.api.helpdesk.infrastructure.web.dto.TicketQueueItem;
 import com.nexops.api.shared.iam.domain.ports.out.UserRepository;
+import com.nexops.api.shared.tenant.domain.service.TenantRunner;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -26,23 +28,26 @@ public class QueuePanelService {
     private final DepartmentRepository departmentRepository;
     private final UserRepository userRepository;
     private final SimpMessagingTemplate messagingTemplate;
+    private final TenantRunner tenantRunner;
 
     @Scheduled(fixedDelay = 15_000)
     public void broadcastQueueState() {
-        pushQueueUpdate();
+        tenantRunner.runForAllTenants(tenant -> {
+            pushQueueUpdateForTenant(tenant.getSlug());
+        });
+    }
+
+    @Transactional(readOnly = true)
+    public void pushQueueUpdateForTenant(String tenantSlug) {
+        QueuePanelPayload payload = getQueuePanelState();
+        messagingTemplate.convertAndSend("/topic/" + tenantSlug + "/queue-panel", payload);
     }
 
     public void pushQueueUpdate() {
-        List<Ticket> openTickets = ticketRepository.findByStatus(TicketStatus.OPEN);
-        List<Ticket> inProgressTickets = ticketRepository.findByStatus(TicketStatus.IN_PROGRESS);
-
-        QueuePanelPayload payload = new QueuePanelPayload(
-                openTickets.stream().map(this::toQueueItem).toList(),
-                inProgressTickets.stream().map(this::toQueueItem).toList(),
-                OffsetDateTime.now()
-        );
-
-        messagingTemplate.convertAndSend("/topic/queue-panel", payload);
+        String tenantSlug = com.nexops.api.shared.tenant.TenantContext.getSlug();
+        if (tenantSlug != null) {
+            pushQueueUpdateForTenant(tenantSlug);
+        }
     }
 
     public QueuePanelPayload getQueuePanelState() {

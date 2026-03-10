@@ -6,21 +6,21 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { useState } from 'react'
 import { Lightbulb, Upload } from 'lucide-react'
+import { useCreateTicket } from '@/hooks/helpdesk/useTickets'
+import { useDepartments } from '@/hooks/helpdesk/useDepartments'
+import { useProblemTypes } from '@/hooks/helpdesk/useProblemTypes'
 
 /* ── Schema ── */
 const schema = z.object({
   title: z.string().min(5, 'Mínimo de 5 caracteres'),
-  type: z.string().min(1, 'Selecione um tipo de problema'),
-  department: z.string().min(1, 'Selecione um departamento'),
+  problemTypeId: z.string().min(1, 'Selecione um tipo de problema'),
+  departmentId: z.string().min(1, 'Selecione um departamento'),
   description: z.string().min(20, 'Mínimo de 20 caracteres'),
 })
 
 type FormData = z.infer<typeof schema>
 
 /* ── Constantes ── */
-const PROBLEM_TYPES = ['Hardware', 'Software', 'Acessos', 'Rede', 'Impressora', 'Outro']
-const DEPARTMENTS = ['RH', 'Finanças', 'Saúde', 'Educação', 'Jurídico', 'Secretaria', 'TI']
-
 const TIPS = [
   'Inclua o nome do equipamento ou sistema afetado.',
   'Descreva quando o problema começou e o que você já tentou fazer.',
@@ -70,7 +70,10 @@ export default function NewCasePage() {
   const locationState = useLocation().state as { description?: string } | null
   const prefillDescription = locationState?.description ?? ''
 
-  const [isLoading, setIsLoading] = useState(false)
+  const { data: departments = [] } = useDepartments()
+  const { data: problemTypes = [] } = useProblemTypes()
+  const createTicket = useCreateTicket()
+
   const [dragActive, setDragActive] = useState(false)
 
   const {
@@ -82,20 +85,26 @@ export default function NewCasePage() {
     resolver: zodResolver(schema),
     defaultValues: {
       title: '',
-      type: '',
-      department: '',
+      problemTypeId: '',
+      departmentId: '',
       description: prefillDescription,
     },
   })
 
   const descriptionValue = watch('description', prefillDescription)
   const MAX_DESC = 2000
+  const isLoading = createTicket.isPending
 
-  function onSubmit(_data: FormData) {
-    setIsLoading(true)
-    setTimeout(() => {
-      navigate('/app/helpdesk/meus-chamados')
-    }, 1500)
+  function onSubmit(data: FormData) {
+    createTicket.mutate(
+      {
+        title: data.title,
+        description: data.description,
+        departmentId: data.departmentId,
+        problemTypeId: data.problemTypeId,
+      },
+      { onSuccess: () => navigate('/app/helpdesk/meus-chamados') }
+    )
   }
 
   return (
@@ -142,20 +151,20 @@ export default function NewCasePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
                   <FieldLabel>Tipo de Problema <span style={{ color: '#dc2626' }}>*</span></FieldLabel>
-                  <FocusableSelect hasError={!!errors.type} {...register('type')}>
+                  <FocusableSelect hasError={!!errors.problemTypeId} {...register('problemTypeId')}>
                     <option value="">Selecione...</option>
-                    {PROBLEM_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                    {problemTypes.map((pt) => <option key={pt.id} value={pt.id}>{pt.name}</option>)}
                   </FocusableSelect>
-                  <FieldError message={errors.type?.message} />
+                  <FieldError message={errors.problemTypeId?.message} />
                 </div>
 
                 <div>
                   <FieldLabel>Departamento <span style={{ color: '#dc2626' }}>*</span></FieldLabel>
-                  <FocusableSelect hasError={!!errors.department} {...register('department')}>
+                  <FocusableSelect hasError={!!errors.departmentId} {...register('departmentId')}>
                     <option value="">Selecione...</option>
-                    {DEPARTMENTS.map((d) => <option key={d} value={d}>{d}</option>)}
+                    {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                   </FocusableSelect>
-                  <FieldError message={errors.department?.message} />
+                  <FieldError message={errors.departmentId?.message} />
                 </div>
               </div>
 

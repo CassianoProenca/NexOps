@@ -5,95 +5,39 @@ import {
   Search, SearchX, Download, ChevronLeft, ChevronRight, X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useAllTickets } from '@/hooks/helpdesk/useTickets'
+import { useDepartments } from '@/hooks/helpdesk/useDepartments'
+import type { TicketStatus as ApiStatus, SlaLevel } from '@/types/helpdesk.types'
+import { formatRelativeTime } from '@/lib/utils'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type Status = 'Aberto' | 'Em Andamento' | 'Pausado' | 'Finalizado'
-type Tier   = 'N1' | 'N2' | 'N3'
+type DisplayStatus = 'Aberto' | 'Em Andamento' | 'Pausado' | 'Finalizado'
 
-interface Ticket {
-  id:          number
-  title:       string
-  description: string
-  tech:        string | null
-  status:      Status
-  tier:        Tier
-  department:  string
-  openedAt:    Date
+const STATUS_MAP: Record<ApiStatus, DisplayStatus> = {
+  OPEN:        'Aberto',
+  IN_PROGRESS: 'Em Andamento',
+  PAUSED:      'Pausado',
+  CLOSED:      'Finalizado',
 }
 
-// ── Mock data ──────────────────────────────────────────────────────────────────
-
-const NOW = new Date('2026-03-06T10:00:00')
-
-function ago(days: number, hours = 0): Date {
-  const d = new Date(NOW)
-  d.setDate(d.getDate() - days)
-  d.setHours(d.getHours() - hours)
-  return d
-}
-
-const MOCK_TICKETS: Ticket[] = [
-  { id: 1001, title: 'Impressora HP não imprime',               description: 'Impressora do setor de RH não responde desde ontem',               tech: 'Rafael Oliveira',    status: 'Aberto',       tier: 'N1', department: 'RH',            openedAt: ago(5) },
-  { id: 1002, title: 'VPN sem conexão após atualização',        description: 'Atualização do Windows 11 quebrou o cliente VPN corporativo',      tech: 'Lucas Ferreira',     status: 'Aberto',       tier: 'N2', department: 'Saúde',         openedAt: ago(3) },
-  { id: 1003, title: 'Acesso ao sistema SIAD negado',           description: 'Permissão removida após mudança de departamento',                  tech: null,                 status: 'Aberto',       tier: 'N3', department: 'Administração', openedAt: ago(1) },
-  { id: 1004, title: 'Cadastro de funcionário bloqueado',       description: 'Sistema de RH retorna erro 403 ao tentar cadastrar novo usuário',  tech: null,                 status: 'Aberto',       tier: 'N1', department: 'RH',            openedAt: ago(0, 4) },
-  { id: 1005, title: 'Notebook da diretora não inicializa',     description: 'HP EliteBook não passa da tela de boot após queda de energia',     tech: 'Rafael Oliveira',    status: 'Em Andamento', tier: 'N3', department: 'Administração', openedAt: ago(4) },
-  { id: 1006, title: 'E-mail institucional não sincroniza',     description: 'Outlook não recebe novos e-mails desde as 8h desta manhã',         tech: 'Ana Beatriz Santos', status: 'Em Andamento', tier: 'N2', department: 'Educação',      openedAt: ago(3) },
-  { id: 1007, title: 'Monitor sem sinal na sala 204',           description: 'Monitor exibe "no signal" mesmo com cabo HDMI conectado',          tech: 'Lucas Ferreira',     status: 'Em Andamento', tier: 'N1', department: 'Educação',      openedAt: ago(2) },
-  { id: 1008, title: 'Impressora fiscal offline',               description: 'Impressora do caixa aparece como offline no sistema tributário',    tech: 'Ana Beatriz Santos', status: 'Em Andamento', tier: 'N3', department: 'Finanças',      openedAt: ago(1) },
-  { id: 1009, title: 'Servidor de arquivos com latência alta',  description: 'Compartilhamento de rede com tempo de resposta acima de 5s',       tech: 'Rafael Oliveira',    status: 'Pausado',      tier: 'N2', department: 'Saúde',         openedAt: ago(5) },
-  { id: 1010, title: 'Software de folha de pagamento travando', description: 'Protheus fecha inesperadamente ao gerar relatório mensal',          tech: 'Lucas Ferreira',     status: 'Pausado',      tier: 'N2', department: 'RH',            openedAt: ago(4) },
-  { id: 1011, title: 'Reset de senha SAM',                      description: 'Usuário bloqueado após 5 tentativas de login incorretas',           tech: 'Ana Beatriz Santos', status: 'Finalizado',   tier: 'N1', department: 'Finanças',      openedAt: ago(5) },
-  { id: 1012, title: 'Teclado com teclas travadas',             description: 'Teclas Ctrl e Alt não respondem no teclado físico do computador',   tech: 'Rafael Oliveira',    status: 'Finalizado',   tier: 'N1', department: 'RH',            openedAt: ago(4) },
-  { id: 1013, title: 'HD externo não reconhecido',              description: 'Dispositivo não aparece no Gerenciador de Dispositivos',            tech: 'Lucas Ferreira',     status: 'Finalizado',   tier: 'N1', department: 'Educação',      openedAt: ago(3) },
-  { id: 1014, title: 'Configuração de e-mail Outlook',          description: 'Novo usuário sem conta de e-mail configurada no cliente Outlook',   tech: 'Ana Beatriz Santos', status: 'Finalizado',   tier: 'N2', department: 'Administração', openedAt: ago(2) },
-  { id: 1015, title: 'Atualização de driver de impressora',     description: 'Driver desatualizado causando falhas intermitentes de impressão',   tech: 'Rafael Oliveira',    status: 'Finalizado',   tier: 'N1', department: 'Finanças',      openedAt: ago(1) },
-]
-
-const KPI = { open: 4, inProgress: 4, paused: 2, closedToday: 5, openDelta: +3 }
-
-const TECHS = ['Rafael Oliveira', 'Lucas Ferreira', 'Ana Beatriz Santos']
-const DEPTS = ['RH', 'Finanças', 'Saúde', 'Educação', 'Administração']
-const STATUSES: Status[] = ['Aberto', 'Em Andamento', 'Pausado', 'Finalizado']
+const STATUSES: DisplayStatus[] = ['Aberto', 'Em Andamento', 'Pausado', 'Finalizado']
 
 const PAGE_SIZE = 10
 
-// ── Helpers ────────────────────────────────────────────────────────────────────
-
-function formatRelative(date: Date): string {
-  const diffMin = Math.floor((NOW.getTime() - date.getTime()) / 60000)
-  if (diffMin < 60) return `há ${diffMin}min`
-  const diffH = Math.floor(diffMin / 60)
-  if (diffH < 24) return `há ${diffH}h`
-  const diffD = Math.floor(diffH / 24)
-  return `há ${diffD} dia${diffD > 1 ? 's' : ''}`
-}
-
-function initials(name: string): string {
-  const parts = name.split(' ')
-  return (parts[0][0] + (parts[1]?.[0] ?? '')).toUpperCase()
-}
-
 // ── Styles ─────────────────────────────────────────────────────────────────────
 
-const STATUS_STYLE: Record<Status, string> = {
+const STATUS_STYLE: Record<DisplayStatus, string> = {
   'Aberto':       'bg-zinc-100 text-zinc-600',
   'Em Andamento': 'bg-blue-50 text-blue-600',
   'Pausado':      'bg-amber-50 text-amber-600',
   'Finalizado':   'bg-green-50 text-green-600',
 }
 
-const TIER_STYLE: Record<Tier, string> = {
+const TIER_STYLE: Record<SlaLevel, string> = {
   N1: 'bg-zinc-100 text-zinc-600',
   N2: 'bg-amber-50 text-amber-600',
   N3: 'bg-red-50 text-red-600',
-}
-
-const AVATAR_COLOR: Record<string, string> = {
-  'Rafael Oliveira':    'bg-violet-100 text-violet-700',
-  'Lucas Ferreira':     'bg-blue-100 text-blue-700',
-  'Ana Beatriz Santos': 'bg-pink-100 text-pink-700',
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
@@ -166,11 +110,26 @@ export default function AllTicketsPage() {
   const navigate   = useNavigate()
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const { data: tickets = [], isLoading } = useAllTickets()
+  const { data: departments = [] } = useDepartments()
+
+  const deptMap = useMemo(() => Object.fromEntries(departments.map((d) => [d.id, d.name])), [departments])
+
+  // KPIs computed from real data
+  const kpi = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    return {
+      open:        tickets.filter((t) => t.status === 'OPEN').length,
+      inProgress:  tickets.filter((t) => t.status === 'IN_PROGRESS').length,
+      paused:      tickets.filter((t) => t.status === 'PAUSED').length,
+      closedToday: tickets.filter((t) => t.status === 'CLOSED' && t.openedAt.slice(0, 10) === today).length,
+    }
+  }, [tickets])
+
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
-  const [tech,   setTech]   = useState('')
   const [dept,   setDept]   = useState('')
-  const [tier,   setTier]   = useState('')
+  const [tier,   setTier]   = useState<SlaLevel | ''>('')
   const [period, setPeriod] = useState('mes')
   const [page,   setPage]   = useState(1)
   const [toast,  setToast]  = useState({ message: '', visible: false })
@@ -181,34 +140,42 @@ export default function AllTicketsPage() {
     toastTimer.current = setTimeout(() => setToast((t) => ({ ...t, visible: false })), 3000)
   }
 
-  const hasActiveFilter = search !== '' || status !== '' || tech !== '' || dept !== '' || tier !== ''
+  const hasActiveFilter = search !== '' || status !== '' || dept !== '' || tier !== ''
 
   function clearFilters() {
     setSearch('')
     setStatus('')
-    setTech('')
     setDept('')
     setTier('')
     setPage(1)
   }
 
   const filtered = useMemo(() => {
-    return MOCK_TICKETS.filter((t) => {
-      if (search && !t.title.toLowerCase().includes(search.toLowerCase()) && !String(t.id).includes(search)) return false
-      if (status && t.status !== status) return false
-      if (tech === '__none__') { if (t.tech !== null) return false }
-      else if (tech && t.tech !== tech) return false
-      if (dept && t.department !== dept) return false
-      if (tier && t.tier !== tier) return false
+    return tickets.filter((t) => {
+      const displayStatus = STATUS_MAP[t.status]
+      if (search && !t.title.toLowerCase().includes(search.toLowerCase()) && !t.id.includes(search)) return false
+      if (status && displayStatus !== status) return false
+      if (dept && t.departmentId !== dept) return false
+      if (tier && t.slaLevel !== tier) return false
       return true
     })
-  }, [search, status, tech, dept, tier])
+  }, [tickets, search, status, dept, tier])
 
   const totalPages  = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages)
   const pageItems   = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE)
   const rangeStart  = filtered.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1
   const rangeEnd    = Math.min(currentPage * PAGE_SIZE, filtered.length)
+
+  if (isLoading) {
+    return (
+      <div className="p-8 space-y-4">
+        {[...Array(8)].map((_, i) => (
+          <div key={i} className="h-12 bg-zinc-100 rounded-lg animate-pulse" />
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div className="p-8 space-y-6">
@@ -223,17 +190,12 @@ export default function AllTicketsPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard
           label="Em Aberto"
-          value={KPI.open}
+          value={kpi.open}
           icon={<Circle className="w-5 h-5 text-zinc-400" />}
-          extra={
-            <span className={cn('text-xs font-medium', KPI.openDelta > 0 ? 'text-red-500' : 'text-green-500')}>
-              {KPI.openDelta > 0 ? '+' : ''}{KPI.openDelta} vs ontem
-            </span>
-          }
         />
-        <KpiCard label="Em Andamento"    value={KPI.inProgress}  icon={<Clock        className="w-5 h-5 text-blue-400"  />} />
-        <KpiCard label="Pausados"         value={KPI.paused}      icon={<PauseCircle  className="w-5 h-5 text-amber-400" />} />
-        <KpiCard label="Finalizados hoje" value={KPI.closedToday} icon={<CheckCircle  className="w-5 h-5 text-green-500" />} />
+        <KpiCard label="Em Andamento"    value={kpi.inProgress}  icon={<Clock        className="w-5 h-5 text-blue-400"  />} />
+        <KpiCard label="Pausados"         value={kpi.paused}      icon={<PauseCircle  className="w-5 h-5 text-amber-400" />} />
+        <KpiCard label="Finalizados hoje" value={kpi.closedToday} icon={<CheckCircle  className="w-5 h-5 text-green-500" />} />
       </div>
 
       {/* Filter bar */}
@@ -254,16 +216,11 @@ export default function AllTicketsPage() {
           {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
         </FilterSelect>
 
-        <FilterSelect value={tech} onChange={(v) => { setTech(v); setPage(1) }} placeholder="Técnico">
-          <option value="__none__">Sem técnico</option>
-          {TECHS.map((t) => <option key={t} value={t}>{t}</option>)}
-        </FilterSelect>
-
         <FilterSelect value={dept} onChange={(v) => { setDept(v); setPage(1) }} placeholder="Departamento">
-          {DEPTS.map((d) => <option key={d} value={d}>{d}</option>)}
+          {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
         </FilterSelect>
 
-        <FilterSelect value={tier} onChange={(v) => { setTier(v); setPage(1) }} placeholder="Nível SLA">
+        <FilterSelect value={tier} onChange={(v) => { setTier(v as SlaLevel | ''); setPage(1) }} placeholder="Nível SLA">
           {(['N1', 'N2', 'N3'] as const).map((n) => <option key={n} value={n}>{n}</option>)}
         </FilterSelect>
 
@@ -300,7 +257,6 @@ export default function AllTicketsPage() {
             <tr className="border-b border-zinc-100 bg-zinc-50">
               <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 w-16">#</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500">Chamado</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500">Técnico</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500">Status</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500">Nível</th>
               <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500">Departamento</th>
@@ -312,7 +268,7 @@ export default function AllTicketsPage() {
           <tbody>
             {pageItems.length === 0 ? (
               <tr>
-                <td colSpan={8}>
+                <td colSpan={7}>
                   <div className="flex flex-col items-center justify-center py-16 gap-3 text-zinc-400">
                     <SearchX className="w-10 h-10" />
                     <p className="text-sm font-medium">Nenhum chamado encontrado</p>
@@ -323,63 +279,52 @@ export default function AllTicketsPage() {
                 </td>
               </tr>
             ) : (
-              pageItems.map((ticket) => (
-                <tr
-                  key={ticket.id}
-                  className={cn(
-                    'border-b border-zinc-100 last:border-0 hover:bg-zinc-50/60 transition-colors',
-                    ticket.tech === null && 'bg-yellow-50/40'
-                  )}
-                >
-                  <td className="px-4 py-3 font-mono text-xs text-zinc-400">#{ticket.id}</td>
-
-                  <td className="px-4 py-3 max-w-65">
-                    <p className="font-medium text-zinc-800 truncate">{ticket.title}</p>
-                    <p className="text-xs text-zinc-400 truncate mt-0.5">{ticket.description}</p>
-                  </td>
-
-                  <td className="px-4 py-3">
-                    {ticket.tech ? (
-                      <div className="flex items-center gap-2">
-                        <div className={cn(
-                          'w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0',
-                          AVATAR_COLOR[ticket.tech] ?? 'bg-zinc-100 text-zinc-600'
-                        )}>
-                          {initials(ticket.tech)}
-                        </div>
-                        <span className="text-xs text-zinc-700 whitespace-nowrap">{ticket.tech}</span>
-                      </div>
-                    ) : (
-                      <span className="text-xs text-zinc-400 italic">— Sem técnico</span>
+              pageItems.map((ticket) => {
+                const displayStatus = STATUS_MAP[ticket.status]
+                return (
+                  <tr
+                    key={ticket.id}
+                    className={cn(
+                      'border-b border-zinc-100 last:border-0 hover:bg-zinc-50/60 transition-colors',
+                      ticket.assigneeId === null && 'bg-yellow-50/40'
                     )}
-                  </td>
+                  >
+                    <td className="px-4 py-3 font-mono text-xs text-zinc-400">#{ticket.id.slice(0, 8)}</td>
 
-                  <td className="px-4 py-3">
-                    <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold', STATUS_STYLE[ticket.status])}>
-                      {ticket.status}
-                    </span>
-                  </td>
+                    <td className="px-4 py-3 max-w-65">
+                      <p className="font-medium text-zinc-800 truncate">{ticket.title}</p>
+                      {ticket.assigneeId === null && (
+                        <span className="text-xs text-zinc-400 italic">— Sem técnico</span>
+                      )}
+                    </td>
 
-                  <td className="px-4 py-3">
-                    <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold', TIER_STYLE[ticket.tier])}>
-                      {ticket.tier}
-                    </span>
-                  </td>
+                    <td className="px-4 py-3">
+                      <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold', STATUS_STYLE[displayStatus])}>
+                        {displayStatus}
+                      </span>
+                    </td>
 
-                  <td className="px-4 py-3 text-xs text-zinc-500">{ticket.department}</td>
+                    <td className="px-4 py-3">
+                      <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold', TIER_STYLE[ticket.slaLevel])}>
+                        {ticket.slaLevel}
+                      </span>
+                    </td>
 
-                  <td className="px-4 py-3 text-xs text-zinc-400 whitespace-nowrap">{formatRelative(ticket.openedAt)}</td>
+                    <td className="px-4 py-3 text-xs text-zinc-500">{deptMap[ticket.departmentId] ?? '—'}</td>
 
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={() => navigate(`/app/helpdesk/chamado-gestor/${ticket.id}`)}
-                      className="text-xs font-medium text-brand hover:text-brand-hover hover:underline"
-                    >
-                      Ver
-                    </button>
-                  </td>
-                </tr>
-              ))
+                    <td className="px-4 py-3 text-xs text-zinc-400 whitespace-nowrap">{formatRelativeTime(ticket.openedAt)}</td>
+
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => navigate(`/app/helpdesk/chamado-gestor/${ticket.id}`)}
+                        className="text-xs font-medium text-brand hover:text-brand-hover hover:underline"
+                      >
+                        Ver
+                      </button>
+                    </td>
+                  </tr>
+                )
+              })
             )}
           </tbody>
         </table>

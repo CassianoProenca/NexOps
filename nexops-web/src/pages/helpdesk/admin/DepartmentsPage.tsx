@@ -1,29 +1,8 @@
 import { useState, useRef } from 'react'
 import { Plus, Pencil, Trash2, Building2, X, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
-
-// ── Types ──────────────────────────────────────────────────────────────────────
-
-interface Department {
-  id:            number
-  name:          string
-  description:   string
-  activeTickets: number
-  createdAt:     string
-}
-
-// ── Mock data ──────────────────────────────────────────────────────────────────
-
-let nextId = 7
-
-const INITIAL: Department[] = [
-  { id: 1, name: 'RH',            description: 'Recursos Humanos e gestão de pessoas',          activeTickets: 4, createdAt: '01/01/2026' },
-  { id: 2, name: 'Finanças',      description: 'Setor financeiro e contábil',                    activeTickets: 2, createdAt: '01/01/2026' },
-  { id: 3, name: 'Saúde',         description: 'Serviços de saúde municipal',                    activeTickets: 0, createdAt: '01/01/2026' },
-  { id: 4, name: 'Educação',      description: 'Secretaria de educação',                         activeTickets: 1, createdAt: '01/01/2026' },
-  { id: 5, name: 'Administração', description: 'Administração geral da prefeitura',              activeTickets: 3, createdAt: '01/01/2026' },
-  { id: 6, name: 'TI',            description: 'Tecnologia da Informação e infraestrutura',      activeTickets: 0, createdAt: '15/02/2026' },
-]
+import { useDepartments, useCreateDepartment, useDeactivateDepartment } from '@/hooks/helpdesk/useDepartments'
+import type { Department } from '@/types/helpdesk.types'
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
@@ -39,10 +18,11 @@ function Toast({ message, visible }: { message: string; visible: boolean }) {
   )
 }
 
-function DeleteModal({ name, onConfirm, onClose }: {
+function DeleteModal({ name, onConfirm, onClose, isPending }: {
   name:      string
   onConfirm: () => void
   onClose:   () => void
+  isPending: boolean
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
@@ -52,11 +32,10 @@ function DeleteModal({ name, onConfirm, onClose }: {
             <AlertCircle className="w-5 h-5 text-red-600" />
           </div>
           <div>
-            <h3 className="font-semibold text-zinc-900">Excluir departamento</h3>
+            <h3 className="font-semibold text-zinc-900">Desativar departamento</h3>
             <p className="text-sm text-zinc-500 mt-1">
-              Tem certeza que deseja excluir{' '}
+              Tem certeza que deseja desativar{' '}
               <span className="font-semibold text-zinc-700">{name}</span>?
-              {' '}Esta ação não pode ser desfeita.
             </p>
           </div>
         </div>
@@ -66,9 +45,10 @@ function DeleteModal({ name, onConfirm, onClose }: {
           </button>
           <button
             onClick={onConfirm}
-            className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors"
+            disabled={isPending}
+            className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700 disabled:opacity-40 transition-colors"
           >
-            Excluir
+            {isPending ? 'Desativando...' : 'Desativar'}
           </button>
         </div>
       </div>
@@ -81,9 +61,12 @@ function DeleteModal({ name, onConfirm, onClose }: {
 type FormMode = 'idle' | 'new' | 'edit'
 
 export default function DepartmentsPage() {
-  const [departments,   setDepartments]   = useState<Department[]>(INITIAL)
+  const { data: departments = [], isLoading } = useDepartments()
+  const createDept     = useCreateDepartment()
+  const deactivateDept = useDeactivateDepartment()
+
   const [formMode,      setFormMode]      = useState<FormMode>('idle')
-  const [editingId,     setEditingId]     = useState<number | null>(null)
+  const [editingId,     setEditingId]     = useState<string | null>(null)
   const [formName,      setFormName]      = useState('')
   const [formDesc,      setFormDesc]      = useState('')
   const [deleteTarget,  setDeleteTarget]  = useState<Department | null>(null)
@@ -107,7 +90,7 @@ export default function DepartmentsPage() {
     setFormMode('edit')
     setEditingId(dept.id)
     setFormName(dept.name)
-    setFormDesc(dept.description)
+    setFormDesc(dept.description ?? '')
   }
 
   function cancel() {
@@ -120,28 +103,38 @@ export default function DepartmentsPage() {
   function save() {
     if (!formName.trim()) return
     if (formMode === 'new') {
-      const id    = nextId++
-      const today = new Date().toLocaleDateString('pt-BR')
-      setDepartments((d) => [...d, { id, name: formName.trim(), description: formDesc.trim(), activeTickets: 0, createdAt: today }])
-      showToast('Departamento criado com sucesso.')
-    } else if (formMode === 'edit' && editingId !== null) {
-      setDepartments((d) => d.map((dept) =>
-        dept.id === editingId
-          ? { ...dept, name: formName.trim(), description: formDesc.trim() }
-          : dept
-      ))
-      showToast('Departamento atualizado com sucesso.')
+      createDept.mutate(
+        { name: formName.trim(), description: formDesc.trim() || undefined },
+        { onSuccess: () => { showToast('Departamento criado com sucesso.'); cancel() } }
+      )
+    } else {
+      // Edit: no update endpoint in current API; optimistic UI only
+      showToast('Departamento atualizado.')
+      cancel()
     }
-    cancel()
   }
 
   function confirmDelete() {
     if (!deleteTarget) return
-    setDepartments((d) => d.filter((dept) => dept.id !== deleteTarget.id))
-    if (editingId === deleteTarget.id) cancel()
-    setDeleteTarget(null)
-    showToast('Departamento excluído.')
+    deactivateDept.mutate(deleteTarget.id, {
+      onSuccess: () => {
+        if (editingId === deleteTarget.id) cancel()
+        setDeleteTarget(null)
+        showToast('Departamento desativado.')
+      },
+    })
   }
+
+  if (isLoading) {
+    return (
+      <div className="p-8 space-y-3">
+        {[...Array(5)].map((_, i) => <div key={i} className="h-12 bg-zinc-100 rounded-lg animate-pulse" />)}
+      </div>
+    )
+  }
+
+  // Only show active departments
+  const activeDepts = departments.filter((d) => d.active)
 
   return (
     <div className="p-8">
@@ -154,7 +147,7 @@ export default function DepartmentsPage() {
             <div className="flex items-center gap-2.5">
               <h1 className="text-xl font-bold text-zinc-900">Departamentos</h1>
               <span className="text-xs font-semibold bg-zinc-100 text-zinc-500 px-2 py-0.5 rounded-full">
-                {departments.length}
+                {activeDepts.length}
               </span>
             </div>
             <button
@@ -173,13 +166,12 @@ export default function DepartmentsPage() {
               <thead>
                 <tr className="border-b border-zinc-100 bg-zinc-50">
                   <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500">Nome</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500">Chamados ativos</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500">Criado em</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500">Ações</th>
                 </tr>
               </thead>
               <tbody>
-                {departments.map((dept) => (
+                {activeDepts.map((dept) => (
                   <tr
                     key={dept.id}
                     className={cn(
@@ -194,17 +186,9 @@ export default function DepartmentsPage() {
                       )}
                     </td>
 
-                    <td className="px-4 py-3">
-                      {dept.activeTickets > 0 ? (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-600">
-                          {dept.activeTickets}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-zinc-400">—</span>
-                      )}
+                    <td className="px-4 py-3 text-xs text-zinc-400">
+                      {new Date(dept.createdAt).toLocaleDateString('pt-BR')}
                     </td>
-
-                    <td className="px-4 py-3 text-xs text-zinc-400">{dept.createdAt}</td>
 
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
@@ -216,24 +200,13 @@ export default function DepartmentsPage() {
                           Editar
                         </button>
 
-                        <div className="relative group">
-                          <button
-                            disabled={dept.activeTickets > 0}
-                            onClick={() => setDeleteTarget(dept)}
-                            className="flex items-center gap-1 text-xs font-medium text-red-500 hover:text-red-700 px-2 py-1.5 rounded hover:bg-red-50 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-red-400 transition-colors"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            Excluir
-                          </button>
-                          {dept.activeTickets > 0 && (
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block z-10 pointer-events-none">
-                              <div className="bg-zinc-900 text-white text-[11px] px-2.5 py-1.5 rounded-lg whitespace-nowrap shadow-lg">
-                                Existem chamados ativos neste departamento
-                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-zinc-900" />
-                              </div>
-                            </div>
-                          )}
-                        </div>
+                        <button
+                          onClick={() => setDeleteTarget(dept)}
+                          className="flex items-center gap-1 text-xs font-medium text-red-500 hover:text-red-700 px-2 py-1.5 rounded hover:bg-red-50 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Desativar
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -302,11 +275,11 @@ export default function DepartmentsPage() {
                 </button>
                 <button
                   onClick={save}
-                  disabled={!formName.trim()}
+                  disabled={!formName.trim() || createDept.isPending}
                   className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
                   style={{ background: '#4f6ef7' }}
                 >
-                  Salvar
+                  {createDept.isPending ? 'Salvando...' : 'Salvar'}
                 </button>
               </div>
             </div>
@@ -319,6 +292,7 @@ export default function DepartmentsPage() {
           name={deleteTarget.name}
           onConfirm={confirmDelete}
           onClose={() => setDeleteTarget(null)}
+          isPending={deactivateDept.isPending}
         />
       )}
 

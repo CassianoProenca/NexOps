@@ -39,6 +39,10 @@ import TechnicianSLADetailPage    from '@/pages/governance/TechnicianSLADetailPa
 import SLAConfigPage              from '@/pages/governance/SLAConfigPage'
 import SLANotificationsPage       from '@/pages/governance/SLANotificationsPage'
 
+// Pages — inventário
+import AssetsPage  from '@/pages/inventory/AssetsPage'
+import StockPage   from '@/pages/inventory/StockPage'
+
 // Pages — administração
 import UsersPage            from '@/pages/admin/UsersPage'
 import ProfilesPage         from '@/pages/admin/ProfilesPage'
@@ -249,7 +253,23 @@ export default function App() {
 
             {/* ── Inventário ── */}
             {/* [ROLE: MANAGER, ADMIN] */}
-            <Route path="inventory"               element={<NotFound />} />
+            <Route path="inventory"               element={<Navigate to="inventory/assets" replace />} />
+            <Route
+              path="inventory/assets"
+              element={
+                <ProtectedRoute permission="DEPT_MANAGE">
+                  <AssetsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="inventory/stock"
+              element={
+                <ProtectedRoute permission="DEPT_MANAGE">
+                  <StockPage />
+                </ProtectedRoute>
+              }
+            />
 
             {/* ── Governança ── */}
             {/* [ROLE: MANAGER, ADMIN] */}
