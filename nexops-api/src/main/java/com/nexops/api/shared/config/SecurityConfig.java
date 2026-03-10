@@ -39,7 +39,8 @@ public class SecurityConfig {
                     "/swagger-ui.html",
                     "/actuator/health",
                     "/api/v1/auth/**",
-                    "/api/v1/tenants/**" // TODO: restrict to super-admin IP via Nginx in production
+                    "/api/v1/tenants/**", // TODO: restrict to super-admin IP via Nginx in production
+                    "/ws/**"
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/departments/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/problem-types/**").permitAll()
