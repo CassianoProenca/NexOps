@@ -515,7 +515,6 @@ function ProfileCard({ profile, onView, onEdit, onDelete }: ProfileCardProps) {
 export default function ProfilesPage() {
   const [customProfiles, setCustomProfiles] = useState<Profile[]>(INITIAL_CUSTOM_PROFILES)
   const [viewProfile, setViewProfile]       = useState<Profile | null>(null)
-  const [editProfile, setEditProfile]       = useState<Profile | null | 'new'>('new' as const | null)
   const [deleteProfile, setDeleteProfile]   = useState<Profile | null>(null)
   const [toast, setToast]                   = useState({ message: '', visible: false })
   const toastTimer                          = useRef<ReturnType<typeof setTimeout> | null>(null)

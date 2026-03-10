@@ -12,8 +12,10 @@ import {
   FieldError,
   PrimaryButton,
 } from '@/components/layout/AuthLeftPanel'
+import { useAuth } from '@/hooks/auth/useAuth'
 
 const schema = z.object({
+  tenantSlug: z.string().min(1, 'Identificador da organização obrigatório'),
   email: z.string().min(1, 'E-mail obrigatório').email('Formato de e-mail inválido'),
   password: z.string().min(6, 'Mínimo de 6 caracteres'),
   rememberMe: z.boolean().optional(),
@@ -24,24 +26,27 @@ type FormData = z.infer<typeof schema>
 export default function LoginPage() {
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const { login, isLoggingIn } = useAuth()
 
   const {
     register,
     handleSubmit,
     formState: { errors },
+    setError,
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { rememberMe: false },
   })
 
   function onSubmit(data: FormData) {
-    setIsLoading(true)
-    setTimeout(() => {
-      console.log('Login:', data)
-      setIsLoading(false)
-      navigate('/app')
-    }, 1500)
+    login(
+      { email: data.email, password: data.password, tenantSlug: data.tenantSlug },
+      {
+        onError: () => {
+          setError('password', { message: 'Credenciais inválidas. Verifique e tente novamente.' })
+        },
+      },
+    )
   }
 
   return (
@@ -72,6 +77,21 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
+            {/* Organização */}
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium" style={{ color: AUTH.TEXT_PRIMARY }}>
+                Organização
+              </label>
+              <FieldInput
+                type="text"
+                placeholder="prefeitura-votorantim"
+                autoComplete="organization"
+                hasError={!!errors.tenantSlug}
+                {...register('tenantSlug')}
+              />
+              <FieldError message={errors.tenantSlug?.message} />
+            </div>
+
             {/* E-mail */}
             <div className="space-y-1.5">
               <label className="block text-sm font-medium" style={{ color: AUTH.TEXT_PRIMARY }}>
@@ -163,7 +183,7 @@ export default function LoginPage() {
               </label>
             </div>
 
-            <PrimaryButton isLoading={isLoading} label="Entrar" loadingLabel="Entrando..." />
+            <PrimaryButton isLoading={isLoggingIn} label="Entrar" loadingLabel="Entrando..." />
           </form>
 
           <p className="mt-6 text-center text-xs" style={{ color: AUTH.TEXT_MUTED }}>

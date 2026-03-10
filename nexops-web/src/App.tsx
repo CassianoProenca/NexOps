@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { Layout } from '@/components/shared/Layout'
+import { ProtectedRoute } from '@/components/shared/ProtectedRoute'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Ticket, Package, ShieldCheck, TrendingUp, Clock } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -48,9 +49,11 @@ import AISettingsPage       from '@/pages/admin/AISettingsPage'
 /* ── AppShell: injeta o Layout nas rotas autenticadas ── */
 function AppShell() {
   return (
-    <Layout>
-      <Outlet />
-    </Layout>
+    <ProtectedRoute>
+      <Layout>
+        <Outlet />
+      </Layout>
+    </ProtectedRoute>
   )
 }
 
@@ -211,10 +214,38 @@ export default function App() {
             <Route path="helpdesk/fila"           element={<TicketQueuePage />} />
 
             {/* [ROLE: MANAGER, ADMIN] */}
-            <Route path="helpdesk/todos"                    element={<AllTicketsPage />} />
-            <Route path="helpdesk/chamado-gestor/:id"       element={<TicketDetailManagerPage />} />
-            <Route path="helpdesk/departamentos"           element={<DepartmentsPage />} />
-            <Route path="helpdesk/tipos-de-problema"       element={<ProblemTypesPage />} />
+            <Route
+              path="helpdesk/todos"
+              element={
+                <ProtectedRoute permission="TICKET_VIEW_ALL">
+                  <AllTicketsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="helpdesk/chamado-gestor/:id"
+              element={
+                <ProtectedRoute permission="TICKET_VIEW_ALL">
+                  <TicketDetailManagerPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="helpdesk/departamentos"
+              element={
+                <ProtectedRoute permission="DEPT_MANAGE">
+                  <DepartmentsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="helpdesk/tipos-de-problema"
+              element={
+                <ProtectedRoute permission="DEPT_MANAGE">
+                  <ProblemTypesPage />
+                </ProtectedRoute>
+              }
+            />
 
             {/* ── Inventário ── */}
             {/* [ROLE: MANAGER, ADMIN] */}
@@ -222,20 +253,83 @@ export default function App() {
 
             {/* ── Governança ── */}
             {/* [ROLE: MANAGER, ADMIN] */}
-            <Route path="governance"                    element={<GovernanceDashboardPage />} />
-            <Route path="governance/tecnico/:id"        element={<TechnicianSLADetailPage />} />
+            <Route
+              path="governance"
+              element={
+                <ProtectedRoute permission="REPORT_VIEW_ALL">
+                  <GovernanceDashboardPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="governance/tecnico/:id"
+              element={
+                <ProtectedRoute permission="REPORT_VIEW_ALL">
+                  <TechnicianSLADetailPage />
+                </ProtectedRoute>
+              }
+            />
             {/* [ROLE: MANAGER, ADMIN] */}
-            <Route path="governance/notificacoes"       element={<SLANotificationsPage />} />
+            <Route
+              path="governance/notificacoes"
+              element={
+                <ProtectedRoute permission="REPORT_VIEW_ALL">
+                  <SLANotificationsPage />
+                </ProtectedRoute>
+              }
+            />
             {/* [ROLE: ADMIN] */}
-            <Route path="governance/configuracao"       element={<SLAConfigPage />} />
+            <Route
+              path="governance/configuracao"
+              element={
+                <ProtectedRoute permission="SLA_CONFIG">
+                  <SLAConfigPage />
+                </ProtectedRoute>
+              }
+            />
 
             {/* ── Administração ── */}
             {/* [ROLE: ADMIN] */}
-            <Route path="admin/usuarios"          element={<UsersPage />} />
-            <Route path="admin/perfis"            element={<ProfilesPage />} />
-            <Route path="admin/configuracoes"     element={<TenantSettingsPage />} />
-            <Route path="admin/smtp"              element={<SmtpPage />} />
-            <Route path="admin/ia"                element={<AISettingsPage />} />
+            <Route
+              path="admin/usuarios"
+              element={
+                <ProtectedRoute permission="TICKET_VIEW_ALL">
+                  <UsersPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="admin/perfis"
+              element={
+                <ProtectedRoute permission="TICKET_VIEW_ALL">
+                  <ProfilesPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="admin/configuracoes"
+              element={
+                <ProtectedRoute permission="TICKET_VIEW_ALL">
+                  <TenantSettingsPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="admin/smtp"
+              element={
+                <ProtectedRoute permission="TICKET_VIEW_ALL">
+                  <SmtpPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="admin/ia"
+              element={
+                <ProtectedRoute permission="TICKET_VIEW_ALL">
+                  <AISettingsPage />
+                </ProtectedRoute>
+              }
+            />
 
             {/* Fallback interno */}
             <Route path="*"                       element={<NotFound />} />

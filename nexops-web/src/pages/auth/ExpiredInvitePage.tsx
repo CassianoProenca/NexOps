@@ -5,7 +5,6 @@ import { cn } from '@/lib/utils'
 
 const BRAND = '#4f6ef7'
 const BRAND_HOVER = '#3d5ce8'
-const BRAND_SUBTLE = '#eef0fe'
 
 // ── Toast ──────────────────────────────────────────────────────────────────────
 

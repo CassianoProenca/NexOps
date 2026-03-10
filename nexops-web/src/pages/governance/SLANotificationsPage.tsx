@@ -116,7 +116,6 @@ export default function SLANotificationsPage() {
 
   const todayBreaches  = ALL_NOTIFICATIONS.filter((n) => n.type === 'breach'   && n.timestamp.startsWith('Hoje')).length
   const activeBreaches = ALL_NOTIFICATIONS.filter((n) => n.type === 'breach').length
-  const resolvedMonth  = ALL_NOTIFICATIONS.filter((n) => n.type === 'resolved').length
 
   return (
     <div className="p-8 space-y-6">
