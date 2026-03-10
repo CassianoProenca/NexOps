@@ -3,8 +3,9 @@ package com.nexops.api.helpdesk.domain.service;
 import com.nexops.api.helpdesk.domain.model.*;
 import com.nexops.api.helpdesk.domain.ports.in.*;
 import com.nexops.api.helpdesk.domain.ports.out.*;
+import com.nexops.api.helpdesk.infrastructure.web.QueuePanelService;
 import com.nexops.api.shared.exception.BusinessException;
-import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,7 +13,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
 public class TicketService implements 
     CreateTicketUseCase, AttendNextUseCase, AssignTicketUseCase,
     PauseTicketUseCase, ResumeTicketUseCase, CloseTicketUseCase,
@@ -21,6 +21,18 @@ public class TicketService implements
     private final TicketRepository ticketRepository;
     private final ProblemTypeRepository problemTypeRepository;
     private final TicketCommentRepository commentRepository;
+    private final QueuePanelService queuePanelService;
+
+    public TicketService(
+            TicketRepository ticketRepository,
+            ProblemTypeRepository problemTypeRepository,
+            TicketCommentRepository commentRepository,
+            @Lazy QueuePanelService queuePanelService) {
+        this.ticketRepository = ticketRepository;
+        this.problemTypeRepository = problemTypeRepository;
+        this.commentRepository = commentRepository;
+        this.queuePanelService = queuePanelService;
+    }
 
     @Override
     @Transactional
@@ -29,7 +41,9 @@ public class TicketService implements
                 .orElseThrow(() -> new BusinessException("Tipo de problema não encontrado"));
         
         Ticket ticket = Ticket.open(title, description, departmentId, problemTypeId, requesterId, problemType.getSlaLevel());
-        return ticketRepository.save(ticket);
+        Ticket saved = ticketRepository.save(ticket);
+        queuePanelService.pushQueueUpdate();
+        return saved;
     }
 
     @Override
@@ -48,6 +62,8 @@ public class TicketService implements
         ticketRepository.save(ticket);
         commentRepository.save(comment);
         
+        queuePanelService.pushQueueUpdate();
+        
         return Optional.of(ticket);
     }
 
@@ -61,7 +77,9 @@ public class TicketService implements
         TicketComment comment = TicketComment.systemEvent(ticketId, technicianId, "Chamado atribuído", CommentType.ASSIGNMENT);
         
         commentRepository.save(comment);
-        return ticketRepository.save(ticket);
+        Ticket saved = ticketRepository.save(ticket);
+        queuePanelService.pushQueueUpdate();
+        return saved;
     }
 
     @Override
@@ -74,7 +92,9 @@ public class TicketService implements
         TicketComment comment = TicketComment.systemEvent(ticketId, UUID.randomUUID(), "Chamado pausado: " + reason, CommentType.PAUSE);
         
         commentRepository.save(comment);
-        return ticketRepository.save(ticket);
+        Ticket saved = ticketRepository.save(ticket);
+        queuePanelService.pushQueueUpdate();
+        return saved;
     }
 
     @Override
@@ -87,7 +107,9 @@ public class TicketService implements
         TicketComment comment = TicketComment.systemEvent(ticketId, UUID.randomUUID(), "Chamado retomado", CommentType.STATUS_CHANGE);
         
         commentRepository.save(comment);
-        return ticketRepository.save(ticket);
+        Ticket saved = ticketRepository.save(ticket);
+        queuePanelService.pushQueueUpdate();
+        return saved;
     }
 
     @Override
@@ -106,7 +128,9 @@ public class TicketService implements
         TicketComment comment = TicketComment.systemEvent(ticketId, UUID.randomUUID(), "Chamado finalizado", CommentType.STATUS_CHANGE);
         
         commentRepository.save(comment);
-        return ticketRepository.save(ticket);
+        Ticket saved = ticketRepository.save(ticket);
+        queuePanelService.pushQueueUpdate();
+        return saved;
     }
 
     @Override
@@ -123,6 +147,8 @@ public class TicketService implements
         
         TicketComment comment = TicketComment.systemEvent(parentTicketId, requesterId, "Chamado filho criado: " + savedChild.getId(), CommentType.SYSTEM);
         commentRepository.save(comment);
+        
+        queuePanelService.pushQueueUpdate();
         
         return savedChild;
     }
