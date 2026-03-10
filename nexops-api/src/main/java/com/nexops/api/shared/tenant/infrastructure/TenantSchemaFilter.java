@@ -1,6 +1,7 @@
 package com.nexops.api.shared.tenant.infrastructure;
 
 import com.nexops.api.shared.tenant.TenantContext;
+import com.nexops.api.shared.tenant.domain.ports.out.TenantRepository;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -17,9 +18,11 @@ import java.io.IOException;
 public class TenantSchemaFilter extends OncePerRequestFilter {
 
     private final JdbcTemplate jdbcTemplate;
+    private final TenantRepository tenantRepository;
 
-    public TenantSchemaFilter(JdbcTemplate jdbcTemplate) {
+    public TenantSchemaFilter(JdbcTemplate jdbcTemplate, TenantRepository tenantRepository) {
         this.jdbcTemplate = jdbcTemplate;
+        this.tenantRepository = tenantRepository;
     }
 
     @Override
@@ -27,10 +30,23 @@ public class TenantSchemaFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain chain)
             throws ServletException, IOException {
-        String schema = TenantContext.getSchema();
-        if (schema != null && !schema.isBlank()) {
-            jdbcTemplate.execute("SET search_path TO " + schema + ", public");
+        
+        String tenantSlug = request.getHeader("X-Tenant-ID");
+        
+        if (tenantSlug != null && !tenantSlug.isBlank()) {
+            TenantContext.setSlug(tenantSlug);
+            
+            tenantRepository.findBySlug(tenantSlug).ifPresent(tenant -> {
+                String schema = tenant.getSchemaName();
+                TenantContext.setSchema(schema);
+                jdbcTemplate.execute("SET search_path TO " + schema + ", public");
+            });
         }
-        chain.doFilter(request, response);
+        
+        try {
+            chain.doFilter(request, response);
+        } finally {
+            TenantContext.clear();
+        }
     }
 }

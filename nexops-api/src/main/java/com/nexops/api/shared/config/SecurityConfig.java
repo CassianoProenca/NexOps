@@ -3,6 +3,7 @@ package com.nexops.api.shared.config;
 import com.nexops.api.shared.security.JwtAuthFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -37,8 +38,11 @@ public class SecurityConfig {
                     "/swagger-ui/**",
                     "/swagger-ui.html",
                     "/actuator/health",
-                    "/api/v1/auth/**"
+                    "/api/v1/auth/**",
+                    "/api/v1/tenants/**" // TODO: restrict to super-admin IP via Nginx in production
                 ).permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/departments/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/problem-types/**").permitAll()
                 .anyRequest().authenticated()
             )
             .exceptionHandling(ex -> ex
