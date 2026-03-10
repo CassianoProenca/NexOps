@@ -23,9 +23,6 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration/public
-    baseline-on-migrate: true
-    baseline-version: 0
-    default-schema: public
 
   data:
     redis:
@@ -65,14 +62,14 @@ nexops:
     expiration-ms: ${JWT_EXPIRATION_MS:900000}
     refresh-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
   swagger:
-    enabled: ${SWAGGER_ENABLED:true}
+    enabled: ${SWAGGER_ENABLED:false}
 
 springdoc:
+  api-docs:
+    path: /v1/api-docs
+    enabled: ${nexops.swagger.enabled}
   swagger-ui:
     path: /swagger-ui.html
-    enabled: ${nexops.swagger.enabled}
-  api-docs:
-    path: /v3/api-docs
     enabled: ${nexops.swagger.enabled}
 
 management:
