@@ -27,4 +27,18 @@ export const authService = {
 
   logout: (data: RefreshRequest): Promise<void> =>
     api.post('/v1/auth/logout', data).then(() => undefined),
+
+  // ─── Roles ─────────────────────────────────────────────────────────────────
+
+  getRoles: (): Promise<Role[]> =>
+    api.get('/v1/roles').then((r) => r.data),
+
+  createRole: (data: Partial<Role>): Promise<Role> =>
+    api.post('/v1/roles', data).then((r) => r.data),
+
+  updateRole: (id: string, data: Partial<Role>): Promise<Role> =>
+    api.put(`/v1/roles/${id}`, data).then((r) => r.data),
+
+  deleteRole: (id: string): Promise<void> =>
+    api.delete(`/v1/roles/${id}`).then(() => undefined),
 }

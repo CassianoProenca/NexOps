@@ -28,6 +28,18 @@ public class IamMapper {
                 e.isSystemRole(), e.getCreatedAt(), perms);
     }
 
+    public static RoleJpaEntity toEntity(Role r) {
+        var perms = r.getPermissions().stream()
+                .map(IamMapper::toEntity)
+                .collect(Collectors.toSet());
+        return RoleJpaEntity.builder()
+                .id(r.getId()).tenantId(r.getTenantId()).name(r.getName())
+                .description(r.getDescription()).systemRole(r.isSystem())
+                .createdAt(r.getCreatedAt())
+                .permissions(perms)
+                .build();
+    }
+
     public static User toDomain(UserJpaEntity e) {
         var roles = e.getRoles().stream()
                 .map(IamMapper::toDomain)

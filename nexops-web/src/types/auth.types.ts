@@ -1,3 +1,64 @@
+// ─── Permissions ──────────────────────────────────────────────────────────────
+
+export type PermissionCode =
+  | 'TICKET_CREATE'
+  | 'TICKET_MANAGE'
+  | 'TICKET_VIEW_ALL'
+  | 'REPORT_VIEW_ALL'
+  | 'SLA_CONFIG'
+  | 'USER_MANAGE'
+  | 'ROLE_MANAGE'
+  | 'DEPT_MANAGE'
+  | 'ASSET_MANAGE'
+
+export interface PermissionGroup {
+  group: string
+  perms: { key: PermissionCode; label: string }[]
+}
+
+export const APP_PERMISSIONS: PermissionGroup[] = [
+  {
+    group: 'Helpdesk',
+    perms: [
+      { key: 'TICKET_CREATE',   label: 'Criar chamados' },
+      { key: 'TICKET_VIEW_ALL', label: 'Visualizar todos os chamados' },
+      { key: 'TICKET_MANAGE',   label: 'Gerenciar/Atender chamados' },
+    ],
+  },
+  {
+    group: 'Inventário',
+    perms: [
+      { key: 'ASSET_MANAGE',    label: 'Gerenciar ativos e estoque' },
+    ],
+  },
+  {
+    group: 'Governança',
+    perms: [
+      { key: 'REPORT_VIEW_ALL', label: 'Visualizar relatórios e dashboards' },
+      { key: 'SLA_CONFIG',      label: 'Configurar níveis de serviço (SLA)' },
+    ],
+  },
+  {
+    group: 'Administração',
+    perms: [
+      { key: 'USER_MANAGE',     label: 'Gerenciar usuários e convites' },
+      { key: 'ROLE_MANAGE',     label: 'Gerenciar perfis de acesso' },
+      { key: 'DEPT_MANAGE',     label: 'Gerenciar departamentos' },
+    ],
+  },
+]
+
+// ─── Roles / Profiles ────────────────────────────────────────────────────────
+
+export type Role = {
+  id: string
+  name: string
+  description: string
+  permissions: PermissionCode[]
+  builtIn: boolean
+  userCount: number
+}
+
 // ─── Requests ────────────────────────────────────────────────────────────────
 
 export interface LoginRequest {
@@ -15,6 +76,7 @@ export interface RegisterRequest {
 
 export interface InviteRequest {
   email: string
+  roleId: string // Adicionado roleId para o convite
 }
 
 export interface FirstAccessRequest {

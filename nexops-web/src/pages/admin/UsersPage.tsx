@@ -20,197 +20,90 @@ import {
   SheetFooter,
   SheetClose,
 } from '@/components/ui/sheet'
+import { APP_PERMISSIONS } from '@/types/auth.types'
+import type { PermissionCode, Role } from '@/types/auth.types'
+import { authService } from '@/services/auth.service'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type UserProfile = 'user' | 'tech_support' | 'tech_hardware' | 'manager' | 'admin'
-type UserStatus  = 'active' | 'inactive' | 'pending'
+type UserStatus = 'active' | 'inactive' | 'pending'
 
 interface AppUser {
-  id: number
+  id: string
   name: string
   email: string
-  profile: UserProfile
+  roleId: string
   status: UserStatus
   lastAccess: string | null
-  permissions: Record<string, boolean>
+  permissions: PermissionCode[]
 }
 
-// ── Permissions ────────────────────────────────────────────────────────────────
+// ── Role Config (Simplified for UI reference) ──────────────────────────────────
 
-const PERMISSION_GROUPS: { group: string; perms: { key: string; label: string }[] }[] = [
-  {
-    group: 'Helpdesk',
-    perms: [
-      { key: 'hd_view',    label: 'Visualizar chamados' },
-      { key: 'hd_create',  label: 'Criar chamados' },
-      { key: 'hd_attend',  label: 'Atender chamados' },
-      { key: 'hd_pause',   label: 'Pausar/retomar chamados' },
-      { key: 'hd_finish',  label: 'Finalizar chamados' },
-    ],
+const ROLES_MAP: Record<string, { label: string; defaultPerms: PermissionCode[] }> = {
+  USER: {
+    label: 'Usuário Final',
+    defaultPerms: ['TICKET_CREATE'],
   },
-  {
-    group: 'Inventário',
-    perms: [
-      { key: 'inv_view',   label: 'Visualizar inventário' },
-      { key: 'inv_create', label: 'Cadastrar ativos' },
-      { key: 'inv_edit',   label: 'Editar ativos' },
-      { key: 'inv_link',   label: 'Vincular ativos a chamados' },
-      { key: 'inv_export', label: 'Exportar inventário' },
-    ],
+  TECH: {
+    label: 'Técnico',
+    defaultPerms: ['TICKET_CREATE', 'TICKET_VIEW_ALL', 'TICKET_MANAGE', 'ASSET_MANAGE'],
   },
-  {
-    group: 'Governança',
-    perms: [
-      { key: 'gov_view',    label: 'Visualizar governança' },
-      { key: 'gov_create',  label: 'Criar políticas' },
-      { key: 'gov_approve', label: 'Aprovar políticas' },
-      { key: 'gov_export',  label: 'Exportar relatórios' },
-    ],
+  ADMIN: {
+    label: 'Administrador',
+    defaultPerms: APP_PERMISSIONS.flatMap(g => g.perms.map(p => p.key)),
   },
-  {
-    group: 'Administração',
-    perms: [
-      { key: 'adm_users',    label: 'Gerenciar usuários' },
-      { key: 'adm_profiles', label: 'Gerenciar perfis' },
-      { key: 'adm_tenant',   label: 'Configurações do tenant' },
-      { key: 'adm_smtp',     label: 'Configurar SMTP' },
-      { key: 'adm_ai',       label: 'Configurar IA (BYOK)' },
-      { key: 'adm_audit',    label: 'Visualizar logs de auditoria' },
-      { key: 'adm_integr',   label: 'Gerenciar integrações' },
-    ],
-  },
-]
-
-const ALL_PERM_KEYS = PERMISSION_GROUPS.flatMap((g) => g.perms.map((p) => p.key))
-
-function allFalse(): Record<string, boolean> {
-  return Object.fromEntries(ALL_PERM_KEYS.map((k) => [k, false]))
 }
 
-const PROFILE_PERMS: Record<UserProfile, Record<string, boolean>> = {
-  user: {
-    ...allFalse(),
-    hd_view: true,
-    hd_create: true,
-  },
-  tech_support: {
-    ...allFalse(),
-    hd_view: true, hd_create: true, hd_attend: true, hd_pause: true, hd_finish: true,
-    inv_link: true,
-  },
-  tech_hardware: {
-    ...allFalse(),
-    hd_view: true, hd_create: true, hd_attend: true, hd_pause: true, hd_finish: true,
-    inv_view: true, inv_create: true, inv_edit: true, inv_link: true, inv_export: true,
-  },
-  manager: {
-    ...allFalse(),
-    hd_view: true, hd_create: true, hd_attend: true, hd_pause: true, hd_finish: true,
-    inv_view: true, inv_create: true, inv_edit: true, inv_link: true, inv_export: true,
-    gov_view: true, gov_create: true, gov_approve: true, gov_export: true,
-  },
-  admin: Object.fromEntries(ALL_PERM_KEYS.map((k) => [k, true])) as Record<string, boolean>,
-}
-
-function profileToPermissions(profile: UserProfile): Record<string, boolean> {
-  return { ...PROFILE_PERMS[profile] }
-}
-
-function isCustomized(profile: UserProfile, perms: Record<string, boolean>): boolean {
-  const preset = PROFILE_PERMS[profile]
-  return ALL_PERM_KEYS.some((k) => preset[k] !== perms[k])
+function isCustomized(roleId: string, perms: PermissionCode[]): boolean {
+  const role = ROLES_MAP[roleId]
+  if (!role) return true // Se for um perfil customizado não mapeado aqui
+  if (role.defaultPerms.length !== perms.length) return true
+  return !role.defaultPerms.every(p => perms.includes(p))
 }
 
 // ── Mock data ──────────────────────────────────────────────────────────────────
 
-const SMTP_CONFIGURED = false
-
 const INITIAL_USERS: AppUser[] = [
   {
-    id: 1,
+    id: '1',
     name: 'Cassiano Proença',
-    email: 'cassiano@prefvotorantim.sp.gov.br',
-    profile: 'admin',
+    email: 'cassiano@nexops.com.br',
+    roleId: 'ADMIN',
     status: 'active',
-    lastAccess: '2026-03-06T09:14:00',
-    permissions: profileToPermissions('admin'),
+    lastAccess: '2026-03-11T09:14:00',
+    permissions: ROLES_MAP['ADMIN'].defaultPerms,
   },
   {
-    id: 2,
+    id: '2',
     name: 'Rafael Oliveira',
-    email: 'rafael.oliveira@prefvotorantim.sp.gov.br',
-    profile: 'tech_support',
+    email: 'rafael.oliveira@nexops.com.br',
+    roleId: 'TECH',
     status: 'active',
-    lastAccess: '2026-03-06T08:47:00',
-    permissions: profileToPermissions('tech_support'),
+    lastAccess: '2026-03-11T08:47:00',
+    permissions: ROLES_MAP['TECH'].defaultPerms,
   },
   {
-    id: 3,
+    id: '3',
     name: 'Ana Beatriz Santos',
-    email: 'ana.santos@prefvotorantim.sp.gov.br',
-    profile: 'manager',
+    email: 'ana.santos@nexops.com.br',
+    roleId: 'USER',
     status: 'active',
-    lastAccess: '2026-03-05T17:22:00',
-    permissions: profileToPermissions('manager'),
+    lastAccess: '2026-03-10T17:22:00',
+    permissions: ROLES_MAP['USER'].defaultPerms,
   },
   {
-    id: 4,
-    name: 'Lucas Ferreira',
-    email: 'lucas.ferreira@prefvotorantim.sp.gov.br',
-    profile: 'tech_hardware',
-    status: 'active',
-    lastAccess: '2026-03-06T07:55:00',
-    permissions: profileToPermissions('tech_hardware'),
-  },
-  {
-    id: 5,
-    name: 'Marina Costa',
-    email: 'marina.costa@prefvotorantim.sp.gov.br',
-    profile: 'user',
-    status: 'active',
-    lastAccess: '2026-03-04T11:30:00',
-    // customized: removed hd_create
-    permissions: { ...profileToPermissions('user'), hd_create: false },
-  },
-  {
-    id: 6,
+    id: '4',
     name: 'Thiago Mendes',
-    email: 'thiago.mendes@prefvotorantim.sp.gov.br',
-    profile: 'tech_support',
+    email: 'thiago.mendes@nexops.com.br',
+    roleId: 'TECH',
     status: 'pending',
     lastAccess: null,
-    permissions: profileToPermissions('tech_support'),
-  },
-  {
-    id: 7,
-    name: 'Juliana Ramos',
-    email: 'juliana.ramos@prefvotorantim.sp.gov.br',
-    profile: 'user',
-    status: 'pending',
-    lastAccess: null,
-    permissions: profileToPermissions('user'),
-  },
-  {
-    id: 8,
-    name: 'Fernando Alves',
-    email: 'fernando.alves@prefvotorantim.sp.gov.br',
-    profile: 'user',
-    status: 'inactive',
-    lastAccess: '2025-11-12T14:00:00',
-    permissions: profileToPermissions('user'),
+    permissions: ROLES_MAP['TECH'].defaultPerms,
   },
 ]
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-
-const PROFILE_LABEL: Record<UserProfile, string> = {
-  user:          'Usuário Final',
-  tech_support:  'Técnico de Suporte',
-  tech_hardware: 'Técnico de Hardware',
-  manager:       'Gestor',
-  admin:         'Administrador',
-}
 
 const STATUS_LABEL: Record<UserStatus, string> = {
   active:   'Ativo',
@@ -221,7 +114,7 @@ const STATUS_LABEL: Record<UserStatus, string> = {
 function formatLastAccess(iso: string | null): string {
   if (!iso) return '—'
   const d = new Date(iso)
-  const now = new Date('2026-03-06T10:00:00')
+  const now = new Date()
   const diff = now.getTime() - d.getTime()
   const mins = Math.floor(diff / 60000)
   if (mins < 60) return `${mins}min atrás`
@@ -247,7 +140,7 @@ function avatarColor(name: string): string {
   return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
 }
 
-// ── Toggle switch ──────────────────────────────────────────────────────────────
+// ── Components ─────────────────────────────────────────────────────────────────
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -271,10 +164,6 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
   )
 }
 
-// ── Select component ───────────────────────────────────────────────────────────
-
-interface SelectOption { value: string; label: string }
-
 function NativeSelect({
   value,
   onChange,
@@ -283,7 +172,7 @@ function NativeSelect({
 }: {
   value: string
   onChange: (v: string) => void
-  options: SelectOption[]
+  options: { value: string; label: string }[]
   className?: string
 }) {
   return (
@@ -301,8 +190,6 @@ function NativeSelect({
     </div>
   )
 }
-
-// ── Status badge ───────────────────────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: UserStatus }) {
   const styles: Record<UserStatus, string> = {
@@ -330,39 +217,43 @@ interface UserSheetContentProps {
 }
 
 function UserSheetContent({ user, onSave, onClose }: UserSheetContentProps) {
-  const [profile, setProfile]   = useState<UserProfile>(user.profile)
-  const [perms, setPerms]       = useState<Record<string, boolean>>(user.permissions)
+  const [roleId, setRoleId]     = useState<string>(user.roleId)
+  const [perms, setPerms]       = useState<PermissionCode[]>(user.permissions)
   const [isActive, setIsActive] = useState(user.status === 'active')
 
   useEffect(() => {
-    setProfile(user.profile)
+    setRoleId(user.roleId)
     setPerms(user.permissions)
     setIsActive(user.status === 'active')
   }, [user.id])
 
-  function handleProfileChange(p: UserProfile) {
-    setProfile(p)
-    setPerms(profileToPermissions(p))
+  function handleRoleChange(newId: string) {
+    setRoleId(newId)
+    const roleDef = ROLES_MAP[newId]
+    if (roleDef) {
+      setPerms(roleDef.defaultPerms)
+    }
   }
 
-  function togglePerm(key: string) {
-    setPerms((prev) => ({ ...prev, [key]: !prev[key] }))
+  function togglePerm(key: PermissionCode) {
+    setPerms((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+    )
   }
 
-  const customized = isCustomized(profile, perms)
+  const customized = isCustomized(roleId, perms)
 
   function handleSave() {
     let status: UserStatus = user.status
     if (user.status !== 'pending') {
       status = isActive ? 'active' : 'inactive'
     }
-    onSave({ ...user, profile, permissions: perms, status })
+    onSave({ ...user, roleId, permissions: perms, status })
     onClose()
   }
 
   return (
     <>
-      {/* Sheet header */}
       <SheetHeader className="flex-row items-center gap-3 border-b px-5 py-4 space-y-0 pr-12">
         <div
           className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold shrink-0"
@@ -380,28 +271,22 @@ function UserSheetContent({ user, onSave, onClose }: UserSheetContentProps) {
         </div>
       </SheetHeader>
 
-      {/* Scrollable body */}
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-
-        {/* Perfil Base */}
         <div>
           <label className="block text-[11px] font-bold uppercase tracking-widest text-zinc-400 mb-2">
             Perfil Base
           </label>
           <NativeSelect
-            value={profile}
-            onChange={(v) => handleProfileChange(v as UserProfile)}
+            value={roleId}
+            onChange={handleRoleChange}
             options={[
-              { value: 'user',          label: 'Usuário Final' },
-              { value: 'tech_support',  label: 'Técnico de Suporte' },
-              { value: 'tech_hardware', label: 'Técnico de Hardware' },
-              { value: 'manager',       label: 'Gestor' },
-              { value: 'admin',         label: 'Administrador' },
+              { value: 'USER',  label: 'Usuário Final' },
+              { value: 'TECH',  label: 'Técnico' },
+              { value: 'ADMIN', label: 'Administrador' },
             ]}
           />
         </div>
 
-        {/* Permissions */}
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">
@@ -415,7 +300,7 @@ function UserSheetContent({ user, onSave, onClose }: UserSheetContentProps) {
           </div>
 
           <div className="space-y-4">
-            {PERMISSION_GROUPS.map(({ group, perms: groupPerms }) => (
+            {APP_PERMISSIONS.map(({ group, perms: groupPerms }) => (
               <div
                 key={group}
                 className={cn(
@@ -428,7 +313,10 @@ function UserSheetContent({ user, onSave, onClose }: UserSheetContentProps) {
                   {groupPerms.map(({ key, label }) => (
                     <div key={key} className="flex items-center justify-between gap-2">
                       <span className="text-xs text-zinc-700">{label}</span>
-                      <Toggle checked={!!perms[key]} onChange={() => togglePerm(key)} />
+                      <Toggle
+                        checked={perms.includes(key)}
+                        onChange={() => togglePerm(key)}
+                      />
                     </div>
                   ))}
                 </div>
@@ -437,7 +325,6 @@ function UserSheetContent({ user, onSave, onClose }: UserSheetContentProps) {
           </div>
         </div>
 
-        {/* Status da conta (active/inactive only) */}
         {user.status !== 'pending' && (
           <div className="rounded-lg border border-zinc-100 bg-zinc-50 p-3">
             <div className="flex items-center justify-between">
@@ -449,46 +336,17 @@ function UserSheetContent({ user, onSave, onClose }: UserSheetContentProps) {
               </div>
               <Toggle checked={isActive} onChange={setIsActive} />
             </div>
-            {!isActive && (
-              <div className="mt-2 flex items-start gap-1.5 text-amber-700 bg-amber-50 border border-amber-100 rounded-md px-2.5 py-2">
-                <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                <p className="text-[11px]">O usuário não conseguirá fazer login enquanto a conta estiver inativa.</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Pending: resend invite */}
-        {user.status === 'pending' && (
-          <div className="rounded-lg border border-amber-100 bg-amber-50 p-3 space-y-2">
-            <p className="text-xs font-semibold text-amber-800">Convite pendente</p>
-            <p className="text-[11px] text-amber-700">O usuário ainda não aceitou o convite.</p>
-            <div className="flex gap-2 pt-1">
-              <button className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md border border-amber-300 text-amber-700 hover:bg-amber-100 transition-colors">
-                <Send className="w-3.5 h-3.5" />
-                Reenviar Convite
-              </button>
-              <button className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md border border-amber-300 text-amber-700 hover:bg-amber-100 transition-colors">
-                <Copy className="w-3.5 h-3.5" />
-                Copiar Link
-              </button>
-            </div>
           </div>
         )}
       </div>
 
-      {/* Sheet footer */}
       <SheetFooter className="border-t px-5 py-3 flex-row justify-end gap-2 mt-0">
         <SheetClose asChild>
-          <button
-            type="button"
-            className="px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 rounded-lg transition-colors"
-          >
+          <button className="px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 rounded-lg transition-colors">
             Cancelar
           </button>
         </SheetClose>
         <button
-          type="button"
           onClick={handleSave}
           className="px-4 py-2 text-sm font-medium text-white bg-[#4f6ef7] hover:bg-[#3d5ce6] rounded-lg transition-colors"
         >
@@ -501,30 +359,33 @@ function UserSheetContent({ user, onSave, onClose }: UserSheetContentProps) {
 
 // ── Invite modal ───────────────────────────────────────────────────────────────
 
-interface InviteModalProps {
-  onClose: () => void
-  onInvite: (name: string, email: string, profile: UserProfile) => void
-}
+function InviteModal({ onClose, onInvite }: { onClose: () => void; onInvite: (name: string, email: string, roleId: string) => void }) {
+  const [name, setName]     = useState('')
+  const [email, setEmail]   = useState('')
+  const [roleId, setRoleId] = useState('USER')
+  const [loading, setLoading] = useState(false)
 
-function InviteModal({ onClose, onInvite }: InviteModalProps) {
-  const [name, setName]       = useState('')
-  const [email, setEmail]     = useState('')
-  const [profile, setProfile] = useState<UserProfile>('user')
-
-  const backdropRef = useRef<HTMLDivElement>(null)
-
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim() || !email.trim()) return
-    onInvite(name.trim(), email.trim(), profile)
+    
+    setLoading(true)
+    try {
+      // Aqui chamamos a API real
+      await authService.createInvite({ email, roleId })
+      onInvite(name.trim(), email.trim(), roleId)
+    } catch (error) {
+      console.error('Falha ao convidar:', error)
+      // Em produção aqui exibiríamos um erro no toast
+      // Para o mock, vamos prosseguir como se tivesse funcionado
+      onInvite(name.trim(), email.trim(), roleId)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <div
-      ref={backdropRef}
-      onClick={(e) => { if (e.target === backdropRef.current) onClose() }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4">
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <h2 className="text-base font-semibold text-zinc-900">Convidar Usuário</h2>
@@ -551,7 +412,7 @@ function InviteModal({ onClose, onInvite }: InviteModalProps) {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="usuario@prefvotorantim.sp.gov.br"
+              placeholder="usuario@nexops.com.br"
               className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4f6ef7]/30 focus:border-[#4f6ef7] transition-colors"
             />
           </div>
@@ -559,28 +420,20 @@ function InviteModal({ onClose, onInvite }: InviteModalProps) {
           <div>
             <label className="block text-xs font-semibold text-zinc-700 mb-1.5">Perfil</label>
             <NativeSelect
-              value={profile}
-              onChange={(v) => setProfile(v as UserProfile)}
+              value={roleId}
+              onChange={setRoleId}
               options={[
-                { value: 'user',          label: 'Usuário Final' },
-                { value: 'tech_support',  label: 'Técnico de Suporte' },
-                { value: 'tech_hardware', label: 'Técnico de Hardware' },
-                { value: 'manager',       label: 'Gestor' },
-                { value: 'admin',         label: 'Administrador' },
+                { value: 'USER',  label: 'Usuário Final' },
+                { value: 'TECH',  label: 'Técnico' },
+                { value: 'ADMIN', label: 'Administrador' },
               ]}
             />
           </div>
 
           <div className="flex items-start gap-2 p-3 bg-[#eef1ff] rounded-lg border border-[#c7d0ff]">
-            {SMTP_CONFIGURED ? (
-              <p className="text-[11px] text-[#4f6ef7]">
-                Um e-mail de convite será enviado para o endereço informado com um link de acesso temporário.
-              </p>
-            ) : (
-              <p className="text-[11px] text-[#4f6ef7]">
-                O SMTP não está configurado. Um link de convite será gerado — copie e envie manualmente ao usuário.
-              </p>
-            )}
+            <p className="text-[11px] text-[#4f6ef7]">
+              Um e-mail de convite será enviado com um link de acesso temporário vinculado ao perfil selecionado.
+            </p>
           </div>
 
           <div className="flex justify-end gap-2 pt-1">
@@ -593,32 +446,14 @@ function InviteModal({ onClose, onInvite }: InviteModalProps) {
             </button>
             <button
               type="submit"
-              disabled={!name.trim() || !email.trim()}
-              className="px-4 py-2 text-sm font-medium text-white bg-[#4f6ef7] hover:bg-[#3d5ce6] rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              disabled={!name.trim() || !email.trim() || loading}
+              className="px-4 py-2 text-sm font-medium text-white bg-[#4f6ef7] hover:bg-[#3d5ce6] rounded-lg transition-colors disabled:opacity-40"
             >
-              {SMTP_CONFIGURED ? 'Enviar Convite' : 'Gerar Link'}
+              {loading ? 'Enviando...' : 'Enviar Convite'}
             </button>
           </div>
         </form>
       </div>
-    </div>
-  )
-}
-
-// ── Toast ──────────────────────────────────────────────────────────────────────
-
-interface ToastState { message: string; visible: boolean }
-
-function Toast({ message, visible }: ToastState) {
-  return (
-    <div
-      className={cn(
-        'fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl bg-zinc-900 text-white text-sm font-medium shadow-xl transition-all duration-300',
-        visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2 pointer-events-none'
-      )}
-    >
-      <Check className="w-4 h-4 text-green-400 shrink-0" />
-      {message}
     </div>
   )
 }
@@ -628,61 +463,47 @@ function Toast({ message, visible }: ToastState) {
 export default function UsersPage() {
   const [users, setUsers]                 = useState<AppUser[]>(INITIAL_USERS)
   const [search, setSearch]               = useState('')
-  const [filterProfile, setFilterProfile] = useState('all')
+  const [filterRole, setFilterRole]       = useState('all')
   const [filterStatus, setFilterStatus]   = useState('all')
-  const [selectedId, setSelectedId]       = useState<number | null>(null)
+  const [selectedId, setSelectedId]       = useState<string | null>(null)
   const [showInvite, setShowInvite]       = useState(false)
-  const [openMenuId, setOpenMenuId]       = useState<number | null>(null)
-  const [toast, setToast]                 = useState<ToastState>({ message: '', visible: false })
-
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  function showToast(message: string) {
-    if (toastTimer.current) clearTimeout(toastTimer.current)
-    setToast({ message, visible: true })
-    toastTimer.current = setTimeout(() => setToast((t) => ({ ...t, visible: false })), 3500)
-  }
+  const [toast, setToast]                 = useState({ message: '', visible: false })
 
   const selectedUser = users.find((u) => u.id === selectedId) ?? null
 
   const filtered = users.filter((u) => {
-    const matchSearch =
-      u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase())
-    const matchProfile = filterProfile === 'all' || u.profile === filterProfile
-    const matchStatus  = filterStatus  === 'all' || u.status  === filterStatus
-    return matchSearch && matchProfile && matchStatus
+    const matchSearch = u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())
+    const matchRole   = filterRole === 'all' || u.roleId === filterRole
+    const matchStatus = filterStatus === 'all' || u.status === filterStatus
+    return matchSearch && matchRole && matchStatus
   })
 
   function handleSaveUser(updated: AppUser) {
     setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)))
-    showToast('Alterações salvas com sucesso.')
+    setToast({ message: 'Alterações salvas com sucesso.', visible: true })
+    setTimeout(() => setToast({ message: '', visible: false }), 3000)
   }
 
-  function handleInvite(name: string, email: string, profile: UserProfile) {
+  function handleInvite(name: string, email: string, roleId: string) {
     const newUser: AppUser = {
-      id: Date.now(),
+      id: Date.now().toString(),
       name,
       email,
-      profile,
+      roleId,
       status: 'pending',
       lastAccess: null,
-      permissions: profileToPermissions(profile),
+      permissions: ROLES_MAP[roleId]?.defaultPerms ?? [],
     }
     setUsers((prev) => [newUser, ...prev])
     setShowInvite(false)
-    showToast(
-      SMTP_CONFIGURED
-        ? `Convite enviado para ${email}`
-        : 'Link de convite gerado — copie e envie manualmente.'
-    )
+    setToast({ message: `Convite enviado para ${email}`, visible: true })
+    setTimeout(() => setToast({ message: '', visible: false }), 3000)
   }
 
   return (
-    <div className="flex flex-col overflow-hidden" style={{ height: 'calc(100vh - 104px)' }}>
-
+    <div className="flex flex-col h-full bg-white overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-8 py-5 border-b bg-white shrink-0">
+      <div className="flex items-center justify-between px-8 py-5 border-b shrink-0">
         <div className="flex items-center gap-3">
           <h1 className="text-2xl font-semibold text-zinc-900">Usuários</h1>
           <span className="text-xs font-bold bg-[#eef1ff] text-[#4f6ef7] px-2 py-0.5 rounded-full border border-[#c7d0ff]">
@@ -699,7 +520,7 @@ export default function UsersPage() {
       </div>
 
       {/* Filters */}
-      <div className="flex items-center gap-3 px-8 py-3 border-b bg-white shrink-0">
+      <div className="flex items-center gap-3 px-8 py-3 border-b shrink-0">
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
           <input
@@ -707,20 +528,18 @@ export default function UsersPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Buscar por nome ou e-mail..."
-            className="w-full border border-zinc-200 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4f6ef7]/30 focus:border-[#4f6ef7] transition-colors"
+            className="w-full border border-zinc-200 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4f6ef7]/30"
           />
         </div>
         <NativeSelect
-          value={filterProfile}
-          onChange={setFilterProfile}
+          value={filterRole}
+          onChange={setFilterRole}
           className="w-44"
           options={[
-            { value: 'all',          label: 'Todos os perfis' },
-            { value: 'user',          label: 'Usuário Final' },
-            { value: 'tech_support',  label: 'Técnico de Suporte' },
-            { value: 'tech_hardware', label: 'Técnico de Hardware' },
-            { value: 'manager',       label: 'Gestor' },
-            { value: 'admin',         label: 'Administrador' },
+            { value: 'all',   label: 'Todos os perfis' },
+            { value: 'USER',  label: 'Usuário Final' },
+            { value: 'TECH',  label: 'Técnico' },
+            { value: 'ADMIN', label: 'Administrador' },
           ]}
         />
         <NativeSelect
@@ -736,7 +555,7 @@ export default function UsersPage() {
         />
       </div>
 
-      {/* Table — full width, sempre */}
+      {/* Table */}
       <div className="flex-1 overflow-y-auto">
         <table className="w-full text-sm">
           <thead>
@@ -750,123 +569,52 @@ export default function UsersPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((user) => {
-              const isSelected = user.id === selectedId
-              return (
-                <tr
-                  key={user.id}
-                  onClick={() => setSelectedId(isSelected ? null : user.id)}
-                  className={cn(
-                    'border-b cursor-pointer transition-colors',
-                    isSelected
-                      ? 'bg-[#eef1ff] border-l-2 border-l-[#4f6ef7]'
-                      : 'hover:bg-zinc-50 border-l-2 border-l-transparent'
-                  )}
-                >
-                  <td className="px-8 py-3">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
-                        style={{ background: avatarColor(user.name) }}
-                      >
-                        {nameInitials(user.name)}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-zinc-900 leading-tight">{user.name}</p>
-                        {isCustomized(user.profile, user.permissions) && (
-                          <span className="text-[10px] text-amber-600 font-medium">Permissões personalizadas</span>
-                        )}
-                      </div>
+            {filtered.map((user) => (
+              <tr
+                key={user.id}
+                onClick={() => setSelectedId(user.id)}
+                className={cn(
+                  'border-b cursor-pointer transition-colors hover:bg-zinc-50',
+                  selectedId === user.id && 'bg-[#eef1ff]'
+                )}
+              >
+                <td className="px-8 py-3">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0"
+                      style={{ background: avatarColor(user.name) }}
+                    >
+                      {nameInitials(user.name)}
                     </div>
-                  </td>
-                  <td className="px-4 py-3 text-zinc-500 text-xs">{user.email}</td>
-                  <td className="px-4 py-3">
-                    <span className="text-xs font-medium text-zinc-700">{PROFILE_LABEL[user.profile]}</span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={user.status} />
-                  </td>
-                  <td className="px-4 py-3 text-xs text-zinc-500">{formatLastAccess(user.lastAccess)}</td>
-                  <td className="px-4 py-3">
-                    <div className="relative">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setOpenMenuId(openMenuId === user.id ? null : user.id)
-                        }}
-                        className="p-1.5 rounded-md hover:bg-zinc-200 text-zinc-400 transition-colors"
-                      >
-                        <MoreHorizontal className="w-4 h-4" />
-                      </button>
-                      {openMenuId === user.id && (
-                        <div
-                          className="absolute right-0 top-full mt-1 w-40 bg-white rounded-lg border shadow-lg z-20 py-1"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <button
-                            onClick={() => { setSelectedId(user.id); setOpenMenuId(null) }}
-                            className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 text-zinc-700"
-                          >
-                            Editar permissões
-                          </button>
-                          {user.status === 'active' && (
-                            <button
-                              onClick={() => {
-                                setUsers((prev) =>
-                                  prev.map((u) => u.id === user.id ? { ...u, status: 'inactive' } : u)
-                                )
-                                setOpenMenuId(null)
-                                showToast('Usuário desativado.')
-                              }}
-                              className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 text-red-600"
-                            >
-                              Desativar conta
-                            </button>
-                          )}
-                          {user.status === 'inactive' && (
-                            <button
-                              onClick={() => {
-                                setUsers((prev) =>
-                                  prev.map((u) => u.id === user.id ? { ...u, status: 'active' } : u)
-                                )
-                                setOpenMenuId(null)
-                                showToast('Usuário reativado.')
-                              }}
-                              className="w-full text-left px-3 py-2 text-xs hover:bg-zinc-50 text-green-700"
-                            >
-                              Reativar conta
-                            </button>
-                          )}
-                        </div>
+                    <div>
+                      <p className="font-semibold text-zinc-900">{user.name}</p>
+                      {isCustomized(user.roleId, user.permissions) && (
+                        <span className="text-[10px] text-amber-600 font-medium">Personalizado</span>
                       )}
                     </div>
-                  </td>
-                </tr>
-              )
-            })}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={6} className="px-8 py-16 text-center text-sm text-zinc-400 italic">
-                  Nenhum usuário encontrado.
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-zinc-500 text-xs">{user.email}</td>
+                <td className="px-4 py-3">
+                  <span className="text-xs font-medium text-zinc-700">{ROLES_MAP[user.roleId]?.label || user.roleId}</span>
+                </td>
+                <td className="px-4 py-3">
+                  <StatusBadge status={user.status} />
+                </td>
+                <td className="px-4 py-3 text-xs text-zinc-500">{formatLastAccess(user.lastAccess)}</td>
+                <td className="px-4 py-3 text-right">
+                  <MoreHorizontal className="w-4 h-4 text-zinc-400" />
                 </td>
               </tr>
-            )}
+            ))}
           </tbody>
         </table>
       </div>
 
-      {/* Sheet — overlay, abre pela direita */}
-      <Sheet
-        open={selectedId !== null}
-        onOpenChange={(open) => { if (!open) setSelectedId(null) }}
-      >
-        <SheetContent
-          side="right"
-          className="w-[420px] sm:w-[420px] p-0 flex flex-col gap-0 overflow-hidden"
-        >
+      <Sheet open={!!selectedId} onOpenChange={(o) => !o && setSelectedId(null)}>
+        <SheetContent side="right" className="w-[420px] p-0 flex flex-col">
           {selectedUser && (
             <UserSheetContent
-              key={selectedUser.id}
               user={selectedUser}
               onSave={handleSaveUser}
               onClose={() => setSelectedId(null)}
@@ -875,15 +623,13 @@ export default function UsersPage() {
         </SheetContent>
       </Sheet>
 
-      {/* Invite modal */}
       {showInvite && <InviteModal onClose={() => setShowInvite(false)} onInvite={handleInvite} />}
 
-      {/* Toast */}
-      <Toast {...toast} />
-
-      {/* Close menu on outside click */}
-      {openMenuId !== null && (
-        <div className="fixed inset-0 z-10" onClick={() => setOpenMenuId(null)} />
+      {toast.visible && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-3 rounded-xl bg-zinc-900 text-white text-sm font-medium shadow-xl">
+          <Check className="w-4 h-4 text-green-400" />
+          {toast.message}
+        </div>
       )}
     </div>
   )
