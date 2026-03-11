@@ -1,13 +1,14 @@
 package com.nexops.api.shared.security;
 
+import java.util.Arrays;
 import java.util.Set;
 import java.util.UUID;
 
 public record AuthenticatedUser(
     UUID userId,
+    String nome,
     String email,
-    String tenantSlug,
-    String tenantSchema,
+    UUID tenantId,
     Set<String> permissions
 ) {
     public boolean hasPermission(String permission) {
@@ -15,9 +16,6 @@ public record AuthenticatedUser(
     }
 
     public boolean hasAnyPermission(String... perms) {
-        for (String p : perms) {
-            if (permissions.contains(p)) return true;
-        }
-        return false;
+        return Arrays.stream(perms).anyMatch(permissions::contains);
     }
 }

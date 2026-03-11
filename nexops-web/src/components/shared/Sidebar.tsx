@@ -24,10 +24,11 @@ import {
   Sparkles,
   Tag,
 } from 'lucide-react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useAppStore } from '@/store/appStore'
+import { authService } from '@/services/auth.service'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -54,93 +55,98 @@ interface NavItem {
   badge?: string
 }
 
-interface NavSectionProps {
-  title: string
-  collapsed: boolean
-  items: NavItem[]
-}
+// ── Nav item renderer ─────────────────────────────────────────────────────────
 
-function NavSection({ title, collapsed, items }: NavSectionProps) {
+function NavItemButton({ item, collapsed }: { item: NavItem; collapsed: boolean }) {
   const location = useLocation()
+  const isActive = location.pathname === item.href
 
   return (
+    <TooltipProvider key={item.label} delayDuration={0}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Link to={item.href}>
+            <Button
+              variant="ghost"
+              className={cn(
+                'w-full justify-start gap-3 h-10 px-3 transition-all',
+                collapsed ? 'px-0 justify-center' : '',
+                isActive
+                  ? 'bg-brand/10 text-brand hover:bg-brand/15 hover:text-brand'
+                  : 'text-text-secondary hover:bg-secondary'
+              )}
+            >
+              <div className="relative shrink-0">
+                <item.icon
+                  className={cn(
+                    'w-5 h-5',
+                    isActive ? 'text-brand' : 'text-text-secondary'
+                  )}
+                />
+                {collapsed && item.badge && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-error border border-sidebar" />
+                )}
+              </div>
+              {!collapsed && (
+                <div className="flex flex-1 items-center justify-between overflow-hidden">
+                  <span className="text-sm font-medium truncate">{item.label}</span>
+                  {item.badge && (
+                    <span className="text-[10px] bg-brand text-white px-1.5 rounded-full">
+                      {item.badge}
+                    </span>
+                  )}
+                </div>
+              )}
+            </Button>
+          </Link>
+        </TooltipTrigger>
+        {collapsed && <TooltipContent side="right">{item.label}</TooltipContent>}
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
+function NavGroup({ items, collapsed }: { items: NavItem[]; collapsed: boolean }) {
+  return (
     <div className="space-y-1">
-      {collapsed ? (
-        <div className="flex justify-center my-3">
-          <div className="w-6 h-px bg-zinc-200" />
-        </div>
-      ) : (
-        <h3 className="px-3 text-[10px] font-bold uppercase tracking-widest text-text-muted mt-6 mb-2">
-          {title}
-        </h3>
-      )}
-      <div className="space-y-1">
-        {items.map((item) => {
-          const isActive = location.pathname === item.href
-          return (
-            <TooltipProvider key={item.label} delayDuration={0}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link to={item.href}>
-                    <Button
-                      variant="ghost"
-                      className={cn(
-                        'w-full justify-start gap-3 h-10 px-3 transition-all',
-                        collapsed ? 'px-0 justify-center' : '',
-                        isActive
-                          ? 'bg-brand/10 text-brand hover:bg-brand/15 hover:text-brand'
-                          : 'text-text-secondary hover:bg-secondary'
-                      )}
-                    >
-                      <div className="relative shrink-0">
-                        <item.icon
-                          className={cn(
-                            'w-5 h-5',
-                            isActive ? 'text-brand' : 'text-text-secondary'
-                          )}
-                        />
-                        {collapsed && item.badge && (
-                          <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-error border border-sidebar" />
-                        )}
-                      </div>
-                      {!collapsed && (
-                        <div className="flex flex-1 items-center justify-between overflow-hidden">
-                          <span className="text-sm font-medium truncate">{item.label}</span>
-                          {item.badge && (
-                            <span className="text-[10px] bg-brand text-white px-1.5 rounded-full">
-                              {item.badge}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </Button>
-                  </Link>
-                </TooltipTrigger>
-                {collapsed && <TooltipContent side="right">{item.label}</TooltipContent>}
-              </Tooltip>
-            </TooltipProvider>
-          )
-        })}
-      </div>
+      {items.map((item) => (
+        <NavItemButton key={item.href} item={item} collapsed={collapsed} />
+      ))}
     </div>
   )
 }
 
-// ── Governance nav subitems ───────────────────────────────────────────────────
+function GroupSeparator({ collapsed }: { collapsed: boolean }) {
+  return (
+    <div className={cn('my-2', collapsed ? 'flex justify-center' : 'mx-3')}>
+      <div className={cn('h-px bg-zinc-200', collapsed ? 'w-6' : 'w-full')} />
+    </div>
+  )
+}
 
-const GOVERNANCE_SUBITEMS: NavItem[] = [
-  { icon: BarChart2,          label: 'Dashboard',           href: '/app/governance'               },
-  { icon: Bell,               label: 'Notificações',        href: '/app/governance/notificacoes'  }, // [ROLE: MANAGER, ADMIN]
-  { icon: SlidersHorizontal,  label: 'Configuração de SLA', href: '/app/governance/configuracao'  }, // [ROLE: ADMIN]
-]
+// ── Governance nav (expandable) ───────────────────────────────────────────────
 
-function GovernanceNavSection({ collapsed }: { collapsed: boolean }) {
+function GovernanceNavSection({
+  collapsed,
+  hasSlaConfig,
+}: {
+  collapsed: boolean
+  hasSlaConfig: boolean
+}) {
   const location = useLocation()
   const [expanded, setExpanded] = useState(
     () => localStorage.getItem('sidebar_governance_expanded') !== 'false'
   )
 
-  const hasActiveChild = GOVERNANCE_SUBITEMS.some((item) => location.pathname === item.href)
+  const subitems: NavItem[] = [
+    { icon: BarChart2, label: 'Dashboard', href: '/app/governance' },
+    { icon: Bell, label: 'Notificações', href: '/app/governance/notificacoes' },
+    ...(hasSlaConfig
+      ? [{ icon: SlidersHorizontal, label: 'Configuração de SLA', href: '/app/governance/configuracao' }]
+      : []),
+  ]
+
+  const hasActiveChild = subitems.some((item) => location.pathname === item.href)
 
   function toggle() {
     const next = !expanded
@@ -168,7 +174,7 @@ function GovernanceNavSection({ collapsed }: { collapsed: boolean }) {
           <p className="text-[10px] font-bold uppercase tracking-widest text-text-muted px-2 pt-1 pb-2">
             Governança
           </p>
-          {GOVERNANCE_SUBITEMS.map((item) => {
+          {subitems.map((item) => {
             const isActive = location.pathname === item.href
             return (
               <Link key={item.label} to={item.href}>
@@ -212,7 +218,7 @@ function GovernanceNavSection({ collapsed }: { collapsed: boolean }) {
 
       {expanded && (
         <div className="ml-4 pl-3 border-l border-zinc-200 space-y-0.5">
-          {GOVERNANCE_SUBITEMS.map((item) => {
+          {subitems.map((item) => {
             const isActive = location.pathname === item.href
             return (
               <Link key={item.label} to={item.href}>
@@ -237,7 +243,7 @@ function GovernanceNavSection({ collapsed }: { collapsed: boolean }) {
   )
 }
 
-// ── Admin nav subitems ────────────────────────────────────────────────────────
+// ── Admin nav (expandable) ────────────────────────────────────────────────────
 
 const ADMIN_SUBITEMS: NavItem[] = [
   { icon: Users,     label: 'Usuários',          href: '/app/admin/usuarios'             },
@@ -265,59 +271,50 @@ function AdminNavSection({ collapsed }: { collapsed: boolean }) {
 
   if (collapsed) {
     return (
-      <div className="space-y-1">
-        <div className="flex justify-center my-3">
-          <div className="w-6 h-px bg-zinc-200" />
-        </div>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="ghost"
-              className={cn(
-                'w-full px-0 justify-center h-10 transition-all',
-                hasActiveChild
-                  ? 'bg-brand/10 text-brand hover:bg-brand/15 hover:text-brand'
-                  : 'text-text-secondary hover:bg-secondary'
-              )}
-            >
-              <Settings2 className={cn('w-5 h-5 shrink-0', hasActiveChild ? 'text-brand' : 'text-text-secondary')} />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent side="right" align="start" sideOffset={8} className="w-52 p-1.5">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-text-muted px-2 pt-1 pb-2">
-              Administração
-            </p>
-            {ADMIN_SUBITEMS.map((item) => {
-              const isActive = location.pathname === item.href
-              return (
-                <Link key={item.label} to={item.href}>
-                  <Button
-                    variant="ghost"
-                    className={cn(
-                      'w-full justify-start gap-2.5 h-9 px-2 text-sm',
-                      isActive
-                        ? 'bg-brand/10 text-brand hover:bg-brand/15 hover:text-brand'
-                        : 'text-text-secondary hover:bg-secondary'
-                    )}
-                  >
-                    <item.icon className={cn('w-4 h-4 shrink-0', isActive ? 'text-brand' : 'text-text-secondary')} />
-                    <span className="font-medium">{item.label}</span>
-                  </Button>
-                </Link>
-              )
-            })}
-          </PopoverContent>
-        </Popover>
-      </div>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="ghost"
+            className={cn(
+              'w-full px-0 justify-center h-10 transition-all',
+              hasActiveChild
+                ? 'bg-brand/10 text-brand hover:bg-brand/15 hover:text-brand'
+                : 'text-text-secondary hover:bg-secondary'
+            )}
+          >
+            <Settings2 className={cn('w-5 h-5 shrink-0', hasActiveChild ? 'text-brand' : 'text-text-secondary')} />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent side="right" align="start" sideOffset={8} className="w-52 p-1.5">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-text-muted px-2 pt-1 pb-2">
+            Administração
+          </p>
+          {ADMIN_SUBITEMS.map((item) => {
+            const isActive = location.pathname === item.href
+            return (
+              <Link key={item.label} to={item.href}>
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    'w-full justify-start gap-2.5 h-9 px-2 text-sm',
+                    isActive
+                      ? 'bg-brand/10 text-brand hover:bg-brand/15 hover:text-brand'
+                      : 'text-text-secondary hover:bg-secondary'
+                  )}
+                >
+                  <item.icon className={cn('w-4 h-4 shrink-0', isActive ? 'text-brand' : 'text-text-secondary')} />
+                  <span className="font-medium">{item.label}</span>
+                </Button>
+              </Link>
+            )
+          })}
+        </PopoverContent>
+      </Popover>
     )
   }
 
   return (
     <div className="space-y-1">
-      <h3 className="px-3 text-[10px] font-bold uppercase tracking-widest text-text-muted mt-6 mb-2">
-        Administração
-      </h3>
-
       <button
         onClick={toggle}
         className={cn(
@@ -361,9 +358,104 @@ function AdminNavSection({ collapsed }: { collapsed: boolean }) {
   )
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function getInitials(nome: string): string {
+  const parts = nome.trim().split(' ').filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0][0].toUpperCase()
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+}
+
+function getRoleLabel(permissions: string[]): string {
+  if (permissions.includes('USER_MANAGE') || permissions.includes('ROLE_MANAGE')) return 'Administrador'
+  if (permissions.includes('TICKET_MANAGE')) return 'Técnico'
+  return 'Usuário'
+}
+
+// ── Sidebar ───────────────────────────────────────────────────────────────────
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
+  const navigate = useNavigate()
+  const user = useAppStore((s) => s.user)
+  const permissions = useAppStore((s) => s.permissions)
+  const clearAuth = useAppStore((s) => s.clearAuth)
+  const refreshToken = useAppStore((s) => s.refreshToken)
+
+  const displayName = user?.nome ?? ''
+  const initials = displayName ? getInitials(displayName) : '?'
+  const roleLabel = getRoleLabel(permissions)
+
+  // ── Permission flags ──────────────────────────────────────────────────────
+  const isTech = permissions.includes('TICKET_MANAGE') && !permissions.includes('TICKET_VIEW_ALL')
+  const isManagerOrAdmin = permissions.includes('TICKET_VIEW_ALL')
+  const isEndUser = !isTech && !isManagerOrAdmin
+  const hasReports = permissions.includes('REPORT_VIEW_ALL')
+  const hasSlaConfig = permissions.includes('SLA_CONFIG')
+  const hasAdminSettings = permissions.includes('USER_MANAGE') || permissions.includes('ROLE_MANAGE')
+
+  // ── Nav groups ────────────────────────────────────────────────────────────
+  const endUserItems: NavItem[] = [
+    { icon: Home,       label: 'Home',          href: '/app'                        },
+    { icon: Ticket,     label: 'Meus Chamados', href: '/app/helpdesk/meus-chamados' },
+    { icon: PlusCircle, label: 'Abrir Chamado', href: '/app/helpdesk/novo'          },
+  ]
+
+  const techItems: NavItem[] = [
+    { icon: LayoutDashboard, label: 'Home',             href: '/app'                        },
+    { icon: Briefcase,       label: 'Meus Trabalhos',   href: '/app/helpdesk/meus-trabalhos', badge: '7' },
+    { icon: ListTodo,        label: 'Fila de Chamados', href: '/app/helpdesk/fila'           },
+    { icon: Monitor,         label: 'Painel TV',        href: '/app/helpdesk/painel'         },
+  ]
+
+  const managerItems: NavItem[] = [
+    { icon: LayoutDashboard, label: 'Home',              href: '/app'                    },
+    { icon: Users,           label: 'Todos os Chamados', href: '/app/helpdesk/todos'     },
+    { icon: Package,         label: 'Inventário',        href: '/app/inventory'          },
+  ]
+
+  // Build the list of visible groups (each is a ReactNode or null)
+  type Group = { key: string; show: boolean; node: React.ReactNode }
+
+  const groups: Group[] = [
+    {
+      key: 'user',
+      show: isEndUser,
+      node: <NavGroup items={endUserItems} collapsed={collapsed} />,
+    },
+    {
+      key: 'tech',
+      show: isTech,
+      node: <NavGroup items={techItems} collapsed={collapsed} />,
+    },
+    {
+      key: 'manager',
+      show: isManagerOrAdmin,
+      node: <NavGroup items={managerItems} collapsed={collapsed} />,
+    },
+    {
+      key: 'governance',
+      show: hasReports,
+      node: <GovernanceNavSection collapsed={collapsed} hasSlaConfig={hasSlaConfig} />,
+    },
+    {
+      key: 'admin',
+      show: hasAdminSettings,
+      node: <AdminNavSection collapsed={collapsed} />,
+    },
+  ]
+
+  const visibleGroups = groups.filter((g) => g.show)
+
+  async function handleLogout() {
+    try {
+      if (refreshToken) await authService.logout({ refreshToken })
+    } finally {
+      clearAuth()
+      navigate('/login', { replace: true })
+    }
+  }
+
   return (
     <aside
       className={cn(
@@ -387,52 +479,21 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               NexOps
             </span>
             <span className="text-[10px] text-brand font-medium tracking-wider uppercase leading-tight">
-              Votorantim
+              Sistema
             </span>
           </div>
         )}
       </div>
 
-      <ScrollArea className="flex-1">
-        {/* [ROLE: END_USER] */}
-        <NavSection
-          title="Usuário Final"
-          collapsed={collapsed}
-          items={[
-            { icon: Home,       label: 'Home',          href: '/app'                          },
-            { icon: Ticket,     label: 'Meus Chamados', href: '/app/helpdesk/meus-chamados'   },
-            { icon: PlusCircle, label: 'Abrir Chamado', href: '/app/helpdesk/novo'            },
-          ]}
-        />
-
-        {/* [ROLE: TECHNICIAN] */}
-        <NavSection
-          title="Técnico"
-          collapsed={collapsed}
-          items={[
-            { icon: LayoutDashboard, label: 'Home',              href: '/app/helpdesk/tecnico'         },
-            { icon: Briefcase,       label: 'Meus Trabalhos',    href: '/app/helpdesk/meus-trabalhos', badge: '7' },
-            { icon: ListTodo,        label: 'Fila de Chamados',  href: '/app/helpdesk/fila'            },
-            { icon: Monitor,         label: 'Painel TV',         href: '/app/helpdesk/painel'          },
-          ]}
-        />
-
-        {/* [ROLE: MANAGER, ADMIN] */}
-        <NavSection
-          title="Gestão"
-          collapsed={collapsed}
-          items={[
-            { icon: Users,   label: 'Todos os Chamados', href: '/app/helpdesk/todos' },
-            { icon: Package, label: 'Inventário',        href: '/app/inventory'      },
-          ]}
-        />
-
-        {/* [ROLE: MANAGER, ADMIN] — Governança com subitem de configuração */}
-        <GovernanceNavSection collapsed={collapsed} />
-
-        {/* [ROLE: ADMIN] */}
-        <AdminNavSection collapsed={collapsed} />
-      </ScrollArea>
+      {/* Nav */}
+      <div className="flex-1 min-h-0 overflow-y-auto px-2 py-3">
+        {visibleGroups.map((group, idx) => (
+          <div key={group.key}>
+            {idx > 0 && <GroupSeparator collapsed={collapsed} />}
+            {group.node}
+          </div>
+        ))}
+      </div>
 
       {/* Footer */}
       <div className="mt-auto border-t border-zinc-200">
@@ -468,27 +529,28 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Avatar className="h-8 w-8 border border-white cursor-pointer">
-                    <AvatarFallback className="bg-brand text-white text-[10px] font-bold">CP</AvatarFallback>
+                    <AvatarFallback className="bg-brand text-white text-[10px] font-bold">{initials}</AvatarFallback>
                   </Avatar>
                 </TooltipTrigger>
                 <TooltipContent side="right">
-                  <p className="font-semibold">Cassiano Proença</p>
-                  <p className="text-xs opacity-70">Administrador</p>
+                  <p className="font-semibold">{displayName}</p>
+                  <p className="text-xs opacity-70">{roleLabel}</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           ) : (
             <div className="flex items-center gap-3 py-1.5 px-1 rounded-lg bg-background/50">
               <Avatar className="h-8 w-8 border border-white shrink-0">
-                <AvatarFallback className="bg-brand text-white text-[10px] font-bold">CP</AvatarFallback>
+                <AvatarFallback className="bg-brand text-white text-[10px] font-bold">{initials}</AvatarFallback>
               </Avatar>
               <div className="flex flex-col flex-1 overflow-hidden">
-                <span className="text-xs font-bold text-text-primary truncate">Cassiano Proença</span>
-                <span className="text-[10px] text-text-muted truncate">Administrador</span>
+                <span className="text-xs font-bold text-text-primary truncate">{displayName}</span>
+                <span className="text-[10px] text-text-muted truncate">{roleLabel}</span>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
+                onClick={handleLogout}
                 className="h-8 w-8 text-text-muted hover:text-error transition-colors shrink-0"
               >
                 <LogOut className="h-4 w-4" />

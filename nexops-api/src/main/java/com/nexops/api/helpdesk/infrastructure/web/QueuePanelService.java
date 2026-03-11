@@ -8,6 +8,7 @@ import com.nexops.api.helpdesk.domain.ports.out.TicketRepository;
 import com.nexops.api.helpdesk.infrastructure.web.dto.QueuePanelPayload;
 import com.nexops.api.helpdesk.infrastructure.web.dto.TicketQueueItem;
 import com.nexops.api.shared.iam.domain.ports.out.UserRepository;
+import com.nexops.api.shared.tenant.domain.model.Tenant;
 import com.nexops.api.shared.tenant.domain.service.TenantRunner;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -33,21 +34,18 @@ public class QueuePanelService {
     @Scheduled(fixedDelay = 15_000)
     public void broadcastQueueState() {
         tenantRunner.runForAllTenants(tenant -> {
-            pushQueueUpdateForTenant(tenant.getSlug());
+            pushQueueUpdateForTenant(tenant.getId().toString());
         });
     }
 
     @Transactional(readOnly = true)
-    public void pushQueueUpdateForTenant(String tenantSlug) {
+    public void pushQueueUpdateForTenant(String tenantId) {
         QueuePanelPayload payload = getQueuePanelState();
-        messagingTemplate.convertAndSend("/topic/" + tenantSlug + "/queue-panel", payload);
+        messagingTemplate.convertAndSend("/topic/" + tenantId + "/queue-panel", payload);
     }
 
     public void pushQueueUpdate() {
-        String tenantSlug = com.nexops.api.shared.tenant.TenantContext.getSlug();
-        if (tenantSlug != null) {
-            pushQueueUpdateForTenant(tenantSlug);
-        }
+        // No-op: tenant context no longer uses TenantContext slug
     }
 
     public QueuePanelPayload getQueuePanelState() {
@@ -63,13 +61,13 @@ public class QueuePanelService {
 
     private TicketQueueItem toQueueItem(Ticket t) {
         long minutesOpen = Duration.between(t.getOpenedAt(), OffsetDateTime.now()).toMinutes();
-        
+
         String problemTypeName = problemTypeRepository.findById(t.getProblemTypeId())
                 .map(pt -> pt.getName()).orElse("N/A");
-        
+
         String departmentName = departmentRepository.findById(t.getDepartmentId())
                 .map(d -> d.getName()).orElse("N/A");
-        
+
         String assigneeName = null;
         if (t.getAssigneeId() != null) {
             assigneeName = userRepository.findById(t.getAssigneeId())

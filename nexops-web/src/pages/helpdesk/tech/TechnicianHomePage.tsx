@@ -25,7 +25,7 @@ export default function TechnicianHomePage() {
   const [response, setResponse] = useState<string | null>(null)
 
   const user = useAppStore((s) => s.user)
-  const firstName = user?.name?.split(' ')[0] ?? user?.email ?? 'Técnico'
+  const firstName = user?.nome?.split(' ')[0] ?? user?.email ?? 'Técnico'
 
   const { data: assignedTickets = [] } = useAssignedTickets()
 

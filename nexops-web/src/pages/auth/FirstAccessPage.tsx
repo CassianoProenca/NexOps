@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Eye, EyeOff, XCircle, CheckCircle2 } from 'lucide-react'
+import { jwtDecode } from 'jwt-decode'
 import {
   AUTH,
   AuthLeftPanel,
@@ -12,26 +13,39 @@ import {
   FieldError,
   PrimaryButton,
 } from '@/components/layout/AuthLeftPanel'
+import { authService } from '@/services/auth.service'
+import { useAppStore } from '@/store/appStore'
+import type { AuthenticatedUser } from '@/types/auth.types'
 
 /* ─────────────────────────── Validação ─────────────────────────── */
 
+interface JwtPayload {
+  sub: string
+  nome: string
+  email: string
+  tenantId: string
+  permissions: string[]
+  exp: number
+}
+
 const schema = z
   .object({
-    name: z.string().min(3, 'Mínimo de 3 caracteres'),
-    password: z
+    nome: z.string().min(3, 'Mínimo de 3 caracteres'),
+    email: z.string().min(1, 'E-mail obrigatório').email('Formato inválido'),
+    senha: z
       .string()
       .min(8, 'Mínimo de 8 caracteres')
       .regex(/[A-Z]/, 'Deve conter ao menos uma letra maiúscula')
       .regex(/[a-z]/, 'Deve conter ao menos uma letra minúscula')
       .regex(/[0-9]/, 'Deve conter ao menos um número'),
-    confirmPassword: z.string(),
+    confirmacaoSenha: z.string(),
     terms: z.boolean().refine((v) => v === true, {
       message: 'Você deve aceitar os Termos de Uso',
     }),
   })
-  .refine((data) => data.password === data.confirmPassword, {
+  .refine((data) => data.senha === data.confirmacaoSenha, {
     message: 'As senhas não coincidem',
-    path: ['confirmPassword'],
+    path: ['confirmacaoSenha'],
   })
 
 type FormData = z.infer<typeof schema>
@@ -92,7 +106,6 @@ const CARD_STYLE: React.CSSProperties = {
   padding: '32px',
 }
 
-/* Estado 1 — Carregando */
 function LoadingState() {
   return (
     <div className="flex flex-col items-center justify-center gap-4 py-16">
@@ -111,7 +124,6 @@ function LoadingState() {
   )
 }
 
-/* Estado 2 — Token inválido */
 function InvalidState({ onBack }: { onBack: () => void }) {
   return (
     <div style={CARD_STYLE} className="text-center space-y-4">
@@ -130,11 +142,18 @@ function InvalidState({ onBack }: { onBack: () => void }) {
   )
 }
 
-/* Estado 3 — Formulário de primeiro acesso */
-function FormState({ onSuccess }: { onSuccess: () => void }) {
+function FormState({
+  token,
+}: {
+  token: string
+  onSuccess?: () => void
+}) {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [apiError, setApiError] = useState<string | null>(null)
+  const setAuth = useAppStore((s) => s.setAuth)
+  const navigate = useNavigate()
 
   const {
     register,
@@ -146,14 +165,43 @@ function FormState({ onSuccess }: { onSuccess: () => void }) {
     defaultValues: { terms: false },
   })
 
-  const passwordValue = watch('password', '')
+  const senhaValue = watch('senha', '')
 
-  function onSubmit(data: FormData) {
+  async function onSubmit(data: FormData) {
     setIsLoading(true)
-    setTimeout(() => {
-      console.log('Primeiro acesso:', data)
-      onSuccess()
-    }, 1500)
+    setApiError(null)
+    try {
+      const tokens = await authService.firstAccess({
+        token,
+        nome: data.nome,
+        email: data.email,
+        senha: data.senha,
+        confirmacaoSenha: data.confirmacaoSenha,
+      })
+
+      const decoded = jwtDecode<JwtPayload>(tokens.accessToken)
+      const authUser: AuthenticatedUser = {
+        userId: decoded.sub,
+        nome: decoded.nome,
+        email: decoded.email,
+        tenantId: decoded.tenantId,
+      }
+      setAuth(
+        authUser,
+        decoded.tenantId,
+        tokens.accessToken,
+        tokens.refreshToken,
+        decoded.permissions ?? [],
+      )
+      navigate('/app')
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+        'Erro ao ativar conta. Tente novamente.'
+      setApiError(message)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -167,6 +215,15 @@ function FormState({ onSuccess }: { onSuccess: () => void }) {
         </p>
       </div>
 
+      {apiError && (
+        <div
+          className="mb-4 p-3 rounded-lg text-sm"
+          style={{ backgroundColor: '#fef2f2', color: AUTH.ERROR, border: `1px solid #fecaca` }}
+        >
+          {apiError}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
         {/* Nome completo */}
         <div className="space-y-1.5">
@@ -177,36 +234,27 @@ function FormState({ onSuccess }: { onSuccess: () => void }) {
             type="text"
             placeholder="Seu nome completo"
             autoComplete="name"
-            hasError={!!errors.name}
-            {...register('name')}
+            hasError={!!errors.nome}
+            {...register('nome')}
           />
-          <FieldError message={errors.name?.message} />
+          <FieldError message={errors.nome?.message} />
         </div>
 
-        {/* E-mail (somente leitura) */}
+        {/* E-mail */}
         <div className="space-y-1.5">
           <label className="block text-sm font-medium" style={{ color: AUTH.TEXT_PRIMARY }}>
-            E-mail
+            E-mail do convite
           </label>
-          <input
+          <FieldInput
             type="email"
-            value="usuario@empresa.com.br"
-            readOnly
-            style={{
-              borderRadius: '8px',
-              border: `1px solid ${AUTH.BORDER}`,
-              backgroundColor: '#f4f4f5',
-              padding: '9px 12px',
-              fontSize: '14px',
-              color: AUTH.TEXT_SECONDARY,
-              width: '100%',
-              outline: 'none',
-              cursor: 'not-allowed',
-              fontFamily: "'DM Sans', sans-serif",
-            }}
+            placeholder="voce@empresa.com.br"
+            autoComplete="email"
+            hasError={!!errors.email}
+            {...register('email')}
           />
+          <FieldError message={errors.email?.message} />
           <p className="text-xs" style={{ color: AUTH.TEXT_MUTED }}>
-            O e-mail não pode ser alterado.
+            Deve coincidir com o e-mail do convite.
           </p>
         </div>
 
@@ -220,17 +268,17 @@ function FormState({ onSuccess }: { onSuccess: () => void }) {
               type={showPassword ? 'text' : 'password'}
               placeholder="••••••••"
               autoComplete="new-password"
-              hasError={!!errors.password}
+              hasError={!!errors.senha}
               style={{ paddingRight: '40px' }}
-              {...register('password')}
+              {...register('senha')}
             />
             <TogglePasswordButton
               visible={showPassword}
               onToggle={() => setShowPassword((p) => !p)}
             />
           </div>
-          <PasswordStrengthBar password={passwordValue} />
-          <FieldError message={errors.password?.message} />
+          <PasswordStrengthBar password={senhaValue} />
+          <FieldError message={errors.senha?.message} />
         </div>
 
         {/* Confirmar senha */}
@@ -243,16 +291,16 @@ function FormState({ onSuccess }: { onSuccess: () => void }) {
               type={showConfirm ? 'text' : 'password'}
               placeholder="••••••••"
               autoComplete="new-password"
-              hasError={!!errors.confirmPassword}
+              hasError={!!errors.confirmacaoSenha}
               style={{ paddingRight: '40px' }}
-              {...register('confirmPassword')}
+              {...register('confirmacaoSenha')}
             />
             <TogglePasswordButton
               visible={showConfirm}
               onToggle={() => setShowConfirm((p) => !p)}
             />
           </div>
-          <FieldError message={errors.confirmPassword?.message} />
+          <FieldError message={errors.confirmacaoSenha?.message} />
         </div>
 
         {/* Termos de uso */}
@@ -304,7 +352,6 @@ function FormState({ onSuccess }: { onSuccess: () => void }) {
   )
 }
 
-/* Estado 4 — Sucesso */
 function SuccessState({ onNavigate }: { onNavigate: () => void }) {
   return (
     <div style={CARD_STYLE} className="text-center space-y-4">
@@ -317,7 +364,7 @@ function SuccessState({ onNavigate }: { onNavigate: () => void }) {
           Sua conta foi configurada com sucesso. Você já pode acessar o NexOps.
         </p>
       </div>
-      <PrimaryButton type="button" label="Ir para o login" onClick={onNavigate} />
+      <PrimaryButton type="button" label="Ir para o painel" onClick={onNavigate} />
     </div>
   )
 }
@@ -328,13 +375,16 @@ export default function FirstAccessPage() {
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
   const [pageState, setPageState] = useState<PageState>('loading')
+  const [token, setToken] = useState<string>('')
 
   useEffect(() => {
-    const token = searchParams.get('token')
-    const timer = setTimeout(() => {
-      setPageState(!token || token === 'invalido' ? 'invalid' : 'form')
-    }, 1500)
-    return () => clearTimeout(timer)
+    const t = searchParams.get('token')
+    if (!t || t.trim() === '') {
+      setPageState('invalid')
+    } else {
+      setToken(t)
+      setPageState('form')
+    }
   }, [searchParams])
 
   return (
@@ -353,10 +403,10 @@ export default function FirstAccessPage() {
             <InvalidState onBack={() => navigate('/login')} />
           )}
           {pageState === 'form' && (
-            <FormState onSuccess={() => setPageState('success')} />
+            <FormState token={token} onSuccess={() => setPageState('success')} />
           )}
           {pageState === 'success' && (
-            <SuccessState onNavigate={() => navigate('/login')} />
+            <SuccessState onNavigate={() => navigate('/app')} />
           )}
         </div>
       </div>

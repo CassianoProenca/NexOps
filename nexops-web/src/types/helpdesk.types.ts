@@ -72,6 +72,7 @@ export interface TicketResponse {
   pausedAt: string | null
   closedAt: string | null
   slaDeadline: string | null
+  isSlaBreached: boolean
   createdAt: string
   updatedAt: string
 }

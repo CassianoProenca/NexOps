@@ -5,11 +5,9 @@ import java.util.UUID;
 
 public record TenantResponse(
     UUID id,
-    String name,
-    String slug,
-    String schemaName,
+    String cnpj,
+    String nomeFantasia,
+    String email,
     String status,
-    String plan,
-    Integer maxUsers,
     OffsetDateTime createdAt
 ) {}

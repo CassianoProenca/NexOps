@@ -5,5 +5,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface TenantJpaRepository extends JpaRepository<TenantJpaEntity, UUID> {
-    Optional<TenantJpaEntity> findBySlug(String slug);
+    Optional<TenantJpaEntity> findByEmail(String email);
+    boolean existsByEmail(String email);
+    boolean existsByCnpj(String cnpj);
 }

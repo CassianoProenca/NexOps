@@ -4,7 +4,9 @@ import com.nexops.api.shared.tenant.domain.model.Tenant;
 import com.nexops.api.shared.tenant.domain.ports.out.TenantRepository;
 import org.springframework.stereotype.Component;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Component
 public class TenantRepositoryAdapter implements TenantRepository {
@@ -16,17 +18,32 @@ public class TenantRepositoryAdapter implements TenantRepository {
     }
 
     @Override
-    public Optional<Tenant> findBySlug(String slug) {
-        return jpa.findBySlug(slug).map(TenantMapper::toDomain);
-    }
-
-    @Override
-    public java.util.List<Tenant> findAll() {
-        return jpa.findAll().stream().map(TenantMapper::toDomain).toList();
-    }
-
-    @Override
     public Tenant save(Tenant tenant) {
-        return TenantMapper.toDomain(jpa.save(TenantMapper.toEntity(tenant)));
+        return TenantMapper.toDomain(jpa.saveAndFlush(TenantMapper.toEntity(tenant)));
+    }
+
+    @Override
+    public Optional<Tenant> findById(UUID id) {
+        return jpa.findById(id).map(TenantMapper::toDomain);
+    }
+
+    @Override
+    public Optional<Tenant> findByEmail(String email) {
+        return jpa.findByEmail(email).map(TenantMapper::toDomain);
+    }
+
+    @Override
+    public boolean existsByEmail(String email) {
+        return jpa.existsByEmail(email);
+    }
+
+    @Override
+    public boolean existsByCnpj(String cnpj) {
+        return jpa.existsByCnpj(cnpj);
+    }
+
+    @Override
+    public List<Tenant> findAll() {
+        return jpa.findAll().stream().map(TenantMapper::toDomain).toList();
     }
 }

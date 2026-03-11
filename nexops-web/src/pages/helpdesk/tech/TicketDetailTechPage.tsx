@@ -202,7 +202,7 @@ export default function TicketDetailTechPage() {
   const navigate    = useNavigate()
   const { id = '' } = useParams<{ id: string }>()
   const user        = useAppStore((s) => s.user)
-  const senderName  = user?.name ?? user?.email ?? 'Técnico'
+  const senderName  = user?.nome ?? user?.email ?? 'Técnico'
 
   const { data: ticket, isLoading } = useTicket(id)
   const { data: comments = []      } = useTicketComments(id)

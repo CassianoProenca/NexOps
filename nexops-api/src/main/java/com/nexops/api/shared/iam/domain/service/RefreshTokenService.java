@@ -23,10 +23,10 @@ public class RefreshTokenService {
         this.props = props;
     }
 
-    public String generate(UUID userId) {
+    public String generate(UUID userId, UUID tenantId) {
         String rawToken = generateRaw();
         String hash = hash(rawToken);
-        RefreshToken token = RefreshToken.create(userId, hash, props.getRefreshExpirationMs());
+        RefreshToken token = RefreshToken.create(userId, hash, props.getRefreshExpirationMs(), tenantId);
         repository.save(token);
         return rawToken;
     }

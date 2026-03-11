@@ -6,6 +6,7 @@ import java.util.*;
 public class User {
 
     private UUID id;
+    private UUID tenantId;
     private String name;
     private String email;
     private String passwordHash;
@@ -21,11 +22,12 @@ public class User {
         this.permissionOverrides = new HashMap<>();
     }
 
-    public User(UUID id, String name, String email, String passwordHash,
+    public User(UUID id, UUID tenantId, String name, String email, String passwordHash,
                 UserStatus status, OffsetDateTime createdAt, OffsetDateTime updatedAt,
                 OffsetDateTime lastLoginAt, Set<Role> roles,
                 Map<Permission, Boolean> permissionOverrides) {
         this.id = id;
+        this.tenantId = tenantId;
         this.name = name;
         this.email = email;
         this.passwordHash = passwordHash;
@@ -37,13 +39,14 @@ public class User {
         this.permissionOverrides = permissionOverrides != null ? permissionOverrides : new HashMap<>();
     }
 
-    public static User create(String name, String email, String passwordHash) {
+    public static User create(String name, String email, String passwordHash, UUID tenantId) {
         User u = new User();
         u.id = UUID.randomUUID();
+        u.tenantId = tenantId;
         u.name = name;
         u.email = email;
         u.passwordHash = passwordHash;
-        u.status = UserStatus.PENDING;
+        u.status = UserStatus.ACTIVE;
         u.createdAt = OffsetDateTime.now();
         u.updatedAt = OffsetDateTime.now();
         return u;
@@ -70,6 +73,7 @@ public class User {
     }
 
     public UUID getId() { return id; }
+    public UUID getTenantId() { return tenantId; }
     public String getName() { return name; }
     public String getEmail() { return email; }
     public String getPasswordHash() { return passwordHash; }

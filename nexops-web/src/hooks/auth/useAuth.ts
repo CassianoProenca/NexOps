@@ -3,13 +3,13 @@ import { useMutation } from '@tanstack/react-query'
 import { jwtDecode } from 'jwt-decode'
 import { authService } from '@/services/auth.service'
 import { useAppStore } from '@/store/appStore'
-import type { LoginRequest } from '@/types/auth.types'
-import type { AuthenticatedUser } from '@/types/auth.types'
+import type { LoginRequest, RegisterRequest, AuthenticatedUser } from '@/types/auth.types'
 
 interface JwtPayload {
   sub: string           // userId
+  nome: string
   email: string
-  tenant: string        // tenantSlug
+  tenantId: string      // UUID string
   permissions: string[]
   exp: number
 }
@@ -22,23 +22,45 @@ export function useAuth() {
   const loginMutation = useMutation({
     mutationFn: (data: LoginRequest) => authService.login(data),
     onSuccess: (tokens) => {
-      console.log('[useAuth] onSuccess fired', tokens)
-      const decoded = jwtDecode<JwtPayload>(tokens.accessToken)
-      console.log('[useAuth] decoded JWT', decoded)
-      const authUser: AuthenticatedUser = {
-        userId: decoded.sub,
-        email: decoded.email,
-        tenantSlug: decoded.tenant,
+      console.log('[useAuth] login success, tokens:', tokens)
+      try {
+        const decoded = jwtDecode<JwtPayload>(tokens.accessToken)
+        console.log('[useAuth] decoded JWT:', decoded)
+        const authUser: AuthenticatedUser = {
+          userId: decoded.sub,
+          nome: decoded.nome,
+          email: decoded.email,
+          tenantId: decoded.tenantId,
+        }
+        setAuth(authUser, decoded.tenantId, tokens.accessToken, tokens.refreshToken, decoded.permissions ?? [])
+        navigate('/app')
+      } catch (e) {
+        console.error('[useAuth] error processing login token:', e)
+        throw e
       }
-      setAuth(
-        authUser,
-        decoded.tenant,
-        tokens.accessToken,
-        tokens.refreshToken,
-        decoded.permissions ?? [],
-      )
-      console.log('[useAuth] setAuth called, navigating to /app')
-      navigate('/app')
+    },
+  })
+
+  // ── Register ───────────────────────────────────────────────────────────────
+  const registerMutation = useMutation({
+    mutationFn: (data: RegisterRequest) => authService.register(data),
+    onSuccess: (tokens) => {
+      console.log('[useAuth] register success, tokens:', tokens)
+      try {
+        const decoded = jwtDecode<JwtPayload>(tokens.accessToken)
+        console.log('[useAuth] decoded JWT:', decoded)
+        const authUser: AuthenticatedUser = {
+          userId: decoded.sub,
+          nome: decoded.nome,
+          email: decoded.email,
+          tenantId: decoded.tenantId,
+        }
+        setAuth(authUser, decoded.tenantId, tokens.accessToken, tokens.refreshToken, decoded.permissions ?? [])
+        navigate('/app')
+      } catch (e) {
+        console.error('[useAuth] error processing register token:', e)
+        throw e
+      }
     },
   })
 
@@ -59,9 +81,13 @@ export function useAuth() {
     isAuthenticated: !!accessToken && !!user,
     login: loginMutation.mutate,
     loginAsync: loginMutation.mutateAsync,
+    register: registerMutation.mutate,
+    registerAsync: registerMutation.mutateAsync,
     logout: logoutMutation.mutate,
     isLoggingIn: loginMutation.isPending,
+    isRegistering: registerMutation.isPending,
     isLoggingOut: logoutMutation.isPending,
     loginError: loginMutation.error,
+    registerError: registerMutation.error,
   }
 }

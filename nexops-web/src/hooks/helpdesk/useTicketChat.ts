@@ -26,7 +26,6 @@ export function useTicketChat(ticketId: string) {
       webSocketFactory: () => new SockJS(wsUrl),
       connectHeaders: {
         Authorization: `Bearer ${accessToken ?? ''}`,
-        'X-Tenant-ID': tenant ?? '',
       },
       reconnectDelay: 5_000,
       heartbeatIncoming: 4_000,

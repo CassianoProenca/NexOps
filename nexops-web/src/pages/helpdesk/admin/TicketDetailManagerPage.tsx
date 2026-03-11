@@ -217,7 +217,7 @@ export default function TicketDetailManagerPage() {
   const navigate    = useNavigate()
   const { id = '' } = useParams<{ id: string }>()
   const user        = useAppStore((s) => s.user)
-  const senderName  = user?.name ?? user?.email ?? 'Gestor'
+  const senderName  = user?.nome ?? user?.email ?? 'Gestor'
 
   const { data: ticket, isLoading } = useTicket(id)
   const { data: comments = []      } = useTicketComments(id)

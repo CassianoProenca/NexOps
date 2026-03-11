@@ -5,10 +5,10 @@ import type { AuthenticatedUser } from '@/types/auth.types'
 interface AppStore {
   // ── state ─────────────────────────────────────────────────────────────────
   user: AuthenticatedUser | null
-  tenant: string | null          // tenantSlug — vai no header X-Tenant-ID
+  tenant: string | null          // tenantId UUID — used for tenant-scoped operations
   accessToken: string | null
   refreshToken: string | null
-  permissions: string[]          // array de códigos, ex: ["TICKET_CREATE", ...]
+  permissions: string[]          // array of permission codes
   sidebarCollapsed: boolean
 
   // ── actions ───────────────────────────────────────────────────────────────
@@ -68,7 +68,7 @@ export const useAppStore = create<AppStore>()(
       },
     }),
     {
-      name: 'nexops-auth', // chave no localStorage
+      name: 'nexops-auth',
       partialize: (s) => ({
         user: s.user,
         tenant: s.tenant,

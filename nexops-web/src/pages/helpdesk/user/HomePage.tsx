@@ -38,7 +38,7 @@ const MAX_CHARS = 1000
 export default function HomePage() {
   const navigate = useNavigate()
   const user = useAppStore((s) => s.user)
-  const firstName = user?.name?.split(' ')[0] ?? user?.email ?? 'Olá'
+  const firstName = user?.nome?.split(' ')[0] ?? user?.email ?? 'Olá'
 
   const [description, setDescription] = useState('')
   const [textareaFocused, setTextareaFocused] = useState(false)

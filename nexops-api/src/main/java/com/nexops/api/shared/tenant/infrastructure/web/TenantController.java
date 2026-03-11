@@ -13,6 +13,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/v1/tenants")
 @RequiredArgsConstructor
@@ -22,33 +24,30 @@ public class TenantController {
     private final TenantProvisioningUseCase provisioningUseCase;
     private final TenantRepository tenantRepository;
 
-    @Operation(summary = "Create tenant", description = "Provisions a new tenant schema and basic data")
+    @Operation(summary = "Create tenant")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public TenantResponse create(@RequestBody @Valid CreateTenantRequest request) {
         Tenant tenant = provisioningUseCase.provision(
-                request.name(), request.slug(), request.plan(), request.maxUsers());
-        
+                request.cnpj(), request.nomeFantasia(), request.email());
         return toResponse(tenant);
     }
 
-    @Operation(summary = "Get tenant", description = "Retrieve tenant details by slug")
-    @GetMapping("/{slug}")
-    public TenantResponse getBySlug(@PathVariable String slug) {
-        return tenantRepository.findBySlug(slug)
+    @Operation(summary = "Get tenant by ID")
+    @GetMapping("/{id}")
+    public TenantResponse getById(@PathVariable UUID id) {
+        return tenantRepository.findById(id)
                 .map(this::toResponse)
-                .orElseThrow(() -> new BusinessException("Tenant not found with slug: " + slug));
+                .orElseThrow(() -> new BusinessException("Tenant not found: " + id));
     }
 
     private TenantResponse toResponse(Tenant t) {
         return new TenantResponse(
                 t.getId(),
-                t.getName(),
-                t.getSlug(),
-                t.getSchemaName(),
+                t.getCnpj(),
+                t.getNomeFantasia(),
+                t.getEmail(),
                 t.getStatus().name(),
-                t.getPlan(),
-                t.getMaxUsers(),
                 t.getCreatedAt()
         );
     }

@@ -2,8 +2,27 @@
 
 export interface LoginRequest {
   email: string
-  password: string
-  tenantSlug: string
+  senha: string
+}
+
+export interface RegisterRequest {
+  cnpj: string
+  nomeFantasia: string
+  email: string
+  senha: string
+  confirmacaoSenha: string
+}
+
+export interface InviteRequest {
+  email: string
+}
+
+export interface FirstAccessRequest {
+  token: string
+  nome: string
+  email: string
+  senha: string
+  confirmacaoSenha: string
 }
 
 export interface RefreshRequest {
@@ -12,49 +31,28 @@ export interface RefreshRequest {
 
 // ─── Responses ───────────────────────────────────────────────────────────────
 
-/** POST /v1/auth/login  |  POST /v1/auth/refresh */
+/** POST /v1/auth/login  |  POST /v1/auth/refresh  |  POST /v1/register */
 export interface TokenPairResponse {
   accessToken: string
   refreshToken: string
   tokenType: string // always "Bearer"
 }
 
+export interface InviteResponse {
+  inviteLink: string
+}
+
 // ─── JWT Claims (extraídos pelo JwtService do backend) ───────────────────────
 // sub         → userId (UUID string)
+// nome        → string
 // email       → string
-// tenant      → tenantSlug (string)
+// tenantId    → UUID string
 // permissions → string[]
 
 // ─── Principal no Zustand ────────────────────────────────────────────────────
-/**
- * Shape do usuário autenticado armazenado no store.
- * Derivado das claims do JWT.
- * O campo `name` não está no token — usar e-mail como fallback até que
- * GET /v1/users/me seja implementado no backend.
- */
 export interface AuthenticatedUser {
-  userId: string    // UUID como string (claim: sub)
+  userId: string   // UUID como string (claim: sub)
+  nome: string
   email: string
-  tenantSlug: string // claim: tenant
-  name?: string
-}
-
-// ─── Tenant (super-admin) ─────────────────────────────────────────────────────
-
-export interface CreateTenantRequest {
-  name: string
-  slug: string      // pattern: ^[a-z0-9-]+$
-  plan: string
-  maxUsers: number  // mínimo 1
-}
-
-export interface TenantResponse {
-  id: string
-  name: string
-  slug: string
-  schemaName: string
-  status: string
-  plan: string
-  maxUsers: number
-  createdAt: string // ISO 8601
+  tenantId: string // claim: tenantId
 }

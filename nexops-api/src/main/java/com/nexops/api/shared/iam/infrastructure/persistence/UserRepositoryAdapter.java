@@ -19,7 +19,7 @@ public class UserRepositoryAdapter implements UserRepository {
 
     @Override
     public User save(User user) {
-        return IamMapper.toDomain(jpa.save(IamMapper.toEntity(user)));
+        return IamMapper.toDomain(jpa.saveAndFlush(IamMapper.toEntity(user)));
     }
 
     @Override

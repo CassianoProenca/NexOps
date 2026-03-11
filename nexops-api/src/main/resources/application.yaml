@@ -16,8 +16,6 @@ spring:
     properties:
       hibernate:
         format_sql: true
-        session_factory:
-          statement_inspector: com.nexops.api.shared.tenant.infrastructure.TenantSchemaInterceptor
 
   flyway:
     enabled: true
@@ -52,11 +50,6 @@ spring:
 
 server:
   port: 8080
-  servlet:
-    context-path: /api
-
-app:
-  dev-bootstrap-enabled: ${DEV_BOOTSTRAP_ENABLED:true}
 
 nexops:
   jwt:

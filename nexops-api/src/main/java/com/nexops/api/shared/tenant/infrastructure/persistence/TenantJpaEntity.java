@@ -7,7 +7,7 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "tenants", schema = "public")
+@Table(name = "tenants")
 @Getter @Setter @Builder
 @NoArgsConstructor @AllArgsConstructor
 public class TenantJpaEntity {
@@ -15,28 +15,19 @@ public class TenantJpaEntity {
     @Id
     private UUID id;
 
-    @Column(nullable = false)
-    private String name;
+    @Column(nullable = false, unique = true, length = 14)
+    private String cnpj;
+
+    @Column(name = "nome_fantasia", nullable = false)
+    private String nomeFantasia;
 
     @Column(nullable = false, unique = true)
-    private String slug;
-
-    @Column(name = "schema_name", nullable = false, unique = true)
-    private String schemaName;
+    private String email;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private TenantStatus status;
 
-    @Column(nullable = false)
-    private String plan;
-
-    @Column(name = "max_users", nullable = false)
-    private Integer maxUsers;
-
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private OffsetDateTime updatedAt;
 }

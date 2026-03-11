@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -17,9 +17,8 @@ import { Navigate } from 'react-router-dom'
 import { useAppStore } from '@/store/appStore'
 
 const schema = z.object({
-  tenantSlug: z.string().min(1, 'Identificador da organização obrigatório'),
   email: z.string().min(1, 'E-mail obrigatório').email('Formato de e-mail inválido'),
-  password: z.string().min(6, 'Mínimo de 6 caracteres'),
+  senha: z.string().min(6, 'Mínimo de 6 caracteres'),
   rememberMe: z.boolean().optional(),
 })
 
@@ -31,7 +30,6 @@ export default function LoginPage() {
   const { login, isLoggingIn } = useAuth()
   const user = useAppStore((s) => s.user)
 
-  // Se já está autenticado (ex: após login bem-sucedido), redireciona
   if (user) return <Navigate to="/app" replace />
 
   const {
@@ -46,10 +44,16 @@ export default function LoginPage() {
 
   function onSubmit(data: FormData) {
     login(
-      { email: data.email, password: data.password, tenantSlug: data.tenantSlug },
+      { email: data.email, senha: data.senha },
       {
-        onError: () => {
-          setError('password', { message: 'Credenciais inválidas. Verifique e tente novamente.' })
+        onError: (err: unknown) => {
+          const status = (err as { response?: { status?: number } })?.response?.status
+          const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+          if (status === 401 || !status) {
+            setError('senha', { message: 'Credenciais inválidas. Verifique e tente novamente.' })
+          } else {
+            setError('senha', { message: msg ?? `Erro inesperado (${status}). Tente novamente.` })
+          }
         },
       },
     )
@@ -83,21 +87,6 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-5">
-            {/* Organização */}
-            <div className="space-y-1.5">
-              <label className="block text-sm font-medium" style={{ color: AUTH.TEXT_PRIMARY }}>
-                Organização
-              </label>
-              <FieldInput
-                type="text"
-                placeholder="prefeitura-votorantim"
-                autoComplete="organization"
-                hasError={!!errors.tenantSlug}
-                {...register('tenantSlug')}
-              />
-              <FieldError message={errors.tenantSlug?.message} />
-            </div>
-
             {/* E-mail */}
             <div className="space-y-1.5">
               <label className="block text-sm font-medium" style={{ color: AUTH.TEXT_PRIMARY }}>
@@ -142,9 +131,9 @@ export default function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
                   autoComplete="current-password"
-                  hasError={!!errors.password}
+                  hasError={!!errors.senha}
                   style={{ paddingRight: '40px' }}
-                  {...register('password')}
+                  {...register('senha')}
                 />
                 <button
                   type="button"
@@ -163,7 +152,7 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
-              <FieldError message={errors.password?.message} />
+              <FieldError message={errors.senha?.message} />
             </div>
 
             {/* Lembrar de mim */}
@@ -193,8 +182,13 @@ export default function LoginPage() {
           </form>
 
           <p className="mt-6 text-center text-xs" style={{ color: AUTH.TEXT_MUTED }}>
-            Acesso exclusivo por convite. Não tem conta?{' '}
-            <span style={{ color: AUTH.TEXT_SECONDARY }}>Fale com o administrador.</span>
+            Ainda não tem conta?{' '}
+            <Link
+              to="/register"
+              style={{ color: AUTH.BRAND, fontWeight: 500, textDecoration: 'none' }}
+            >
+              Cadastrar empresa
+            </Link>
           </p>
         </div>
       </div>

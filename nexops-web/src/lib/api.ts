@@ -1,16 +1,7 @@
 import axios from 'axios'
 import { useAppStore } from '@/store/appStore'
 
-/**
- * Base URL: o application.yaml define context-path: /api e os controllers
- * mapeiam /api/v1/... → URL real: http://localhost:8080/api/api/v1/...
- *
- * Para evitar o double-prefix, usamos baseURL = VITE_API_URL (= http://localhost:8080/api)
- * e os services chamam /v1/... como path relativo.
- *
- * Se o backend for corrigido para context-path vazio, basta ajustar VITE_API_URL.
- */
-const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api'
+const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8080'
 
 export const api = axios.create({
   baseURL: BASE_URL,
@@ -19,14 +10,11 @@ export const api = axios.create({
 })
 
 // ── REQUEST INTERCEPTOR ──────────────────────────────────────────────────────
-// Injeta Authorization + X-Tenant-ID em toda requisição autenticada
+// Injeta Authorization em toda requisição autenticada
 api.interceptors.request.use((config) => {
-  const { accessToken, tenant } = useAppStore.getState()
+  const { accessToken } = useAppStore.getState()
   if (accessToken) {
     config.headers['Authorization'] = `Bearer ${accessToken}`
-  }
-  if (tenant) {
-    config.headers['X-Tenant-ID'] = tenant
   }
   return config
 })
@@ -51,7 +39,9 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config as typeof error.config & { _retry?: boolean }
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    const isAuthEndpoint = originalRequest.url?.includes('/v1/auth/') || originalRequest.url?.includes('/v1/register') || originalRequest.url?.includes('/v1/users/first-access')
+
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       if (isRefreshing) {
         // Enfileira requisiçes que chegaram enquanto o refresh está em andamento
         return new Promise((resolve, reject) => {

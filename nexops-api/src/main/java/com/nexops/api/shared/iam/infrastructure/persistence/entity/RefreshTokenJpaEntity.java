@@ -17,6 +17,9 @@ public class RefreshTokenJpaEntity {
     @Column(name = "user_id", nullable = false)
     private UUID userId;
 
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
+
     @Column(name = "token_hash", nullable = false, unique = true)
     private String tokenHash;
 

@@ -27,8 +27,8 @@ public class AuthController {
     @Operation(summary = "Login", description = "Authenticate user and return access and refresh tokens")
     @PostMapping("/login")
     public ResponseEntity<TokenPairResponse> login(@RequestBody @Valid LoginRequest request) {
-        return loginUseCase.execute(request.email(), request.password(), request.tenantSlug())
-                .map(tokens -> ResponseEntity.ok(new TokenPairResponse(tokens.getAccessToken(), tokens.getRefreshToken())))
+        return loginUseCase.execute(request.email(), request.senha())
+                .map(tokens -> ResponseEntity.ok(new TokenPairResponse(tokens.getAccessToken(), tokens.getRefreshToken(), "Bearer")))
                 .orElse(ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
     }
 
@@ -36,7 +36,7 @@ public class AuthController {
     @PostMapping("/refresh")
     public ResponseEntity<TokenPairResponse> refresh(@RequestBody @Valid RefreshRequest request) {
         return refreshTokenUseCase.execute(request.refreshToken())
-                .map(tokens -> ResponseEntity.ok(new TokenPairResponse(tokens.getAccessToken(), tokens.getRefreshToken())))
+                .map(tokens -> ResponseEntity.ok(new TokenPairResponse(tokens.getAccessToken(), tokens.getRefreshToken(), "Bearer")))
                 .orElse(ResponseEntity.status(HttpStatus.UNAUTHORIZED).build());
     }
 

@@ -47,8 +47,8 @@ public class SecurityConfig {
                     "/actuator/health",
                     // Spring Security avalia sem o context-path (/api)
                     "/v1/auth/**",
-                    "/v1/tenants/**", // TODO: restringir via Nginx em produção
-                    "/dev/**",        // DEV ONLY — desabilitar via DEV_BOOTSTRAP_ENABLED=false
+                    "/v1/register",
+                    "/v1/users/first-access",
                     "/ws/**"
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET, "/v1/departments/**").permitAll()

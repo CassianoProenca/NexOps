@@ -15,7 +15,10 @@ public class UserJpaEntity {
     @Id
     private UUID id;
 
-    @Column(nullable = false)
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
+
+    @Column(name = "nome", nullable = false)
     private String name;
 
     @Column(nullable = false, unique = true)

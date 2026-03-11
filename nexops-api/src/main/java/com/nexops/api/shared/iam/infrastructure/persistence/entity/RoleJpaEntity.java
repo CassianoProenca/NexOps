@@ -14,13 +14,16 @@ public class RoleJpaEntity {
     @Id
     private UUID id;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
+
+    @Column(nullable = false)
     private String name;
 
     private String description;
 
-    @Column(name = "is_system", nullable = false)
-    private boolean system;
+    @Column(name = "system_role", nullable = false)
+    private boolean systemRole;
 
     @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;

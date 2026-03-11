@@ -6,23 +6,19 @@ public class TenantMapper {
 
     public static Tenant toDomain(TenantJpaEntity e) {
         return new Tenant(
-                e.getId(), e.getName(), e.getSlug(), e.getSchemaName(),
-                e.getStatus(), e.getPlan(), e.getMaxUsers(),
-                e.getCreatedAt(), e.getUpdatedAt()
+                e.getId(), e.getCnpj(), e.getNomeFantasia(), e.getEmail(),
+                e.getStatus(), e.getCreatedAt()
         );
     }
 
     public static TenantJpaEntity toEntity(Tenant t) {
         return TenantJpaEntity.builder()
                 .id(t.getId())
-                .name(t.getName())
-                .slug(t.getSlug())
-                .schemaName(t.getSchemaName())
+                .cnpj(t.getCnpj())
+                .nomeFantasia(t.getNomeFantasia())
+                .email(t.getEmail())
                 .status(t.getStatus())
-                .plan(t.getPlan())
-                .maxUsers(t.getMaxUsers())
                 .createdAt(t.getCreatedAt())
-                .updatedAt(t.getUpdatedAt())
                 .build();
     }
 }
