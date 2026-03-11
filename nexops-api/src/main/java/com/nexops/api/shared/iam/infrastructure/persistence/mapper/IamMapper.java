@@ -52,11 +52,15 @@ public class IamMapper {
     }
 
     public static UserJpaEntity toEntity(User u) {
+        var roles = u.getRoles().stream()
+                .map(IamMapper::toEntity)
+                .collect(Collectors.toSet());
         return UserJpaEntity.builder()
                 .id(u.getId()).tenantId(u.getTenantId()).name(u.getName()).email(u.getEmail())
                 .passwordHash(u.getPasswordHash()).status(u.getStatus())
                 .createdAt(u.getCreatedAt()).updatedAt(u.getUpdatedAt())
                 .lastLoginAt(u.getLastLoginAt())
+                .roles(roles)
                 .build();
     }
 

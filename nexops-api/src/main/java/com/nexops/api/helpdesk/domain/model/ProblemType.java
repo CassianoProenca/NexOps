@@ -5,14 +5,16 @@ import java.util.UUID;
 
 public class ProblemType {
     private final UUID id;
+    private final UUID tenantId;
     private final String name;
     private final String description;
     private final SlaLevel slaLevel;
     private boolean active;
     private final OffsetDateTime createdAt;
 
-    public ProblemType(UUID id, String name, String description, SlaLevel slaLevel, boolean active, OffsetDateTime createdAt) {
+    public ProblemType(UUID id, UUID tenantId, String name, String description, SlaLevel slaLevel, boolean active, OffsetDateTime createdAt) {
         this.id = id;
+        this.tenantId = tenantId;
         this.name = name;
         this.description = description;
         this.slaLevel = slaLevel;
@@ -20,9 +22,10 @@ public class ProblemType {
         this.createdAt = createdAt;
     }
 
-    public static ProblemType create(String name, String description, SlaLevel slaLevel) {
+    public static ProblemType create(UUID tenantId, String name, String description, SlaLevel slaLevel) {
         return new ProblemType(
             UUID.randomUUID(),
+            tenantId,
             name,
             description,
             slaLevel,
@@ -36,6 +39,7 @@ public class ProblemType {
     }
 
     public UUID getId() { return id; }
+    public UUID getTenantId() { return tenantId; }
     public String getName() { return name; }
     public String getDescription() { return description; }
     public SlaLevel getSlaLevel() { return slaLevel; }

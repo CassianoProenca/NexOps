@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Plus, X, Users, Eye, Pencil, Trash2, Check, Loader2 } from 'lucide-react'
+import { Plus, X, Users, Eye, Pencil, Trash2, Check, Loader2, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { APP_PERMISSIONS } from '@/types/auth.types'
 import type { PermissionCode, Role } from '@/types/auth.types'
@@ -38,63 +38,7 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
   )
 }
 
-function ViewPermissionsModal({ role, onClose }: { role: Role; onClose: () => void }) {
-  const backdropRef = useRef<HTMLDivElement>(null)
-  return (
-    <div
-      ref={backdropRef}
-      onClick={(e) => { if (e.target === backdropRef.current) onClose() }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm"
-    >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[85vh]">
-        <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
-          <div>
-            <h2 className="text-base font-semibold text-zinc-900">{role.name}</h2>
-            <p className="text-xs text-zinc-400 mt-0.5">{role.description}</p>
-          </div>
-          <button onClick={onClose} className="p-1.5 rounded-md hover:bg-zinc-100 text-zinc-400">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        <div className="overflow-y-auto px-6 py-4 space-y-4">
-          {APP_PERMISSIONS.map(({ group, perms }) => {
-            const anyEnabled = perms.some((p) => role.permissions.includes(p.key))
-            return (
-              <div key={group} className={cn('rounded-lg border p-3', anyEnabled ? 'bg-zinc-50 border-zinc-100' : 'bg-zinc-50/40 border-zinc-100 opacity-60')}>
-                <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-400 mb-2">{group}</p>
-                <div className="space-y-1.5">
-                  {perms.map(({ key, label }) => {
-                    const active = role.permissions.includes(key)
-                    return (
-                      <div key={key} className="flex items-center justify-between gap-2">
-                        <span className={cn('text-xs', active ? 'text-zinc-800' : 'text-zinc-400 line-through')}>
-                          {label}
-                        </span>
-                        <span className={cn(
-                          'text-[10px] font-semibold px-1.5 py-0.5 rounded-full',
-                          active ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-zinc-100 text-zinc-400 border border-zinc-200'
-                        )}>
-                          {active ? 'Ativo' : 'Inativo'}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-        <div className="border-t px-6 py-3 shrink-0 flex justify-end">
-          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-white bg-[#4f6ef7] hover:bg-[#3d5ce6] rounded-lg transition-colors">
-            Fechar
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function RoleModal({ initial, onClose, onSave, isSaving }: { initial?: Role | null; onClose: () => void; onSave: (name: string, description: string, permissions: PermissionCode[]) => void; isSaving?: boolean }) {
+function RoleModal({ initial, onClose, onSave, isSaving }: { initial?: Partial<Role> | null; onClose: () => void; onSave: (name: string, description: string, permissions: PermissionCode[]) => void; isSaving?: boolean }) {
   const [name, setName] = useState(initial?.name ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
   const [selectedPerms, setSelectedPerms] = useState<PermissionCode[]>(initial?.permissions ?? [])
@@ -102,6 +46,16 @@ function RoleModal({ initial, onClose, onSave, isSaving }: { initial?: Role | nu
 
   function togglePerm(key: PermissionCode) {
     setSelectedPerms((prev) => prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key])
+  }
+
+  function toggleGroup(groupKeys: PermissionCode[], active: boolean) {
+    if (active) {
+      // Adiciona todas do grupo que não estão selecionadas
+      setSelectedPerms(prev => Array.from(new Set([...prev, ...groupKeys])))
+    } else {
+      // Remove todas do grupo
+      setSelectedPerms(prev => prev.filter(k => !groupKeys.includes(k)))
+    }
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -114,7 +68,9 @@ function RoleModal({ initial, onClose, onSave, isSaving }: { initial?: Role | nu
     <div ref={backdropRef} onClick={(e) => { if (e.target === backdropRef.current) onClose() }} className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[90vh]">
         <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
-          <h2 className="text-base font-semibold text-zinc-900">{initial ? 'Editar Perfil' : 'Novo Perfil'}</h2>
+          <h2 className="text-base font-semibold text-zinc-900">
+            {initial?.id ? 'Editar Perfil' : initial?.name ? 'Duplicar Perfil' : 'Novo Perfil'}
+          </h2>
           <button onClick={onClose} className="p-1.5 rounded-md hover:bg-zinc-100 text-zinc-400">
             <X className="w-4 h-4" />
           </button>
@@ -134,19 +90,39 @@ function RoleModal({ initial, onClose, onSave, isSaving }: { initial?: Role | nu
               <span className="text-[11px] text-zinc-400">{selectedPerms.length} de {ALL_PERM_KEYS.length} ativas</span>
             </div>
             <div className="space-y-3">
-              {APP_PERMISSIONS.map(({ group, perms: groupPerms }) => (
-                <div key={group} className="rounded-lg border border-zinc-100 bg-zinc-50 p-3">
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-400 mb-2">{group}</p>
-                  <div className="space-y-2">
-                    {groupPerms.map(({ key, label }) => (
-                      <div key={key} className="flex items-center justify-between gap-2">
-                        <span className="text-xs text-zinc-700">{label}</span>
-                        <Toggle checked={selectedPerms.includes(key)} onChange={() => togglePerm(key)} disabled={isSaving} />
-                      </div>
-                    ))}
+              {APP_PERMISSIONS.map(({ group, perms: groupPerms }) => {
+                const groupKeys = groupPerms.map(p => p.key)
+                const allSelected = groupKeys.every(k => selectedPerms.includes(k))
+                const someSelected = groupKeys.some(k => selectedPerms.includes(k))
+
+                return (
+                  <div key={group} className="rounded-lg border border-zinc-100 bg-zinc-50 p-3">
+                    <div className="flex items-center justify-between mb-3 border-b border-zinc-200/60 pb-2">
+                      <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">{group}</p>
+                      <button 
+                        type="button" 
+                        onClick={() => toggleGroup(groupKeys, !allSelected)}
+                        className={cn(
+                          "text-[10px] font-bold px-2 py-0.5 rounded-md transition-colors",
+                          allSelected 
+                            ? "bg-zinc-200 text-zinc-600 hover:bg-zinc-300" 
+                            : "bg-[#eef1ff] text-[#4f6ef7] hover:bg-[#dfe5ff]"
+                        )}
+                      >
+                        {allSelected ? 'Desmarcar Tudo' : 'Marcar Tudo'}
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {groupPerms.map(({ key, label }) => (
+                        <div key={key} className="flex items-center justify-between gap-2">
+                          <span className="text-xs text-zinc-700">{label}</span>
+                          <Toggle checked={selectedPerms.includes(key)} onChange={() => togglePerm(key)} disabled={isSaving} />
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         </form>
@@ -154,7 +130,7 @@ function RoleModal({ initial, onClose, onSave, isSaving }: { initial?: Role | nu
           <button type="button" onClick={onClose} disabled={isSaving} className="px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 rounded-lg transition-colors">Cancelar</button>
           <button type="submit" form="role-form" disabled={!name.trim() || isSaving} className="px-4 py-2 text-sm font-medium text-white bg-[#4f6ef7] hover:bg-[#3d5ce6] rounded-lg transition-colors disabled:opacity-40 flex items-center gap-2">
             {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
-            {initial ? 'Salvar Alterações' : 'Criar Perfil'}
+            {initial?.id ? 'Salvar Alterações' : 'Criar Perfil'}
           </button>
         </div>
       </div>
@@ -162,9 +138,20 @@ function RoleModal({ initial, onClose, onSave, isSaving }: { initial?: Role | nu
   )
 }
 
-function RoleCard({ role, onView, onEdit, onDelete }: { role: Role; onView: (r: Role) => void; onEdit?: (r: Role) => void; onDelete?: (r: Role) => void }) {
-  const visibleKeys = role.permissions.slice(0, 4)
+function RoleCard({ role, onView, onEdit, onDelete, onDuplicate }: { role: Role; onView: (r: Role) => void; onEdit?: (r: Role) => void; onDelete?: (r: Role) => void; onDuplicate: (r: Role) => void }) {
+  const sortedPermissions = [...role.permissions].sort((a, b) => {
+    const priority = ['TICKET_CREATE', 'TICKET_VIEW_OWN', 'TICKET_MANAGE', 'ASSET_VIEW']
+    const idxA = priority.indexOf(a)
+    const idxB = priority.indexOf(b)
+    if (idxA === -1 && idxB === -1) return 0
+    if (idxA === -1) return 1
+    if (idxB === -1) return -1
+    return idxA - idxB
+  })
+
+  const visibleKeys = sortedPermissions.slice(0, 4)
   const remaining = role.permissions.length - visibleKeys.length
+  
   return (
     <div className="relative flex flex-col gap-4 p-5 rounded-xl border bg-white hover:border-zinc-300 hover:shadow-sm transition-all group">
       <div className="absolute top-4 right-4">
@@ -198,8 +185,13 @@ function RoleCard({ role, onView, onEdit, onDelete }: { role: Role; onView: (r: 
       </div>
       <div className="flex items-center gap-2 pt-1 border-t border-zinc-100">
         <button onClick={() => onView(role)} className="flex items-center gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-800 px-2 py-1.5 rounded-md hover:bg-zinc-100 transition-colors">
-          <Eye className="w-3.5 h-3.5" /> Ver Permissões
+          <Eye className="w-3.5 h-3.5" /> Ver
         </button>
+        
+        <button onClick={() => onDuplicate(role)} className="flex items-center gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-800 px-2 py-1.5 rounded-md hover:bg-zinc-100 transition-colors">
+          <Copy className="w-3.5 h-3.5" /> Duplicar
+        </button>
+
         {!role.builtIn && onEdit && (
           <button onClick={() => onEdit(role)} className="flex items-center gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-800 px-2 py-1.5 rounded-md hover:bg-zinc-100 transition-colors">
             <Pencil className="w-3.5 h-3.5" /> Editar
@@ -219,8 +211,8 @@ export default function ProfilesPage() {
   const { roles, isLoading, create, update, delete: deleteRole, isSaving } = useRoles()
   const [viewRole, setViewRole] = useState<Role | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
-  const [showNew, setShowNew] = useState(false)
-  const [editing, setEditing] = useState<Role | null>(null)
+  const [showModal, setShowModal] = useState(false)
+  const [editingRole, setEditingRole] = useState<Partial<Role> | null>(null)
   const [toast, setToast] = useState({ message: '', visible: false })
 
   function showToast(message: string) {
@@ -233,29 +225,28 @@ export default function ProfilesPage() {
 
   async function handleSave(name: string, description: string, permissions: PermissionCode[]) {
     try {
-      if (editing) {
-        await update({ id: editing.id, data: { name, description, permissions } })
+      if (editingRole?.id) {
+        await update({ id: editingRole.id, data: { name, description, permissions } })
         showToast('Perfil atualizado com sucesso.')
       } else {
         await create({ name, description, permissions })
         showToast(`Perfil "${name}" criado com sucesso.`)
       }
-      setEditing(null)
-      setShowNew(false)
+      setEditingRole(null)
+      setShowModal(false)
     } catch (e) {
       console.error(e)
     }
   }
 
-  async function handleDeleteConfirm() {
-    if (!deleteId) return
-    try {
-      await deleteRole(deleteId)
-      showToast('Perfil excluído.')
-      setDeleteId(null)
-    } catch (e) {
-      console.error(e)
-    }
+  function handleDuplicate(role: Role) {
+    setEditingRole({
+      name: `${role.name} (Cópia)`,
+      description: role.description,
+      permissions: [...role.permissions],
+      builtIn: false
+    })
+    setShowModal(true)
   }
 
   return (
@@ -265,7 +256,7 @@ export default function ProfilesPage() {
           <h1 className="text-xl font-bold text-zinc-900">Perfis de Acesso</h1>
           <p className="text-sm text-zinc-400 mt-0.5">Gerencie os conjuntos de permissões do tenant.</p>
         </div>
-        <button onClick={() => { setEditing(null); setShowNew(true) }} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-[#4f6ef7] hover:bg-[#3d5ce6] rounded-lg transition-colors shadow-sm">
+        <button onClick={() => { setEditingRole(null); setShowModal(true) }} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-[#4f6ef7] hover:bg-[#3d5ce6] rounded-lg transition-colors shadow-sm">
           <Plus className="w-4 h-4" /> Novo Perfil
         </button>
       </div>
@@ -280,7 +271,7 @@ export default function ProfilesPage() {
           <div>
             <h2 className="text-[11px] font-bold uppercase tracking-widest text-zinc-400 mb-4">Perfis padrão</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {builtInProfiles.map((p) => <RoleCard key={p.id} role={p} onView={setViewRole} />)}
+              {builtInProfiles.map((p) => <RoleCard key={p.id} role={p} onView={setViewRole} onDuplicate={handleDuplicate} />)}
             </div>
           </div>
 
@@ -292,19 +283,69 @@ export default function ProfilesPage() {
             {customProfiles.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 border-2 border-dashed border-zinc-200 rounded-xl text-center">
                 <p className="text-sm text-zinc-400 mb-3">Nenhum perfil personalizado criado ainda.</p>
-                <button onClick={() => { setEditing(null); setShowNew(true) }} className="flex items-center gap-1.5 text-sm font-medium text-[#4f6ef7] hover:underline"><Plus className="w-4 h-4" /> Criar primeiro perfil</button>
+                <button onClick={() => { setEditingRole(null); setShowModal(true) }} className="flex items-center gap-1.5 text-sm font-medium text-[#4f6ef7] hover:underline"><Plus className="w-4 h-4" /> Criar primeiro perfil</button>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {customProfiles.map((p) => <RoleCard key={p.id} role={p} onView={setViewRole} onEdit={setEditing} onDelete={(r) => setDeleteId(r.id)} />)}
+                {customProfiles.map((p) => (
+                  <RoleCard 
+                    key={p.id} 
+                    role={p} 
+                    onView={setViewRole} 
+                    onEdit={(role) => { setEditingRole(role); setShowModal(true); }} 
+                    onDelete={(r) => setDeleteId(r.id)} 
+                    onDuplicate={handleDuplicate} 
+                  />
+                ))}
               </div>
             )}
           </div>
         </>
       )}
 
-      {viewRole && <ViewPermissionsModal role={viewRole} onClose={() => setViewRole(null)} />}
-      {(showNew || editing) && <RoleModal initial={editing} onClose={() => { setShowNew(false); setEditing(null) }} onSave={handleSave} isSaving={isSaving} />}
+      {/* Modals */}
+      {viewRole && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 flex flex-col max-h-[85vh]">
+            <div className="flex items-center justify-between px-6 py-4 border-b shrink-0">
+              <div>
+                <h2 className="text-base font-semibold text-zinc-900">{viewRole.name}</h2>
+                <p className="text-xs text-zinc-400 mt-0.5">{viewRole.description}</p>
+              </div>
+              <button onClick={() => setViewRole(null)} className="p-1.5 rounded-md hover:bg-zinc-100 text-zinc-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="overflow-y-auto px-6 py-4 space-y-4">
+              {APP_PERMISSIONS.map(({ group, perms }) => {
+                const anyEnabled = perms.some((p) => viewRole.permissions.includes(p.key))
+                return (
+                  <div key={group} className={cn('rounded-lg border p-3', anyEnabled ? 'bg-zinc-50 border-zinc-100' : 'bg-zinc-50/40 border-zinc-100 opacity-60')}>
+                    <p className="text-[11px] font-bold uppercase tracking-widest text-zinc-400 mb-2">{group}</p>
+                    <div className="space-y-1.5">
+                      {perms.map(({ key, label }) => {
+                        const active = viewRole.permissions.includes(key)
+                        return (
+                          <div key={key} className="flex items-center justify-between gap-2">
+                            <span className={cn('text-xs', active ? 'text-zinc-800' : 'text-zinc-400 line-through')}>{label}</span>
+                            <span className={cn('text-[10px] font-semibold px-1.5 py-0.5 rounded-full', active ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-zinc-100 text-zinc-400 border border-zinc-200')}>{active ? 'Ativo' : 'Inativo'}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="border-t px-6 py-3 shrink-0 flex justify-end">
+              <button onClick={() => setViewRole(null)} className="px-4 py-2 text-sm font-medium text-white bg-[#4f6ef7] hover:bg-[#3d5ce6] rounded-lg transition-colors">Fechar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showModal && <RoleModal initial={editingRole} onClose={() => { setShowModal(false); setEditingRole(null) }} onSave={handleSave} isSaving={isSaving} />}
+      
       {deleteId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6">
@@ -312,7 +353,7 @@ export default function ProfilesPage() {
             <p className="text-sm text-zinc-500 mb-6">O perfil será removido permanentemente. Esta ação não pode ser desfeita.</p>
             <div className="flex justify-end gap-2">
               <button onClick={() => setDeleteId(null)} className="px-4 py-2 text-sm font-medium text-zinc-600 hover:bg-zinc-100 rounded-lg transition-colors">Cancelar</button>
-              <button onClick={handleDeleteConfirm} className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors">Excluir</button>
+              <button onClick={async () => { if(deleteId) await deleteRole(deleteId); setDeleteId(null); showToast('Perfil excluído.') }} className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors">Excluir</button>
             </div>
           </div>
         </div>

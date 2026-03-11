@@ -7,5 +7,5 @@ import java.util.List;
 import java.util.UUID;
 
 public interface DepartmentJpaRepository extends JpaRepository<DepartmentJpaEntity, UUID> {
-    List<DepartmentJpaEntity> findByActiveTrue();
+    List<DepartmentJpaEntity> findAllByTenantIdAndActiveTrue(UUID tenantId);
 }

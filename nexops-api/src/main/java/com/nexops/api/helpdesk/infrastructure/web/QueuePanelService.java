@@ -8,7 +8,6 @@ import com.nexops.api.helpdesk.domain.ports.out.TicketRepository;
 import com.nexops.api.helpdesk.infrastructure.web.dto.QueuePanelPayload;
 import com.nexops.api.helpdesk.infrastructure.web.dto.TicketQueueItem;
 import com.nexops.api.shared.iam.domain.ports.out.UserRepository;
-import com.nexops.api.shared.tenant.domain.model.Tenant;
 import com.nexops.api.shared.tenant.domain.service.TenantRunner;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;

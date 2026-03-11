@@ -7,5 +7,5 @@ import java.util.List;
 import java.util.UUID;
 
 public interface ProblemTypeJpaRepository extends JpaRepository<ProblemTypeJpaEntity, UUID> {
-    List<ProblemTypeJpaEntity> findByActiveTrue();
+    List<ProblemTypeJpaEntity> findAllByTenantIdAndActiveTrue(UUID tenantId);
 }

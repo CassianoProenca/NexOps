@@ -22,6 +22,11 @@ export function ProtectedRoute({ permission, children }: ProtectedRouteProps) {
     return <Navigate to="/login" replace />
   }
 
+  // Se o usuário está pendente, deve forçar a troca de senha (exceto se já estiver indo para lá)
+  if (user.status === 'PENDING') {
+    return <Navigate to="/primeiro-acesso" replace />
+  }
+
   if (permission && !hasPermission(permission)) {
     return <Navigate to="/app" replace />
   }

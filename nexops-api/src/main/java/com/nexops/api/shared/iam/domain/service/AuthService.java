@@ -27,18 +27,23 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase {
         return userRepository.findByEmail(email)
                 .filter(user -> passwordEncoder.matches(senha, user.getPasswordHash()))
                 .map(user -> {
-                    if (user.getStatus() != UserStatus.ACTIVE) {
-                        throw new BusinessException("Usuário inativo ou pendente");
+                    if (user.getStatus() == UserStatus.SUSPENDED) {
+                        throw new BusinessException("Usuário inativo");
                     }
 
                     refreshTokenService.revokeAllForUser(user.getId());
+
+                    // Record last login
+                    user.recordLogin();
+                    userRepository.save(user);
 
                     String accessToken = jwtService.generateAccessToken(
                             user.getId(),
                             user.getName(),
                             user.getEmail(),
                             user.getTenantId(),
-                            user.resolvedPermissions()
+                            user.resolvedPermissions(),
+                            user.getStatus().name()
                     );
 
                     String refreshToken = refreshTokenService.generate(user.getId(), user.getTenantId());
@@ -59,7 +64,8 @@ public class AuthService implements LoginUseCase, RefreshTokenUseCase {
                                     user.getName(),
                                     user.getEmail(),
                                     user.getTenantId(),
-                                    user.resolvedPermissions()
+                                    user.resolvedPermissions(),
+                                    user.getStatus().name()
                             );
 
                             String newRefreshToken = refreshTokenService.generate(user.getId(), user.getTenantId());

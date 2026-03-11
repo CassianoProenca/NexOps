@@ -49,4 +49,10 @@ public class Tenant {
     public void activate() {
         this.status = TenantStatus.ACTIVE;
     }
+
+    public void update(String nomeFantasia) {
+        if (nomeFantasia != null && !nomeFantasia.isBlank()) {
+            this.nomeFantasia = nomeFantasia;
+        }
+    }
 }

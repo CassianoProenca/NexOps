@@ -1,31 +1,36 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { helpdeskService } from '@/services/helpdesk.service'
-import type { CreateDepartmentRequest } from '@/types/helpdesk.types'
-
-export const deptKeys = {
-  all: ['departments'] as const,
-}
+import type { Department } from '@/services/helpdesk.service'
 
 export function useDepartments() {
-  return useQuery({
-    queryKey: deptKeys.all,
-    queryFn: helpdeskService.getDepartments,
-    staleTime: 60_000,
-  })
-}
+  const queryClient = useQueryClient()
 
-export function useCreateDepartment() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (data: CreateDepartmentRequest) => helpdeskService.createDepartment(data),
-    onSuccess: () => qc.invalidateQueries({ queryKey: deptKeys.all }),
+  const { data: departments = [], isLoading, error } = useQuery({
+    queryKey: ['departments'],
+    queryFn: () => helpdeskService.getDepartments(),
   })
-}
 
-export function useDeactivateDepartment() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => helpdeskService.deactivateDepartment(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: deptKeys.all }),
+  const createMutation = useMutation({
+    mutationFn: (data: Partial<Department>) => helpdeskService.createDepartment(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['departments'] })
+    },
   })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => helpdeskService.deleteDepartment(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['departments'] })
+    },
+  })
+
+  return {
+    departments,
+    isLoading,
+    error,
+    create: createMutation.mutateAsync,
+    delete: deleteMutation.mutateAsync,
+    isSaving: createMutation.isPending,
+    isDeleting: deleteMutation.isPending,
+  }
 }

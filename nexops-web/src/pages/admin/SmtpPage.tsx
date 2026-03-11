@@ -1,6 +1,7 @@
-import { useState, useRef } from 'react'
-import { Info, Eye, EyeOff, Zap, Check, X } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Info, Eye, EyeOff, Zap, Check, X, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useExtraSettings } from '@/hooks/auth/useTenantSettings'
 
 // ── Shared ─────────────────────────────────────────────────────────────────────
 
@@ -83,6 +84,8 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
 type TestState = 'idle' | 'loading' | 'success' | 'error'
 
 export default function SmtpPage() {
+  const { extra, isLoading, updateSmtp, isSavingSmtp } = useExtraSettings()
+
   const [enabled, setEnabled]     = useState(false)
   const [host, setHost]           = useState('')
   const [port, setPort]           = useState('587')
@@ -96,6 +99,20 @@ export default function SmtpPage() {
   const [testMsg, setTestMsg]     = useState('')
   const [toast, setToast]         = useState({ message: '', visible: false })
   const toastTimer                = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (extra) {
+      // Aqui determinamos se está habilitado baseado na existência do host
+      setEnabled(!!extra.smtpHost)
+      setHost(extra.smtpHost || '')
+      setPort(extra.smtpPort?.toString() || '587')
+      setUser(extra.smtpUsername || '')
+      setPassword(extra.smtpPassword || '')
+      setFromEmail(extra.smtpFromEmail || '')
+      setFromName(extra.smtpFromName || '')
+      setUseTls(extra.smtpUseTls ?? true)
+    }
+  }, [extra])
 
   const disabled = !enabled
 
@@ -113,17 +130,37 @@ export default function SmtpPage() {
     }
     setTestState('loading')
     setTestMsg('')
-    // Simulate async test
     setTimeout(() => {
-      // Mock: fail if host doesn't look plausible
       const ok = host.includes('.')
       setTestState(ok ? 'success' : 'error')
       setTestMsg(ok ? 'Conexão estabelecida com sucesso.' : 'Não foi possível conectar ao servidor SMTP.')
     }, 1400)
   }
 
-  function handleSave() {
-    showToast(enabled ? 'Configuração SMTP salva.' : 'SMTP desabilitado e configuração salva.')
+  async function handleSave() {
+    try {
+      await updateSmtp({
+        smtpHost: enabled ? host : '', // Se desabilitado, limpamos no banco
+        smtpPort: parseInt(port),
+        smtpUsername: user,
+        smtpPassword: password,
+        smtpFromEmail: fromEmail,
+        smtpFromName: fromName,
+        smtpUseTls: useTls
+      })
+      showToast(enabled ? 'Configuração SMTP salva.' : 'SMTP desabilitado e configuração salva.')
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="p-8 flex flex-col items-center justify-center min-h-[400px] gap-3">
+        <Loader2 className="w-8 h-8 animate-spin text-zinc-300" />
+        <p className="text-sm text-zinc-400">Carregando configurações...</p>
+      </div>
+    )
   }
 
   return (
@@ -248,8 +285,10 @@ export default function SmtpPage() {
 
               <button
                 onClick={handleSave}
-                className="px-5 py-2 text-sm font-semibold text-white bg-[#4f6ef7] hover:bg-[#3d5ce6] rounded-lg transition-colors shadow-sm"
+                disabled={isSavingSmtp}
+                className="px-5 py-2 text-sm font-semibold text-white bg-[#4f6ef7] hover:bg-[#3d5ce6] rounded-lg transition-colors shadow-sm disabled:opacity-40 flex items-center gap-2"
               >
+                {isSavingSmtp && <Loader2 className="w-4 h-4 animate-spin" />}
                 Salvar
               </button>
             </div>

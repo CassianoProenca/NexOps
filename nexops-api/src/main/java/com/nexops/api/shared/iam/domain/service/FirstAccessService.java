@@ -74,7 +74,8 @@ public class FirstAccessService implements FirstAccessUseCase {
                 savedUser.getName(),
                 savedUser.getEmail(),
                 savedUser.getTenantId(),
-                permissions
+                permissions,
+                savedUser.getStatus().name()
         );
 
         String refreshToken = refreshTokenService.generate(savedUser.getId(), savedUser.getTenantId());

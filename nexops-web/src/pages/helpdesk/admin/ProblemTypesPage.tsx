@@ -1,12 +1,12 @@
 import { useState, useRef } from 'react'
-import { Plus, Pencil, Trash2, Tag, X, AlertCircle } from 'lucide-react'
+import { Plus, Pencil, Trash2, Tag, X, AlertCircle, Loader2, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useProblemTypes, useCreateProblemType, useDeactivateProblemType } from '@/hooks/helpdesk/useProblemTypes'
-import type { ProblemType, SlaLevel } from '@/types/helpdesk.types'
+import { useProblemTypes } from '@/hooks/helpdesk/useProblemTypes'
+import type { ProblemType } from '@/services/helpdesk.service'
 
 // ── Styles ─────────────────────────────────────────────────────────────────────
 
-type Tier = SlaLevel   // 'N1' | 'N2' | 'N3'
+type Tier = 'N1' | 'N2' | 'N3'
 
 const TIER_BADGE: Record<Tier, string> = {
   N1: 'bg-zinc-100 text-zinc-600',
@@ -68,8 +68,9 @@ function DeactivateModal({ name, onConfirm, onClose, isPending }: {
           <button
             onClick={onConfirm}
             disabled={isPending}
-            className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-50"
+            className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-red-600 hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
           >
+            {isPending && <Loader2 className="w-4 h-4 animate-spin" />}
             {isPending ? 'Desativando…' : 'Desativar'}
           </button>
         </div>
@@ -83,9 +84,7 @@ function DeactivateModal({ name, onConfirm, onClose, isPending }: {
 type FormMode = 'idle' | 'new' | 'edit'
 
 export default function ProblemTypesPage() {
-  const { data: types = [], isLoading } = useProblemTypes()
-  const createPT    = useCreateProblemType()
-  const deactivatePT = useDeactivateProblemType()
+  const { problemTypes, isLoading, create, delete: deletePT, isSaving, isDeleting } = useProblemTypes()
 
   const [formMode,     setFormMode]     = useState<FormMode>('idle')
   const [editingId,    setEditingId]    = useState<string | null>(null)
@@ -114,7 +113,7 @@ export default function ProblemTypesPage() {
     setFormMode('edit')
     setEditingId(pt.id)
     setFormName(pt.name)
-    setFormTier(pt.slaLevel)
+    setFormTier(pt.slaLevel as Tier)
     setFormDesc(pt.description ?? '')
   }
 
@@ -126,30 +125,36 @@ export default function ProblemTypesPage() {
     setFormDesc('')
   }
 
-  function save() {
+  async function save() {
     if (!formName.trim()) return
-    if (formMode === 'new') {
-      createPT.mutate(
-        { name: formName.trim(), description: formDesc.trim() || undefined, slaLevel: formTier },
-        { onSuccess: () => { showToast('Tipo de problema criado com sucesso.'); cancel() } }
-      )
+    try {
+      if (formMode === 'new') {
+        await create({ 
+          name: formName.trim(), 
+          description: formDesc.trim(), 
+          slaLevel: formTier 
+        })
+        showToast('Tipo de problema criado com sucesso.')
+      } else {
+        showToast('Edição em desenvolvimento.')
+      }
+      cancel()
+    } catch (e) {
+      console.error(e)
     }
-    // edit not supported yet (no PUT endpoint) — cancel silently
-    if (formMode === 'edit') cancel()
   }
 
-  function confirmDeactivate() {
+  async function confirmDeactivate() {
     if (!deleteTarget) return
-    deactivatePT.mutate(deleteTarget.id, {
-      onSuccess: () => {
-        if (editingId === deleteTarget.id) cancel()
-        setDeleteTarget(null)
-        showToast('Tipo de problema desativado.')
-      },
-    })
+    try {
+      await deletePT(deleteTarget.id)
+      if (editingId === deleteTarget.id) cancel()
+      setDeleteTarget(null)
+      showToast('Tipo de problema desativado.')
+    } catch (e) {
+      console.error(e)
+    }
   }
-
-  const activeTypes = types.filter((pt) => pt.active)
 
   if (isLoading) {
     return (
@@ -172,13 +177,12 @@ export default function ProblemTypesPage() {
             <div className="flex items-center gap-2.5">
               <h1 className="text-xl font-bold text-zinc-900">Tipos de Problema</h1>
               <span className="text-xs font-semibold bg-zinc-100 text-zinc-500 px-2 py-0.5 rounded-full">
-                {activeTypes.length}
+                {problemTypes.length}
               </span>
             </div>
             <button
               onClick={openNew}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-white hover:opacity-90 transition-opacity"
-              style={{ background: '#4f6ef7' }}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-white hover:opacity-90 transition-opacity bg-[#4f6ef7]"
             >
               <Plus className="w-4 h-4" />
               Novo Tipo
@@ -197,7 +201,7 @@ export default function ProblemTypesPage() {
                 </tr>
               </thead>
               <tbody>
-                {activeTypes.map((pt) => (
+                {problemTypes.map((pt) => (
                   <tr
                     key={pt.id}
                     className={cn(
@@ -213,7 +217,7 @@ export default function ProblemTypesPage() {
                     </td>
 
                     <td className="px-4 py-3">
-                      <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold', TIER_BADGE[pt.slaLevel])}>
+                      <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold', TIER_BADGE[pt.slaLevel as Tier])}>
                         {pt.slaLevel}
                       </span>
                     </td>
@@ -243,6 +247,13 @@ export default function ProblemTypesPage() {
                     </td>
                   </tr>
                 ))}
+                {problemTypes.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-12 text-center text-zinc-400 italic">
+                      Nenhum tipo de problema cadastrado.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -258,7 +269,7 @@ export default function ProblemTypesPage() {
               </p>
             </div>
           ) : (
-            <div className="rounded-xl border border-zinc-200 bg-white p-6 space-y-5">
+            <div className="rounded-xl border border-zinc-200 bg-white p-6 space-y-5 shadow-sm">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-zinc-800">
                   {formMode === 'new' ? 'Novo Tipo de Problema' : 'Editar Tipo'}
@@ -298,9 +309,7 @@ export default function ProblemTypesPage() {
                       <option value="N2">N2</option>
                       <option value="N3">N3</option>
                     </select>
-                    <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-                    </svg>
+                    <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400" />
                   </div>
                   <p className={cn('text-xs mt-1', TIER_DESC_COLOR[formTier])}>
                     {TIER_DESC[formTier]}
@@ -330,11 +339,11 @@ export default function ProblemTypesPage() {
                 </button>
                 <button
                   onClick={save}
-                  disabled={!formName.trim() || createPT.isPending}
-                  className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
-                  style={{ background: '#4f6ef7' }}
+                  disabled={!formName.trim() || isSaving}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-[#4f6ef7] hover:opacity-90 transition-opacity disabled:opacity-40 flex items-center gap-2"
                 >
-                  {createPT.isPending ? 'Salvando…' : 'Salvar'}
+                  {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {isSaving ? 'Salvando…' : 'Salvar'}
                 </button>
               </div>
             </div>
@@ -347,7 +356,7 @@ export default function ProblemTypesPage() {
           name={deleteTarget.name}
           onConfirm={confirmDeactivate}
           onClose={() => setDeleteTarget(null)}
-          isPending={deactivatePT.isPending}
+          isPending={isDeleting}
         />
       )}
 

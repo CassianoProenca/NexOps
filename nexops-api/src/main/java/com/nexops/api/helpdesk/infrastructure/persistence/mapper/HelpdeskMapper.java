@@ -6,23 +6,23 @@ import com.nexops.api.helpdesk.infrastructure.persistence.entity.*;
 public class HelpdeskMapper {
 
     public static Department toDomain(DepartmentJpaEntity e) {
-        return new Department(e.getId(), e.getName(), e.getDescription(), e.isActive(), e.getCreatedAt());
+        return new Department(e.getId(), e.getTenantId(), e.getName(), e.getDescription(), e.isActive(), e.getCreatedAt());
     }
 
     public static DepartmentJpaEntity toEntity(Department d) {
         return DepartmentJpaEntity.builder()
-                .id(d.getId()).name(d.getName())
+                .id(d.getId()).tenantId(d.getTenantId()).name(d.getName())
                 .description(d.getDescription()).active(d.isActive())
                 .createdAt(d.getCreatedAt()).build();
     }
 
     public static ProblemType toDomain(ProblemTypeJpaEntity e) {
-        return new ProblemType(e.getId(), e.getName(), e.getDescription(), e.getSlaLevel(), e.isActive(), e.getCreatedAt());
+        return new ProblemType(e.getId(), e.getTenantId(), e.getName(), e.getDescription(), e.getSlaLevel(), e.isActive(), e.getCreatedAt());
     }
 
     public static ProblemTypeJpaEntity toEntity(ProblemType p) {
         return ProblemTypeJpaEntity.builder()
-                .id(p.getId()).name(p.getName())
+                .id(p.getId()).tenantId(p.getTenantId()).name(p.getName())
                 .description(p.getDescription()).slaLevel(p.getSlaLevel())
                 .active(p.isActive()).createdAt(p.getCreatedAt()).build();
     }

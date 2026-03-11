@@ -1,7 +1,6 @@
 package com.nexops.api.governance.domain.service;
 
 import com.nexops.api.governance.domain.model.SlaBreachEvent;
-import com.nexops.api.governance.domain.model.SlaNotification;
 import com.nexops.api.governance.domain.ports.out.GovernanceTicketQueryPort;
 import com.nexops.api.governance.domain.ports.out.SlaBreachEventRepository;
 import com.nexops.api.governance.domain.ports.out.SlaNotificationRepository;

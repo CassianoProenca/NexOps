@@ -14,10 +14,19 @@ import java.util.UUID;
 public class ProblemTypeJpaEntity {
     @Id
     private UUID id;
+
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
+
     private String name;
     private String description;
+
     @Enumerated(EnumType.STRING)
+    @Column(name = "sla_level")
     private SlaLevel slaLevel;
+
     private boolean active;
+
+    @Column(name = "created_at", updatable = false)
     private OffsetDateTime createdAt;
 }

@@ -11,6 +11,7 @@ interface JwtPayload {
   email: string
   tenantId: string      // UUID string
   permissions: string[]
+  status: string
   exp: number
 }
 
@@ -31,6 +32,7 @@ export function useAuth() {
           nome: decoded.nome,
           email: decoded.email,
           tenantId: decoded.tenantId,
+          status: decoded.status,
         }
         setAuth(authUser, decoded.tenantId, tokens.accessToken, tokens.refreshToken, decoded.permissions ?? [])
         navigate('/app')
@@ -54,6 +56,7 @@ export function useAuth() {
           nome: decoded.nome,
           email: decoded.email,
           tenantId: decoded.tenantId,
+          status: decoded.status,
         }
         setAuth(authUser, decoded.tenantId, tokens.accessToken, tokens.refreshToken, decoded.permissions ?? [])
         navigate('/app')

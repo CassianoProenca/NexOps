@@ -1,8 +1,8 @@
 import { useState, useRef } from 'react'
-import { Plus, Pencil, Trash2, Building2, X, AlertCircle } from 'lucide-react'
+import { Plus, Pencil, Trash2, Building2, X, AlertCircle, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useDepartments, useCreateDepartment, useDeactivateDepartment } from '@/hooks/helpdesk/useDepartments'
-import type { Department } from '@/types/helpdesk.types'
+import { useDepartments } from '@/hooks/helpdesk/useDepartments'
+import type { Department } from '@/services/helpdesk.service'
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
@@ -61,9 +61,7 @@ function DeleteModal({ name, onConfirm, onClose, isPending }: {
 type FormMode = 'idle' | 'new' | 'edit'
 
 export default function DepartmentsPage() {
-  const { data: departments = [], isLoading } = useDepartments()
-  const createDept     = useCreateDepartment()
-  const deactivateDept = useDeactivateDepartment()
+  const { departments, isLoading, create, delete: deleteDept, isSaving, isDeleting } = useDepartments()
 
   const [formMode,      setFormMode]      = useState<FormMode>('idle')
   const [editingId,     setEditingId]     = useState<string | null>(null)
@@ -100,29 +98,32 @@ export default function DepartmentsPage() {
     setFormDesc('')
   }
 
-  function save() {
+  async function save() {
     if (!formName.trim()) return
-    if (formMode === 'new') {
-      createDept.mutate(
-        { name: formName.trim(), description: formDesc.trim() || undefined },
-        { onSuccess: () => { showToast('Departamento criado com sucesso.'); cancel() } }
-      )
-    } else {
-      // Edit: no update endpoint in current API; optimistic UI only
-      showToast('Departamento atualizado.')
+    try {
+      if (formMode === 'new') {
+        await create({ name: formName.trim(), description: formDesc.trim() })
+        showToast('Departamento criado com sucesso.')
+      } else {
+        // Edit logic can be added to the hook/service later if needed
+        showToast('Edição em desenvolvimento.')
+      }
       cancel()
+    } catch (e) {
+      console.error(e)
     }
   }
 
-  function confirmDelete() {
+  async function confirmDelete() {
     if (!deleteTarget) return
-    deactivateDept.mutate(deleteTarget.id, {
-      onSuccess: () => {
-        if (editingId === deleteTarget.id) cancel()
-        setDeleteTarget(null)
-        showToast('Departamento desativado.')
-      },
-    })
+    try {
+      await deleteDept(deleteTarget.id)
+      if (editingId === deleteTarget.id) cancel()
+      setDeleteTarget(null)
+      showToast('Departamento desativado.')
+    } catch (e) {
+      console.error(e)
+    }
   }
 
   if (isLoading) {
@@ -132,9 +133,6 @@ export default function DepartmentsPage() {
       </div>
     )
   }
-
-  // Only show active departments
-  const activeDepts = departments.filter((d) => d.active)
 
   return (
     <div className="p-8">
@@ -147,13 +145,12 @@ export default function DepartmentsPage() {
             <div className="flex items-center gap-2.5">
               <h1 className="text-xl font-bold text-zinc-900">Departamentos</h1>
               <span className="text-xs font-semibold bg-zinc-100 text-zinc-500 px-2 py-0.5 rounded-full">
-                {activeDepts.length}
+                {departments.length}
               </span>
             </div>
             <button
               onClick={openNew}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-white hover:opacity-90 transition-opacity"
-              style={{ background: '#4f6ef7' }}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold text-white hover:opacity-90 transition-opacity bg-[#4f6ef7]"
             >
               <Plus className="w-4 h-4" />
               Novo Departamento
@@ -171,7 +168,7 @@ export default function DepartmentsPage() {
                 </tr>
               </thead>
               <tbody>
-                {activeDepts.map((dept) => (
+                {departments.map((dept) => (
                   <tr
                     key={dept.id}
                     className={cn(
@@ -211,6 +208,13 @@ export default function DepartmentsPage() {
                     </td>
                   </tr>
                 ))}
+                {departments.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="px-4 py-12 text-center text-zinc-400 italic">
+                      Nenhum departamento cadastrado.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -226,7 +230,7 @@ export default function DepartmentsPage() {
               </p>
             </div>
           ) : (
-            <div className="rounded-xl border border-zinc-200 bg-white p-6 space-y-5">
+            <div className="rounded-xl border border-zinc-200 bg-white p-6 space-y-5 shadow-sm">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-zinc-800">
                   {formMode === 'new' ? 'Novo Departamento' : 'Editar Departamento'}
@@ -275,11 +279,11 @@ export default function DepartmentsPage() {
                 </button>
                 <button
                   onClick={save}
-                  disabled={!formName.trim() || createDept.isPending}
-                  className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
-                  style={{ background: '#4f6ef7' }}
+                  disabled={!formName.trim() || isSaving}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-[#4f6ef7] hover:opacity-90 transition-opacity disabled:opacity-40 flex items-center gap-2"
                 >
-                  {createDept.isPending ? 'Salvando...' : 'Salvar'}
+                  {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {isSaving ? 'Salvando...' : 'Salvar'}
                 </button>
               </div>
             </div>
@@ -292,7 +296,7 @@ export default function DepartmentsPage() {
           name={deleteTarget.name}
           onConfirm={confirmDelete}
           onClose={() => setDeleteTarget(null)}
-          isPending={deactivateDept.isPending}
+          isPending={isDeleting}
         />
       )}
 

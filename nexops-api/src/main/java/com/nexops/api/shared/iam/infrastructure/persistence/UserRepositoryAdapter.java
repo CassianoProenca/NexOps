@@ -36,4 +36,11 @@ public class UserRepositoryAdapter implements UserRepository {
     public boolean existsByEmail(String email) {
         return jpa.existsByEmail(email);
     }
+
+    @Override
+    public java.util.List<User> findAllByTenantId(UUID tenantId) {
+        return jpa.findByTenantId(tenantId).stream()
+                .map(IamMapper::toDomain)
+                .collect(java.util.stream.Collectors.toList());
+    }
 }

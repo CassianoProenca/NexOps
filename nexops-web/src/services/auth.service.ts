@@ -41,4 +41,15 @@ export const authService = {
 
   deleteRole: (id: string): Promise<void> =>
     api.delete(`/v1/roles/${id}`).then(() => undefined),
+
+  // ─── Users ─────────────────────────────────────────────────────────────────
+
+  getUsers: (): Promise<any[]> =>
+    api.get('/v1/users').then((r) => r.data),
+
+  updateUser: (id: string, data: { roleId: string; permissions: string[] }): Promise<void> =>
+    api.put(`/v1/users/${id}`, data).then(() => undefined),
+
+  activateAccount: (newPassword: string): Promise<void> =>
+    api.post('/v1/users/activate', { newPassword }).then(() => undefined),
 }

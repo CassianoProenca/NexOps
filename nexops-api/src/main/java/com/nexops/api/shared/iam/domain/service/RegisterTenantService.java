@@ -70,7 +70,8 @@ public class RegisterTenantService implements RegisterTenantUseCase {
                 adminUser.getName(),
                 adminUser.getEmail(),
                 adminUser.getTenantId(),
-                adminPermissions
+                adminPermissions,
+                adminUser.getStatus().name()
         );
 
         String refreshToken = refreshTokenService.generate(adminUser.getId(), adminUser.getTenantId());

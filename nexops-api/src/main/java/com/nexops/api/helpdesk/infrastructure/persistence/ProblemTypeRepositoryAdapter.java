@@ -3,6 +3,7 @@ package com.nexops.api.helpdesk.infrastructure.persistence;
 import com.nexops.api.helpdesk.domain.model.ProblemType;
 import com.nexops.api.helpdesk.domain.ports.out.ProblemTypeRepository;
 import com.nexops.api.helpdesk.infrastructure.persistence.mapper.HelpdeskMapper;
+import com.nexops.api.shared.security.SecurityContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -15,31 +16,32 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ProblemTypeRepositoryAdapter implements ProblemTypeRepository {
 
-    private final ProblemTypeJpaRepository jpaRepository;
+    private final ProblemTypeJpaRepository jpa;
 
     @Override
-    public ProblemType save(ProblemType problemType) {
-        var entity = HelpdeskMapper.toEntity(problemType);
-        var saved = jpaRepository.save(entity);
-        return HelpdeskMapper.toDomain(saved);
+    public List<ProblemType> findAllActive() {
+        var caller = SecurityContext.get();
+        if (caller == null) throw new RuntimeException("Não autenticado");
+
+        return jpa.findAllByTenantIdAndActiveTrue(caller.tenantId()).stream()
+                .map(HelpdeskMapper::toDomain)
+                .collect(Collectors.toList());
     }
 
     @Override
     public Optional<ProblemType> findById(UUID id) {
-        return jpaRepository.findById(id).map(HelpdeskMapper::toDomain);
+        return jpa.findById(id).map(HelpdeskMapper::toDomain);
+    }
+
+    @Override
+    public ProblemType save(ProblemType problemType) {
+        var entity = HelpdeskMapper.toEntity(problemType);
+        return HelpdeskMapper.toDomain(jpa.save(entity));
     }
 
     @Override
     public List<ProblemType> findAll() {
-        return jpaRepository.findAll().stream()
-                .map(HelpdeskMapper::toDomain)
-                .collect(Collectors.toList());
-    }
-
-    @Override
-    public List<ProblemType> findAllActive() {
-        return jpaRepository.findByActiveTrue().stream()
-                .map(HelpdeskMapper::toDomain)
-                .collect(Collectors.toList());
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'findAll'");
     }
 }

@@ -1,13 +1,15 @@
 package com.nexops.api.shared.iam.infrastructure.web.dto;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 public record UserResponse(
     UUID id,
-    String nome,
+    String name,
     String email,
-    UUID tenantId,
     String status,
-    OffsetDateTime createdAt
+    OffsetDateTime createdAt,
+    OffsetDateTime lastLoginAt,
+    List<String> roles
 ) {}

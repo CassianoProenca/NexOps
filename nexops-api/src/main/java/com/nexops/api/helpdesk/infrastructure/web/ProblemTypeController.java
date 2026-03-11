@@ -2,11 +2,14 @@ package com.nexops.api.helpdesk.infrastructure.web;
 
 import com.nexops.api.helpdesk.domain.model.ProblemType;
 import com.nexops.api.helpdesk.domain.ports.out.ProblemTypeRepository;
+import com.nexops.api.helpdesk.infrastructure.web.dto.ProblemTypeRequest;
+import com.nexops.api.helpdesk.infrastructure.web.dto.ProblemTypeResponse;
 import com.nexops.api.shared.exception.BusinessException;
 import com.nexops.api.shared.security.AuthenticatedUser;
 import com.nexops.api.shared.security.SecurityContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.AccessDeniedException;
@@ -14,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/v1/problem-types")
@@ -23,22 +27,32 @@ public class ProblemTypeController {
 
     private final ProblemTypeRepository problemTypeRepository;
 
-    @Operation(summary = "List problem types", description = "Retrieve all active problem types")
+    @Operation(summary = "List problem types", description = "Retrieve all active problem types for the current tenant")
     @GetMapping
-    public List<ProblemType> listAll() {
-        return problemTypeRepository.findAllActive();
+    public List<ProblemTypeResponse> listAll() {
+        return problemTypeRepository.findAllActive().stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
     }
 
     @Operation(summary = "Create problem type", description = "Create a new problem type (DEPT_MANAGE only)")
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ProblemType create(@RequestBody ProblemType problemType) {
+    public ProblemTypeResponse create(@RequestBody @Valid ProblemTypeRequest request) {
         AuthenticatedUser user = SecurityContext.get();
+        if (user == null) throw new BusinessException("Não autenticado");
+
         if (!user.hasPermission("DEPT_MANAGE")) {
             throw new AccessDeniedException("Sem permissão para gerenciar tipos de problema");
         }
-        ProblemType newType = ProblemType.create(problemType.getName(), problemType.getDescription(), problemType.getSlaLevel());
-        return problemTypeRepository.save(newType);
+        
+        ProblemType newType = ProblemType.create(
+            user.tenantId(), 
+            request.name(), 
+            request.description(), 
+            request.slaLevel()
+        );
+        return toResponse(problemTypeRepository.save(newType));
     }
 
     @Operation(summary = "Deactivate problem type", description = "Deactivate an existing problem type by ID (DEPT_MANAGE only)")
@@ -46,12 +60,24 @@ public class ProblemTypeController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deactivate(@PathVariable UUID id) {
         AuthenticatedUser user = SecurityContext.get();
+        if (user == null) throw new BusinessException("Não autenticado");
+
         if (!user.hasPermission("DEPT_MANAGE")) {
             throw new AccessDeniedException("Sem permissão para gerenciar tipos de problema");
         }
-        ProblemType type = problemTypeRepository.findById(id)
+        
+        ProblemType pt = problemTypeRepository.findById(id)
                 .orElseThrow(() -> new BusinessException("Tipo de problema não encontrado"));
-        type.deactivate();
-        problemTypeRepository.save(type);
+        
+        if (!pt.getTenantId().equals(user.tenantId())) {
+            throw new BusinessException("Acesso negado");
+        }
+        
+        pt.deactivate();
+        problemTypeRepository.save(pt);
+    }
+
+    private ProblemTypeResponse toResponse(ProblemType p) {
+        return new ProblemTypeResponse(p.getId(), p.getName(), p.getDescription(), p.getSlaLevel(), p.isActive(), p.getCreatedAt());
     }
 }

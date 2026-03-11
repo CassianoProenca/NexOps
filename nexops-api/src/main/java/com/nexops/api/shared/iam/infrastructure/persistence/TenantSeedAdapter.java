@@ -50,8 +50,19 @@ public class TenantSeedAdapter implements TenantSeedPort {
         // Assign TECH permissions
         jdbcTemplate.update(
             "INSERT INTO role_permissions (role_id, permission_id) " +
-            "SELECT ?, id FROM permissions WHERE code IN ('TICKET_VIEW_ALL', 'TICKET_MANAGE', 'REPORT_VIEW_ALL')",
+            "SELECT ?, id FROM permissions WHERE code IN (" +
+            "'TICKET_CREATE', 'TICKET_VIEW_OWN', 'TICKET_VIEW_ALL', 'TICKET_MANAGE', " +
+            "'TICKET_ASSIGN', 'TICKET_RESOLVE', 'ASSET_VIEW', 'ASSET_CREATE', " +
+            "'ASSET_EDIT', 'ASSET_MOVE', 'REPORT_VIEW_ALL')",
             techRoleId
+        );
+
+        // Assign USER permissions
+        jdbcTemplate.update(
+            "INSERT INTO role_permissions (role_id, permission_id) " +
+            "SELECT ?, id FROM permissions WHERE code IN (" +
+            "'TICKET_CREATE', 'TICKET_VIEW_OWN')",
+            userRoleId
         );
 
         // Return all permission codes for ADMIN (all permissions)

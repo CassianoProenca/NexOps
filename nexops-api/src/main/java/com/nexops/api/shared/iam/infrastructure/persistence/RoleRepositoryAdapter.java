@@ -4,7 +4,6 @@ import com.nexops.api.shared.iam.domain.model.Role;
 import com.nexops.api.shared.iam.domain.ports.out.RoleRepository;
 import com.nexops.api.shared.iam.infrastructure.persistence.mapper.IamMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -17,7 +16,6 @@ import java.util.stream.Collectors;
 public class RoleRepositoryAdapter implements RoleRepository {
 
     private final RoleJpaRepository roleJpaRepository;
-    private final JdbcTemplate jdbcTemplate;
 
     @Override
     public List<Role> findAllByTenantId(UUID tenantId) {

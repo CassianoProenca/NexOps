@@ -22,13 +22,14 @@ public class JwtService {
     }
 
     public String generateAccessToken(UUID userId, String nome, String email,
-                                       UUID tenantId, Set<String> permissions) {
+                                       UUID tenantId, Set<String> permissions, String status) {
         return Jwts.builder()
                 .subject(userId.toString())
                 .claim("nome", nome)
                 .claim("email", email)
                 .claim("tenantId", tenantId.toString())
                 .claim("permissions", permissions)
+                .claim("status", status)
                 .issuedAt(Date.from(Instant.now()))
                 .expiration(Date.from(Instant.now().plusMillis(props.getExpirationMs())))
                 .signWith(key())
