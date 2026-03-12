@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ListTodo, Briefcase, Sparkles, ArrowRight } from 'lucide-react'
+import { ListTodo, Briefcase, Sparkles, ArrowRight, Loader2 } from 'lucide-react'
 import { useAssignedTickets } from '@/hooks/helpdesk/useTickets'
 import { useAppStore } from '@/store/appStore'
+import { useTechnicianSummary } from '@/hooks/ai/useAi'
 
 const ACCENT = '#4f6ef7'
 const ACCENT_SUBTLE = '#eef1ff'
@@ -23,11 +24,13 @@ export default function TechnicianHomePage() {
   const navigate = useNavigate()
   const [prompt, setPrompt] = useState('')
   const [response, setResponse] = useState<string | null>(null)
+  const [aiError, setAiError] = useState<string | null>(null)
 
   const user = useAppStore((s) => s.user)
   const firstName = user?.nome?.split(' ')[0] ?? user?.email ?? 'Técnico'
 
   const { data: assignedTickets = [] } = useAssignedTickets()
+  const { generate: generateSummary, isLoading: isLoadingAi } = useTechnicianSummary()
 
   // Show open/in-progress tickets, up to 5
   const queueTickets = useMemo(
@@ -42,9 +45,22 @@ export default function TechnicianHomePage() {
     return `${h}h`
   }
 
-  function handleSend() {
+  async function handleSend() {
     if (!prompt.trim()) return
-    setResponse('Funcionalidade disponível após configuração do provider de IA.')
+    setAiError(null)
+    setResponse(null)
+    const ticketContext = queueTickets.length > 0
+      ? queueTickets.map((t, i) =>
+          `${i + 1}. [${t.slaLevel}] ${t.title} — aberto há ${formatMinutes(t.openedAt)}`
+        ).join('\n')
+      : 'Nenhum chamado atribuído no momento.'
+    const ticketsSummary = `Pergunta do técnico: ${prompt}\n\nChamados ativos:\n${ticketContext}`
+    try {
+      const result = await generateSummary(ticketsSummary)
+      setResponse(result.summary)
+    } catch {
+      setAiError('IA não disponível. Configure o provedor nas configurações do sistema.')
+    }
   }
 
   return (
@@ -161,18 +177,30 @@ export default function TechnicianHomePage() {
             <div className="ml-auto">
               <button
                 onClick={handleSend}
-                disabled={!prompt.trim()}
-                className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
+                disabled={!prompt.trim() || isLoadingAi}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
                 style={{ background: ACCENT }}
               >
-                Enviar
+                {isLoadingAi ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Analisando...
+                  </>
+                ) : 'Enviar'}
               </button>
             </div>
           </div>
 
-          {response && (
-            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700">
-              {response}
+          {(response || aiError) && (
+            <div
+              className="rounded-lg border p-4 text-sm whitespace-pre-wrap leading-relaxed"
+              style={{
+                borderColor: aiError ? '#fca5a5' : '#e4e4e7',
+                backgroundColor: aiError ? '#fef2f2' : '#f9fafb',
+                color: aiError ? '#dc2626' : '#3f3f46',
+              }}
+            >
+              {response ?? aiError}
             </div>
           )}
         </div>

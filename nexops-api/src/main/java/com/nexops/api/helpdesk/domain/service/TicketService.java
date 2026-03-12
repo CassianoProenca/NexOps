@@ -5,6 +5,10 @@ import com.nexops.api.helpdesk.domain.ports.in.*;
 import com.nexops.api.helpdesk.domain.ports.out.*;
 import com.nexops.api.helpdesk.infrastructure.web.QueuePanelService;
 import com.nexops.api.shared.exception.BusinessException;
+import com.nexops.api.shared.iam.domain.ports.out.UserRepository;
+import com.nexops.api.shared.security.SecurityContext;
+import com.nexops.api.shared.tenant.domain.ports.in.SendEmailUseCase;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,8 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.Optional;
 import java.util.UUID;
 
+@Slf4j
 @Service
-public class TicketService implements 
+public class TicketService implements
     CreateTicketUseCase, AttendNextUseCase, AssignTicketUseCase,
     PauseTicketUseCase, ResumeTicketUseCase, CloseTicketUseCase,
     CreateChildTicketUseCase, AddCommentUseCase {
@@ -22,16 +27,22 @@ public class TicketService implements
     private final ProblemTypeRepository problemTypeRepository;
     private final TicketCommentRepository commentRepository;
     private final QueuePanelService queuePanelService;
+    private final UserRepository userRepository;
+    private final SendEmailUseCase sendEmailUseCase;
 
     public TicketService(
             TicketRepository ticketRepository,
             ProblemTypeRepository problemTypeRepository,
             TicketCommentRepository commentRepository,
-            @Lazy QueuePanelService queuePanelService) {
+            @Lazy QueuePanelService queuePanelService,
+            UserRepository userRepository,
+            SendEmailUseCase sendEmailUseCase) {
         this.ticketRepository = ticketRepository;
         this.problemTypeRepository = problemTypeRepository;
         this.commentRepository = commentRepository;
         this.queuePanelService = queuePanelService;
+        this.userRepository = userRepository;
+        this.sendEmailUseCase = sendEmailUseCase;
     }
 
     @Override
@@ -59,12 +70,13 @@ public class TicketService implements
         
         TicketComment comment = TicketComment.systemEvent(ticket.getId(), technicianId, "Chamado assumido via Atender Próximo", CommentType.ASSIGNMENT);
         
-        ticketRepository.save(ticket);
+        Ticket savedAttend = ticketRepository.save(ticket);
         commentRepository.save(comment);
-        
+
         queuePanelService.pushQueueUpdate();
-        
-        return Optional.of(ticket);
+        sendAssignmentEmail(savedAttend, technicianId);
+
+        return Optional.of(savedAttend);
     }
 
     @Override
@@ -75,10 +87,11 @@ public class TicketService implements
         
         ticket.assignTo(technicianId);
         TicketComment comment = TicketComment.systemEvent(ticketId, technicianId, "Chamado atribuído", CommentType.ASSIGNMENT);
-        
+
         commentRepository.save(comment);
         Ticket saved = ticketRepository.save(ticket);
         queuePanelService.pushQueueUpdate();
+        sendAssignmentEmail(saved, technicianId);
         return saved;
     }
 
@@ -161,5 +174,31 @@ public class TicketService implements
         
         TicketComment comment = TicketComment.message(ticketId, authorId, content);
         return commentRepository.save(comment);
+    }
+
+    // ── Email helper ─────────────────────────────────────────────────────────
+
+    private void sendAssignmentEmail(Ticket ticket, UUID technicianId) {
+        var caller = SecurityContext.get();
+        if (caller == null) return;
+        try {
+            userRepository.findById(technicianId).ifPresent(tech -> {
+                String html = """
+                        <div style="font-family:sans-serif;max-width:520px;margin:auto">
+                          <h2 style="color:#2563eb">Novo chamado atribuído a você</h2>
+                          <p>Olá, <strong>%s</strong>.</p>
+                          <p>Um chamado foi atribuído para você no NexOps:</p>
+                          <table style="border:1px solid #e4e4e7;border-radius:8px;padding:16px;background:#fafafa;width:100%%">
+                            <tr><td style="color:#71717a;font-size:13px;padding:4px 8px">Título</td><td style="padding:4px 8px"><strong>%s</strong></td></tr>
+                            <tr><td style="color:#71717a;font-size:13px;padding:4px 8px">SLA</td><td style="padding:4px 8px"><strong>%s</strong></td></tr>
+                          </table>
+                          <p style="font-size:13px;color:#71717a;margin-top:24px">Acesse o sistema para ver os detalhes e iniciar o atendimento.</p>
+                        </div>
+                        """.formatted(tech.getName(), ticket.getTitle(), ticket.getSlaLevel().name());
+                sendEmailUseCase.send(caller.tenantId(), tech.getEmail(), "NexOps — Chamado atribuído: " + ticket.getTitle(), html);
+            });
+        } catch (Exception e) {
+            log.warn("Falha ao enviar e-mail de atribuição para técnico {}: {}", technicianId, e.getMessage());
+        }
     }
 }

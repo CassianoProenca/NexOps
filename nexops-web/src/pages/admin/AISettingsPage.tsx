@@ -25,7 +25,7 @@ function Label({ children, htmlFor }: { children: React.ReactNode; htmlFor?: str
   )
 }
 
-// ── Page ───────────────────────────────────────────────────────────────────────
+// ── Page ────────────────────────────────────────────────────────────────────
 
 export default function AISettingsPage() {
   const { extra, isLoading, updateAi, isSavingAi } = useExtraSettings()
@@ -56,12 +56,7 @@ export default function AISettingsPage() {
 
   async function handleSave() {
     try {
-      await updateAi({
-        aiProvider: provider,
-        aiApiKey: apiKey,
-        aiModel: model,
-        aiEnabled: enabled
-      })
+      await updateAi({ provider, apiKey, model, enabled })
       showToast('Configurações de IA salvas.')
     } catch (e) {
       console.error(e)
@@ -156,7 +151,7 @@ export default function AISettingsPage() {
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
                 disabled={!enabled}
-                placeholder={provider === 'OPENAI' ? 'gpt-4o' : provider === 'GOOGLE' ? 'gemini-1.5-pro' : 'claude-3-sonnet'}
+                placeholder={provider === 'OPENAI' ? 'gpt-4o' : provider === 'GOOGLE' ? 'gemini-2.0-flash' : 'claude-3-5-sonnet-20241022'}
                 className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4f6ef7]/30 focus:border-[#4f6ef7] transition-colors"
               />
             </div>

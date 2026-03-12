@@ -7,13 +7,14 @@ import {
 } from 'recharts'
 import {
   Download, CheckCircle, AlertTriangle, X, CalendarDays,
-  Trophy, TrendingUp, Clock, ChevronRight,
+  Trophy, TrendingUp, Clock, ChevronRight, Sparkles, Loader2,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
 import { useGovernanceDashboard } from '@/hooks/governance/useGovernance'
+import { useGenerateReport } from '@/hooks/ai/useAi'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -235,6 +236,9 @@ export default function GovernanceDashboardPage() {
   const [dateFrom,    setDateFrom]    = useState(DEFAULT_FROM)
   const [dateTo,      setDateTo]      = useState(DEFAULT_TO)
   const [activeQuick, setActiveQuick] = useState<QuickFilter>('this_month')
+  const [aiReport,    setAiReport]    = useState<string | null>(null)
+  const [aiReportErr, setAiReportErr] = useState<string | null>(null)
+  const { generate: generateReport, isLoading: isGeneratingReport } = useGenerateReport()
 
   const showClear = useMemo(
     () => dateFrom !== DEFAULT_FROM || dateTo !== DEFAULT_TO || activeQuick !== 'this_month',
@@ -253,6 +257,26 @@ export default function GovernanceDashboardPage() {
     setDateFrom(DEFAULT_FROM)
     setDateTo(DEFAULT_TO)
     setActiveQuick('this_month')
+  }
+
+  async function handleGenerateReport() {
+    setAiReport(null)
+    setAiReportErr(null)
+    const period = `${dateFrom} até ${dateTo}`
+    const metricsData = [
+      `SLA Cumprido: ${kpis.sla}%`,
+      `Total de chamados: ${kpis.total}`,
+      `Resolvidos no prazo: ${kpis.onTime}`,
+      `Chamados críticos em breach: ${kpis.critical}`,
+      `TMR médio: ${kpis.tmrH}h ${kpis.tmrM}min`,
+      `SLA por tipo: ${slaByType.map((s) => `${s.type} ${s.sla}%`).join(', ')}`,
+    ].join('\n')
+    try {
+      const result = await generateReport({ period, metricsData })
+      setAiReport(result.report)
+    } catch {
+      setAiReportErr('IA não disponível. Configure o provedor nas configurações do sistema.')
+    }
   }
 
   // ── Dados da API ─────────────────────────────────────────────────────────
@@ -677,6 +701,51 @@ export default function GovernanceDashboardPage() {
             </table>
           </div>
         )}
+      </div>
+
+      {/* ── AI Report Generator ─────────────────────────────────────────── */}
+      <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden">
+        <div className="flex items-center gap-2.5 px-6 py-4 border-b border-zinc-100">
+          <Sparkles className="w-4 h-4" style={{ color: '#4f6ef7' }} />
+          <h2 className="text-sm font-semibold text-zinc-900">Relatório IA</h2>
+          <span className="text-xs bg-[#eef1ff] text-[#4f6ef7] px-2 py-0.5 rounded-full font-medium">Beta</span>
+          <p className="ml-2 text-xs text-zinc-400 hidden sm:block">
+            Gere um relatório executivo com base nos dados do período selecionado.
+          </p>
+        </div>
+        <div className="p-6 space-y-4">
+          <button
+            onClick={handleGenerateReport}
+            disabled={isGeneratingReport}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-opacity disabled:opacity-60"
+            style={{ backgroundColor: '#4f6ef7', border: 'none', cursor: isGeneratingReport ? 'not-allowed' : 'pointer', fontFamily: 'inherit' }}
+          >
+            {isGeneratingReport ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Gerando relatório...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4" />
+                Gerar relatório do período
+              </>
+            )}
+          </button>
+
+          {(aiReport || aiReportErr) && (
+            <div
+              className="rounded-lg border p-5 text-sm whitespace-pre-wrap leading-relaxed"
+              style={{
+                borderColor: aiReportErr ? '#fca5a5' : '#c7d2fe',
+                backgroundColor: aiReportErr ? '#fef2f2' : '#f8faff',
+                color: aiReportErr ? '#dc2626' : '#3f3f46',
+              }}
+            >
+              {aiReport ?? aiReportErr}
+            </div>
+          )}
+        </div>
       </div>
 
     </div>

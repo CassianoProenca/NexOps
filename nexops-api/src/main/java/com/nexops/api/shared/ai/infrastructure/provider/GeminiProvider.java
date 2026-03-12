@@ -12,7 +12,7 @@ class GeminiProvider {
     private static final String BASE_URL = "https://generativelanguage.googleapis.com";
 
     String complete(String systemPrompt, String userPrompt, String model, String apiKey) {
-        var resolvedModel = model != null ? model : "gemini-1.5-flash";
+        var resolvedModel = model != null && !model.isBlank() ? model : "gemini-2.0-flash";
         var client = RestClient.builder()
                 .baseUrl(BASE_URL)
                 .build();

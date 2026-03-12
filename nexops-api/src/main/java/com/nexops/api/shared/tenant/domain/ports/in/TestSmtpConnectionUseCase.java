@@ -1,7 +1,6 @@
 package com.nexops.api.shared.tenant.domain.ports.in;
 
-import java.util.UUID;
 
 public interface TestSmtpConnectionUseCase {
-    void test(UUID tenantId);
+    void test(String host, Integer port, String user, String pass, Boolean useTls);
 }

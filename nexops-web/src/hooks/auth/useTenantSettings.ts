@@ -34,28 +34,30 @@ export function useExtraSettings() {
   })
 
   const updateSmtpMutation = useMutation({
-    mutationFn: (data: Partial<ExtraSettings>) => tenantService.updateSmtp(data),
+    mutationFn: (data: any) => tenantService.updateSmtp(data),
     onSuccess: (updated) => {
       queryClient.setQueryData(['tenant-extra-settings'], updated)
     },
   })
 
   const updateAiMutation = useMutation({
-    mutationFn: (data: Partial<ExtraSettings>) => tenantService.updateAi(data),
+    mutationFn: (data: { provider: string; apiKey: string; model: string; enabled: boolean }) =>
+      tenantService.updateAi(data),
     onSuccess: (updated) => {
       queryClient.setQueryData(['tenant-extra-settings'], updated)
     },
   })
 
   const testSmtpMutation = useMutation({
-    mutationFn: () => tenantService.testSmtp(),
+    mutationFn: (data: any) => tenantService.testSmtp(data),
   })
 
   return {
     extra,
     isLoading,
     updateSmtp: updateSmtpMutation.mutateAsync,
-    updateAi: updateAiMutation.mutateAsync,
+    updateAi: (data: { provider: string; apiKey: string; model: string; enabled: boolean }) =>
+      updateAiMutation.mutateAsync(data),
     testSmtp: testSmtpMutation.mutateAsync,
     isSavingSmtp: updateSmtpMutation.isPending,
     isSavingAi: updateAiMutation.isPending,

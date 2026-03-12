@@ -1,9 +1,9 @@
 package com.nexops.api.shared.tenant.infrastructure.web;
 
-import com.nexops.api.shared.security.SecurityContext;
 import com.nexops.api.shared.tenant.domain.model.Tenant;
 import com.nexops.api.shared.tenant.domain.model.TenantSettings;
 import com.nexops.api.shared.tenant.domain.ports.in.*;
+import com.nexops.api.shared.tenant.infrastructure.web.dto.ExtraSettingsResponse;
 import com.nexops.api.shared.tenant.infrastructure.web.dto.TenantResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -38,31 +38,48 @@ public class TenantSettingsController {
 
     @Operation(summary = "Get current tenant extra settings (SMTP/AI)")
     @GetMapping("/extra")
-    public TenantSettings getExtraSettings() {
-        return getExtraUseCase.getExtra();
+    public ExtraSettingsResponse getExtraSettings() {
+        return toExtraResponse(getExtraUseCase.getExtra());
     }
 
     @Operation(summary = "Update current tenant SMTP settings")
     @PutMapping("/smtp")
-    public TenantSettings updateSmtp(@RequestBody UpdateSmtpRequest request) {
-        return updateSmtpUseCase.updateSmtp(
+    public ExtraSettingsResponse updateSmtp(@RequestBody UpdateSmtpRequest request) {
+        return toExtraResponse(updateSmtpUseCase.updateSmtp(
                 request.host(), request.port(), request.username(), request.password(),
                 request.fromEmail(), request.fromName(), request.useTls()
-        );
+        ));
     }
 
     @Operation(summary = "Update current tenant AI settings")
     @PutMapping("/ai")
-    public TenantSettings updateAi(@RequestBody UpdateAiRequest request) {
-        return updateAiUseCase.updateAi(request.provider(), request.apiKey(), request.model(), request.enabled());
+    public ExtraSettingsResponse updateAi(@RequestBody UpdateAiRequest request) {
+        return toExtraResponse(updateAiUseCase.updateAi(request.provider(), request.apiKey(), request.model(), request.enabled()));
     }
 
     @Operation(summary = "Test current tenant SMTP connection")
     @PostMapping("/smtp/test")
-    public ResponseEntity<TestSmtpResponse> testSmtp() {
-        var caller = SecurityContext.get();
-        testSmtpUseCase.test(caller.tenantId());
+    public ResponseEntity<TestSmtpResponse> testSmtp(@RequestBody UpdateSmtpRequest request) {
+        testSmtpUseCase.test(request.host(), request.port(), request.username(), request.password(), request.useTls());
         return ResponseEntity.ok(new TestSmtpResponse(true, "Conexão SMTP estabelecida com sucesso."));
+    }
+
+    private ExtraSettingsResponse toExtraResponse(TenantSettings s) {
+        return new ExtraSettingsResponse(
+            s.getTenantId(),
+            s.getSmtpHost(),
+            s.getSmtpPort(),
+            s.getSmtpUsername(),
+            s.getSmtpFromEmail(),
+            s.getSmtpFromName(),
+            s.getSmtpUseTls(),
+            s.getAiProvider(),
+            s.getAiModel(),
+            s.getAiEnabled(),
+            s.getUpdatedAt(),
+            s.getSmtpPassword() != null && !s.getSmtpPassword().isBlank(),
+            s.getAiApiKey() != null && !s.getAiApiKey().isBlank()
+        );
     }
 
     private TenantResponse toResponse(Tenant t) {

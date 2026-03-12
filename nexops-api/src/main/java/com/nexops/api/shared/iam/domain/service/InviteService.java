@@ -9,6 +9,7 @@ import com.nexops.api.shared.iam.domain.ports.out.PasswordEncoderPort;
 import com.nexops.api.shared.iam.domain.ports.out.RoleRepository;
 import com.nexops.api.shared.iam.domain.ports.out.UserRepository;
 import com.nexops.api.shared.security.SecurityContext;
+import com.nexops.api.shared.tenant.domain.ports.in.SendEmailUseCase;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -29,6 +30,7 @@ public class InviteService implements CreateInviteUseCase {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final PasswordEncoderPort passwordEncoder;
+    private final SendEmailUseCase sendEmailUseCase;
 
     @Override
     @Transactional
@@ -76,5 +78,25 @@ public class InviteService implements CreateInviteUseCase {
         );
 
         userRepository.save(user);
+
+        try {
+            String html = """
+                    <div style="font-family:sans-serif;max-width:520px;margin:auto">
+                      <h2 style="color:#2563eb">Bem-vindo ao NexOps!</h2>
+                      <p>Olá, <strong>%s</strong>.</p>
+                      <p>Sua conta foi criada. Use as credenciais abaixo para o seu primeiro acesso:</p>
+                      <table style="border:1px solid #e4e4e7;border-radius:8px;padding:16px;background:#fafafa;width:100%%">
+                        <tr><td style="color:#71717a;font-size:13px">E-mail</td><td><strong>%s</strong></td></tr>
+                        <tr><td style="color:#71717a;font-size:13px">Senha temporária</td><td><strong>%s</strong></td></tr>
+                      </table>
+                      <p style="font-size:13px;color:#71717a;margin-top:24px">
+                        Por segurança, altere sua senha no primeiro acesso.
+                      </p>
+                    </div>
+                    """.formatted(name, email, password);
+            sendEmailUseCase.send(caller.tenantId(), email, "Bem-vindo ao NexOps — suas credenciais de acesso", html);
+        } catch (Exception e) {
+            log.warn("Falha ao enviar e-mail de convite para {}: {}", email, e.getMessage());
+        }
     }
 }

@@ -107,7 +107,8 @@ export default function SmtpPage() {
       setHost(extra.smtpHost || '')
       setPort(extra.smtpPort?.toString() || '587')
       setUser(extra.smtpUsername || '')
-      setPassword(extra.smtpPassword || '')
+      // Se já tem senha salva, deixamos um placeholder visual, mas não carregamos a senha real por segurança
+      setPassword(extra.hasSmtpPassword ? '********' : '')
       setFromEmail(extra.smtpFromEmail || '')
       setFromName(extra.smtpFromName || '')
       setUseTls(extra.smtpUseTls ?? true)
@@ -124,15 +125,24 @@ export default function SmtpPage() {
   }
 
   async function handleTest() {
-    if (!host || !port || !user || !password) {
+    if (!host || !port) {
       setTestState('error')
-      setTestMsg('Preencha todos os campos antes de testar.')
+      setTestMsg('Preencha Host e Porta para testar.')
       return
     }
     setTestState('loading')
     setTestMsg('')
     try {
-      const result = await testSmtp()
+      // Enviamos os dados ATUAIS da tela para o teste
+      const result = await testSmtp({
+        host,
+        port: parseInt(port),
+        username: user,
+        password: password === '********' ? undefined : password, // Não enviamos o placeholder
+        fromEmail,
+        fromName,
+        useTls
+      })
       setTestState('success')
       setTestMsg(result.message)
     } catch (e: unknown) {
@@ -145,13 +155,13 @@ export default function SmtpPage() {
   async function handleSave() {
     try {
       await updateSmtp({
-        smtpHost: enabled ? host : '', // Se desabilitado, limpamos no banco
-        smtpPort: parseInt(port),
-        smtpUsername: user,
-        smtpPassword: password,
-        smtpFromEmail: fromEmail,
-        smtpFromName: fromName,
-        smtpUseTls: useTls
+        host: enabled ? host : '', // Se desabilitado, limpamos no banco
+        port: parseInt(port),
+        username: user,
+        password: password === '********' ? undefined : password, // Só envia se mudou
+        fromEmail: fromEmail,
+        fromName: fromName,
+        useTls: useTls
       })
       showToast(enabled ? 'Configuração SMTP salva.' : 'SMTP desabilitado e configuração salva.')
     } catch (e) {
