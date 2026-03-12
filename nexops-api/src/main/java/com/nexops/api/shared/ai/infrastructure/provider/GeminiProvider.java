@@ -12,7 +12,7 @@ class GeminiProvider {
     private static final String BASE_URL = "https://generativelanguage.googleapis.com";
 
     String complete(String systemPrompt, String userPrompt, String model, String apiKey) {
-        var resolvedModel = model != null && !model.isBlank() ? model : "gemini-2.0-flash";
+        var resolvedModel = model != null && !model.isBlank() ? model : "gemini-1.5-flash-latest";
         var client = RestClient.builder()
                 .baseUrl(BASE_URL)
                 .build();
@@ -32,6 +32,9 @@ class GeminiProvider {
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(request)
                     .retrieve()
+                    .onStatus(status -> status.is4xxClientError() || status.is5xxServerError(), (req, res) -> {
+                        throw new BusinessException("Erro na API Gemini (" + res.getStatusCode() + "): " + new String(res.getBody().readAllBytes()));
+                    })
                     .body(GenerateResponse.class);
 
             if (response == null || response.candidates() == null || response.candidates().isEmpty()) {

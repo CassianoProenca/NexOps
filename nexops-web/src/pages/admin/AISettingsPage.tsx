@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react'
 import { Sparkles, Check, ExternalLink, Loader2, Eye, EyeOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -30,7 +31,7 @@ function Label({ children, htmlFor }: { children: React.ReactNode; htmlFor?: str
 export default function AISettingsPage() {
   const { extra, isLoading, updateAi, isSavingAi } = useExtraSettings()
 
-  const [provider, setProvider] = useState<'OPENAI' | 'GOOGLE' | 'ANTHROPIC'>('OPENAI')
+  const [provider, setProvider] = useState<'OPENAI' | 'GOOGLE' | 'ANTHROPIC' | 'GROQ'>('OPENAI')
   const [apiKey, setApiKey]     = useState('')
   const [model, setModel]       = useState('')
   const [enabled, setEnabled]   = useState(false)
@@ -41,8 +42,8 @@ export default function AISettingsPage() {
   useEffect(() => {
     if (extra) {
       /* eslint-disable react-hooks/set-state-in-effect */
-      setProvider((extra.aiProvider as 'OPENAI' | 'GOOGLE' | 'ANTHROPIC') ?? 'OPENAI')
-      setApiKey(extra.aiApiKey || '')
+      setProvider((extra.aiProvider as any) ?? 'OPENAI')
+      setApiKey(extra.hasAiApiKey ? '********' : '')
       setModel(extra.aiModel || '')
       setEnabled(extra.aiEnabled ?? false)
       /* eslint-enable react-hooks/set-state-in-effect */
@@ -56,7 +57,12 @@ export default function AISettingsPage() {
 
   async function handleSave() {
     try {
-      await updateAi({ provider, apiKey, model, enabled })
+      await updateAi({ 
+        provider, 
+        apiKey: apiKey === '********' ? undefined : apiKey,
+        model, 
+        enabled 
+      })
       showToast('Configurações de IA salvas.')
     } catch (e) {
       console.error(e)
@@ -100,8 +106,8 @@ export default function AISettingsPage() {
           <div className="space-y-4">
             <div>
               <Label>Provedor de IA</Label>
-              <div className="grid grid-cols-3 gap-3">
-                {(['OPENAI', 'GOOGLE', 'ANTHROPIC'] as const).map((p) => (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {(['OPENAI', 'GOOGLE', 'ANTHROPIC', 'GROQ'] as const).map((p) => (
                   <button
                     key={p}
                     onClick={() => setProvider(p)}
@@ -151,7 +157,12 @@ export default function AISettingsPage() {
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
                 disabled={!enabled}
-                placeholder={provider === 'OPENAI' ? 'gpt-4o' : provider === 'GOOGLE' ? 'gemini-2.0-flash' : 'claude-3-5-sonnet-20241022'}
+                placeholder={
+                  provider === 'OPENAI' ? 'gpt-4o' : 
+                  provider === 'GOOGLE' ? 'gemini-1.5-flash' : 
+                  provider === 'GROQ' ? 'llama-3.3-70b-versatile' :
+                  'claude-3-5-sonnet-20241022'
+                }
                 className="w-full border border-zinc-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4f6ef7]/30 focus:border-[#4f6ef7] transition-colors"
               />
             </div>

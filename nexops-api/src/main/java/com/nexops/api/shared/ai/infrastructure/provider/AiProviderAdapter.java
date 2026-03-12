@@ -9,6 +9,7 @@ public class AiProviderAdapter implements AiProviderPort {
     private final OpenAiProvider openAi = new OpenAiProvider();
     private final AnthropicProvider anthropic = new AnthropicProvider();
     private final GeminiProvider gemini = new GeminiProvider();
+    private final GroqProvider groq = new GroqProvider();
     private final NullAiProvider nullProvider = new NullAiProvider();
 
     @Override
@@ -18,6 +19,7 @@ public class AiProviderAdapter implements AiProviderPort {
             case "openai"               -> openAi.complete(systemPrompt, userPrompt, model, apiKey);
             case "anthropic"            -> anthropic.complete(systemPrompt, userPrompt, model, apiKey);
             case "gemini", "google"     -> gemini.complete(systemPrompt, userPrompt, model, apiKey);
+            case "groq"                 -> groq.complete(systemPrompt, userPrompt, model, apiKey);
             default                     -> nullProvider.complete(systemPrompt, userPrompt);
         };
     }

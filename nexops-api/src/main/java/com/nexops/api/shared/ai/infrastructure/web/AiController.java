@@ -61,7 +61,56 @@ public class AiController {
         return new GenerateReportResponse(result);
     }
 
+    @Operation(summary = "Analyze user description and suggest title, category, department and solutions")
+    @PostMapping("/analyze-ticket")
+    public AnalyzeTicketResponse analyzeTicket(@RequestBody AnalyzeTicketRequest req) {
+        var caller = SecurityContext.get();
+        String system = """
+                Você é um assistente inteligente de Helpdesk da NexOps. Sua missão é ajudar o usuário a abrir um chamado. \
+                Analise a descrição do problema e extraia:
+                1. Um título curto e objetivo.
+                2. O Departamento de Origem (onde o usuário trabalha). Tente identificar pelo contexto (ex: "estou no RH") ou peça ao usuário. \
+                3. O Tipo de Problema (categoria técnica do erro).
+                4. Sugestões de autoatendimento.
+
+                Você receberá uma lista de Departamentos e Tipos de Problemas válidos. \
+                Responda APENAS com um JSON no formato:
+                {
+                  "suggestedTitle": "Título Curto",
+                  "suggestedDepartmentId": "ID do departamento de ORIGEM do usuário ou null",
+                  "suggestedProblemTypeId": "ID do tipo de problema ou null",
+                  "solutions": ["Solução 1", "Solução 2"],
+                  "nextQuestion": "Uma pergunta amigável pedindo o que falta (geralmente o departamento de trabalho ou mais detalhes)"
+                }
+                Se o usuário não disser onde trabalha, pergunte educadamente. Sem texto adicional fora do JSON.""";
+
+        StringBuilder prompt = new StringBuilder("Descrição do Usuário: " + req.description() + "\n\n");
+        prompt.append("Departamentos Disponíveis (ID: Nome):\n");
+        req.departments().forEach(d -> prompt.append(d.id()).append(": ").append(d.name()).append("\n"));
+        prompt.append("\nTipos de Problemas Disponíveis (ID: Nome):\n");
+        req.problemTypes().forEach(p -> prompt.append(p.id()).append(": ").append(p.name()).append("\n"));
+
+        String raw = aiCompletionUseCase.complete(caller.tenantId(), system, prompt.toString());
+        return parseAnalyzeResponse(raw);
+    }
+
     // ─── Records ─────────────────────────────────────────────────────────────
+
+    public record AnalyzeTicketRequest(
+        String description,
+        List<IdNamePair> departments,
+        List<IdNamePair> problemTypes
+    ) {}
+
+    public record IdNamePair(String id, String name) {}
+
+    public record AnalyzeTicketResponse(
+        String suggestedTitle,
+        String suggestedDepartmentId,
+        String suggestedProblemTypeId,
+        List<String> solutions,
+        String nextQuestion
+    ) {}
 
     public record SuggestSolutionsRequest(String problem) {}
     public record SuggestSolutionsResponse(List<String> solutions) {}
@@ -73,6 +122,38 @@ public class AiController {
     public record GenerateReportResponse(String report) {}
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
+
+    private AnalyzeTicketResponse parseAnalyzeResponse(String raw) {
+        try {
+            // Simplified JSON extraction for AnalyzeTicketResponse
+            String clean = raw.trim();
+            if (clean.startsWith("```json")) clean = clean.substring(7);
+            if (clean.endsWith("```")) clean = clean.substring(0, clean.length() - 3);
+            clean = clean.trim();
+
+            // Extract values using regex to avoid heavy JSON parser dependency in this layer
+            String title = extractJsonValue(clean, "suggestedTitle");
+            String deptId = extractJsonValue(clean, "suggestedDepartmentId");
+            String typeId = extractJsonValue(clean, "suggestedProblemTypeId");
+            String nextQ = extractJsonValue(clean, "nextQuestion");
+            List<String> solutions = parseSolutions(clean);
+
+            return new AnalyzeTicketResponse(title, deptId, typeId, solutions, nextQ);
+        } catch (Exception e) {
+            return new AnalyzeTicketResponse("Novo Chamado", null, null, List.of(), "Pode me dar mais detalhes?");
+        }
+    }
+
+    private String extractJsonValue(String json, String key) {
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("\"" + key + "\":\\s*\"?([^\",}]+)\"?");
+        java.util.regex.Matcher matcher = pattern.matcher(json);
+        if (matcher.find()) {
+            String val = matcher.group(1).trim();
+            if (val.equalsIgnoreCase("null")) return null;
+            return val.replaceAll("^\"|\"$", "");
+        }
+        return null;
+    }
 
     private List<String> parseSolutions(String raw) {
         try {

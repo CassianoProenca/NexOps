@@ -67,11 +67,20 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 /* ── Componente principal ── */
 export default function NewCasePage() {
   const navigate = useNavigate()
-  const locationState = useLocation().state as { description?: string } | null
-  const prefillDescription = locationState?.description ?? ''
+  const locationState = useLocation().state as { 
+    description?: string,
+    title?: string,
+    departmentId?: string,
+    problemTypeId?: string
+  } | null
 
-  const { data: departments = [] } = useDepartments()
-  const { data: problemTypes = [] } = useProblemTypes()
+  const prefillDescription = locationState?.description ?? ''
+  const prefillTitle       = locationState?.title ?? ''
+  const prefillDept        = locationState?.departmentId ?? ''
+  const prefillType        = locationState?.problemTypeId ?? ''
+
+  const { departments = [] } = useDepartments()
+  const { problemTypes = [] } = useProblemTypes()
   const createTicket = useCreateTicket()
 
   const [dragActive, setDragActive] = useState(false)
@@ -84,9 +93,9 @@ export default function NewCasePage() {
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: {
-      title: '',
-      problemTypeId: '',
-      departmentId: '',
+      title: prefillTitle,
+      problemTypeId: prefillType,
+      departmentId: prefillDept,
       description: prefillDescription,
     },
   })

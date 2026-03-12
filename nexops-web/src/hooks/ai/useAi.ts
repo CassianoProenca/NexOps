@@ -41,3 +41,16 @@ export function useGenerateReport() {
     reset: mutation.reset,
   }
 }
+
+export function useAnalyzeTicket() {
+  const mutation = useMutation({
+    mutationFn: (data: any) => aiService.analyzeTicket(data),
+  })
+  return {
+    analyze: mutation.mutateAsync,
+    isLoading: mutation.isPending,
+    data: mutation.data ?? null,
+    error: mutation.error,
+    reset: mutation.reset,
+  }
+}
