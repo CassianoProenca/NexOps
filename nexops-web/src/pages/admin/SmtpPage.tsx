@@ -102,7 +102,7 @@ export default function SmtpPage() {
 
   useEffect(() => {
     if (extra) {
-      // Aqui determinamos se está habilitado baseado na existência do host
+      /* eslint-disable react-hooks/set-state-in-effect */
       setEnabled(!!extra.smtpHost)
       setHost(extra.smtpHost || '')
       setPort(extra.smtpPort?.toString() || '587')
@@ -111,6 +111,7 @@ export default function SmtpPage() {
       setFromEmail(extra.smtpFromEmail || '')
       setFromName(extra.smtpFromName || '')
       setUseTls(extra.smtpUseTls ?? true)
+      /* eslint-enable react-hooks/set-state-in-effect */
     }
   }, [extra])
 

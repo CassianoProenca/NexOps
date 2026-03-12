@@ -11,8 +11,8 @@ export function useUsers() {
   })
 
   const inviteMutation = useMutation({
-    mutationFn: (data: { name: string; email: string; roleId: string; password?: string }) => 
-      authService.createInvite(data as any), // Type cast temporarily or update InviteRequest type
+    mutationFn: (data: { name: string; email: string; roleId: string; password?: string }) =>
+      authService.createInvite(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] })
     },

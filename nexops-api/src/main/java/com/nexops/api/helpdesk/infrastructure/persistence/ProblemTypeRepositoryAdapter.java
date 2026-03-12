@@ -41,7 +41,8 @@ public class ProblemTypeRepositoryAdapter implements ProblemTypeRepository {
 
     @Override
     public List<ProblemType> findAll() {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'findAll'");
+        return jpa.findAll().stream()
+                .map(HelpdeskMapper::toDomain)
+                .collect(Collectors.toList());
     }
 }

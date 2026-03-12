@@ -135,6 +135,16 @@ export interface InviteResponse {
   inviteLink: string
 }
 
+// ─── User ─────────────────────────────────────────────────────────────────────
+export interface User {
+  id: string
+  name: string
+  email: string
+  roles: string[]
+  status: 'ACTIVE' | 'PENDING' | 'INACTIVE'
+  lastLoginAt: string | null
+}
+
 // ─── Principal no Zustand ────────────────────────────────────────────────────
 export interface AuthenticatedUser {
   userId: string   // UUID como string (claim: sub)

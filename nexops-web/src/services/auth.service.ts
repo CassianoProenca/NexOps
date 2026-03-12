@@ -7,6 +7,7 @@ import type {
   FirstAccessRequest,
   RefreshRequest,
   TokenPairResponse,
+  User,
 } from '@/types/auth.types'
 
 export const authService = {
@@ -44,7 +45,7 @@ export const authService = {
 
   // ─── Users ─────────────────────────────────────────────────────────────────
 
-  getUsers: (): Promise<any[]> =>
+  getUsers: (): Promise<User[]> =>
     api.get('/v1/users').then((r) => r.data),
 
   updateUser: (id: string, data: { roleId: string; permissions: string[] }): Promise<void> =>

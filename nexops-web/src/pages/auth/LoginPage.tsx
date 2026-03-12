@@ -30,8 +30,6 @@ export default function LoginPage() {
   const { login, isLoggingIn } = useAuth()
   const user = useAppStore((s) => s.user)
 
-  if (user) return <Navigate to="/app" replace />
-
   const {
     register,
     handleSubmit,
@@ -41,6 +39,8 @@ export default function LoginPage() {
     resolver: zodResolver(schema),
     defaultValues: { rememberMe: false },
   })
+
+  if (user) return <Navigate to="/app" replace />
 
   function onSubmit(data: FormData) {
     login(

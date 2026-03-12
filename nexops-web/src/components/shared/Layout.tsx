@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import { Footer } from './Footer'
@@ -9,19 +9,9 @@ interface LayoutProps {
 }
 
 export function Layout({ children }: LayoutProps) {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [mounted, setMounted] = useState(false)
-
-  // Initialize from localStorage or screen width
-  useEffect(() => {
-    const isMobile = window.innerWidth < 1024
-    setSidebarCollapsed(isMobile)
-    setMounted(true)
-  }, [])
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => window.innerWidth < 1024)
 
   const toggleSidebar = () => setSidebarCollapsed((prev) => !prev)
-
-  if (!mounted) return null
 
   return (
     <div className="flex h-screen bg-background text-text-primary overflow-hidden font-sans selection:bg-brand/10 selection:text-brand">

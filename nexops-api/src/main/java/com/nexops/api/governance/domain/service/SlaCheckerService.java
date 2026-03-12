@@ -3,7 +3,6 @@ package com.nexops.api.governance.domain.service;
 import com.nexops.api.governance.domain.model.SlaBreachEvent;
 import com.nexops.api.governance.domain.ports.out.GovernanceTicketQueryPort;
 import com.nexops.api.governance.domain.ports.out.SlaBreachEventRepository;
-import com.nexops.api.governance.domain.ports.out.SlaNotificationRepository;
 import com.nexops.api.helpdesk.domain.ports.out.TicketRepository;
 import com.nexops.api.shared.tenant.domain.service.TenantRunner;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +18,6 @@ public class SlaCheckerService {
 
     private final GovernanceTicketQueryPort ticketQueryPort;
     private final SlaBreachEventRepository breachEventRepository;
-    private final SlaNotificationRepository notificationRepository;
     private final TicketRepository ticketRepository;
     private final TenantRunner tenantRunner;
 
@@ -48,10 +46,6 @@ public class SlaCheckerService {
             }
         }
 
-        // 5. findTicketsNearingSlaDeadline(30) — within 30 minutes
-        var nearingIds = ticketQueryPort.findTicketsNearingSlaDeadline(30);
-        for (UUID ticketId : nearingIds) {
-            // Logic to send SLA_WARNING if not already sent today
-        }
+        // TODO: SLA_WARNING notifications (findTicketsNearingSlaDeadline)
     }
 }

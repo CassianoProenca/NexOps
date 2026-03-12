@@ -40,10 +40,12 @@ export default function AISettingsPage() {
 
   useEffect(() => {
     if (extra) {
-      setProvider(extra.aiProvider as any || 'OPENAI')
+      /* eslint-disable react-hooks/set-state-in-effect */
+      setProvider((extra.aiProvider as 'OPENAI' | 'GOOGLE' | 'ANTHROPIC') ?? 'OPENAI')
       setApiKey(extra.aiApiKey || '')
       setModel(extra.aiModel || '')
       setEnabled(extra.aiEnabled ?? false)
+      /* eslint-enable react-hooks/set-state-in-effect */
     }
   }, [extra])
 
@@ -68,7 +70,7 @@ export default function AISettingsPage() {
 
   if (isLoading) {
     return (
-      <div className="p-8 flex flex-col items-center justify-center min-h-[400px] gap-3">
+      <div className="p-8 flex flex-col items-center justify-center min-h-100 gap-3">
         <Loader2 className="w-8 h-8 animate-spin text-zinc-300" />
         <p className="text-sm text-zinc-400">Carregando configurações de IA...</p>
       </div>

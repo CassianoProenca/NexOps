@@ -51,8 +51,6 @@ export default function RegisterPage() {
   const { register: registerFn, isRegistering } = useAuth()
   const user = useAppStore((s) => s.user)
 
-  if (user) return <Navigate to="/app" replace />
-
   const {
     register,
     handleSubmit,
@@ -60,6 +58,8 @@ export default function RegisterPage() {
   } = useForm<FormData>({
     resolver: zodResolver(schema),
   })
+
+  if (user) return <Navigate to="/app" replace />
 
   function onSubmit(data: FormData) {
     setApiError(null)

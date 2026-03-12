@@ -93,7 +93,6 @@ function RoleModal({ initial, onClose, onSave, isSaving }: { initial?: Partial<R
               {APP_PERMISSIONS.map(({ group, perms: groupPerms }) => {
                 const groupKeys = groupPerms.map(p => p.key)
                 const allSelected = groupKeys.every(k => selectedPerms.includes(k))
-                const someSelected = groupKeys.some(k => selectedPerms.includes(k))
 
                 return (
                   <div key={group} className="rounded-lg border border-zinc-100 bg-zinc-50 p-3">

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Info, X, AlertTriangle, Upload, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTenantSettings } from '@/hooks/auth/useTenantSettings'
 
@@ -64,14 +64,12 @@ export default function TenantSettingsPage() {
   const { settings, isLoading, update, isSaving } = useTenantSettings()
   
   const [orgName, setOrgName]       = useState('')
-  const [logoPreview, setLogoPreview] = useState<string | null>(null)
-  const [showDeactivate, setShowDeactivate] = useState(false)
   const [toast, setToast]           = useState({ message: '', visible: false })
   const toastTimer                  = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const fileInputRef                = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (settings) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setOrgName(settings.nomeFantasia)
     }
   }, [settings])
@@ -99,8 +97,6 @@ export default function TenantSettingsPage() {
       </div>
     )
   }
-
-  const initial = orgName.trim() ? orgName.trim()[0].toUpperCase() : 'O'
 
   return (
     <div className="p-8 space-y-6">

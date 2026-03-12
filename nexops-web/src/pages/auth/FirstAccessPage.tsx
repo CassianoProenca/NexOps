@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Eye, EyeOff, XCircle, CheckCircle2 } from 'lucide-react'
+import { Eye, EyeOff, CheckCircle2 } from 'lucide-react'
 import { jwtDecode } from 'jwt-decode'
 import {
   AUTH,
@@ -15,7 +15,6 @@ import {
 } from '@/components/layout/AuthLeftPanel'
 import { authService } from '@/services/auth.service'
 import { useAppStore } from '@/store/appStore'
-import type { AuthenticatedUser } from '@/types/auth.types'
 
 /* ─────────────────────────── Validação ─────────────────────────── */
 
@@ -110,7 +109,6 @@ function FormState({
   const [apiError, setApiError] = useState<string | null>(null)
   
   const { user, setAuth } = useAppStore()
-  const navigate = useNavigate()
 
   const {
     register,
@@ -154,7 +152,7 @@ function FormState({
       }
       onSuccess?.()
     } catch (err: unknown) {
-      const message = (err as any)?.response?.data?.message || 'Erro ao ativar conta.'
+      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || 'Erro ao ativar conta.'
       setApiError(message)
     } finally {
       setIsLoading(false)
@@ -217,17 +215,14 @@ export default function FirstAccessPage() {
   const navigate = useNavigate()
   const user = useAppStore((s) => s.user)
   const [pageState, setPageState] = useState<PageState>('form')
-  const [token, setToken] = useState<string | undefined>()
+  const token = searchParams.get('token') ?? undefined
 
   useEffect(() => {
-    const t = searchParams.get('token')
-    if (t) setToken(t)
-    
     // Se não tem token e não está logado como pending, volta pro login
-    if (!t && (!user || user.status !== 'PENDING')) {
+    if (!token && (!user || user.status !== 'PENDING')) {
       navigate('/login')
     }
-  }, [searchParams, user, navigate])
+  }, [token, user, navigate])
 
   return (
     <div style={{ fontFamily: "'DM Sans', sans-serif", backgroundColor: AUTH.BG }} className="flex h-screen">

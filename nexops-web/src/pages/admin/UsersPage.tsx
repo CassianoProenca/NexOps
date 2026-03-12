@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Search,
   UserPlus,
@@ -22,7 +22,7 @@ import {
   SheetClose,
 } from '@/components/ui/sheet'
 import { APP_PERMISSIONS } from '@/types/auth.types'
-import type { PermissionCode, Role } from '@/types/auth.types'
+import type { Role, User } from '@/types/auth.types'
 import { useUsers } from '@/hooks/auth/useUsers'
 import { useRoles } from '@/hooks/auth/useRoles'
 import { useAppStore } from '@/store/appStore'
@@ -139,16 +139,16 @@ function StatusBadge({ status }: { status: string }) {
 
 // ── User Edit Sheet ────────────────────────────────────────────────────────────
 
-function UserEditSheet({ 
-  user, 
-  roles, 
+function UserEditSheet({
+  user,
+  roles,
   onClose,
   onSave
-}: { 
-  user: any; 
-  roles: Role[]; 
+}: {
+  user: User;
+  roles: Role[];
   onClose: () => void;
-  onSave: (userId: string, data: any) => Promise<void>
+  onSave: (userId: string, data: { roleId: string; permissions: string[] }) => Promise<void>
 }) {
   const currentUser = useAppStore(s => s.user)
   const isSelf = currentUser?.userId === user.id
@@ -400,7 +400,7 @@ export default function UsersPage() {
   const [filterRole, setFilterRole]       = useState('all')
   const [filterStatus, setFilterStatus]   = useState('all')
   const [showInvite, setShowInvite]       = useState(false)
-  const [selectedUser, setSelectedUser]   = useState<any | null>(null)
+  const [selectedUser, setSelectedUser]   = useState<User | null>(null)
   const [toast, setToast]                 = useState({ message: '', visible: false })
 
   function showToast(message: string) {
@@ -408,14 +408,14 @@ export default function UsersPage() {
     setTimeout(() => setToast({ message: '', visible: false }), 3000)
   }
 
-  const filtered = users.filter((u: any) => {
+  const filtered = users.filter((u) => {
     const matchSearch = u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase())
-    const matchRole   = filterRole === 'all' || u.roles?.some((r: string) => r === filterRole) || u.roles?.some((r: any) => r.name === filterRole)
+    const matchRole   = filterRole === 'all' || u.roles?.some((r) => r === filterRole)
     const matchStatus = filterStatus === 'all' || u.status === filterStatus
     return matchSearch && matchRole && matchStatus
   })
 
-  async function handleUpdateUser(userId: string, data: any) {
+  async function handleUpdateUser(userId: string, data: { roleId: string; permissions: string[] }) {
     try {
       await update({ id: userId, data })
       showToast("Alterações aplicadas com sucesso.")
@@ -498,7 +498,7 @@ export default function UsersPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((user: any) => (
+              {filtered.map((user) => (
                 <tr
                   key={user.id}
                   onClick={() => setSelectedUser(user)}
