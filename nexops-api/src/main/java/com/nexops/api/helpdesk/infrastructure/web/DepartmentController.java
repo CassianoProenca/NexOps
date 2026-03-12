@@ -27,10 +27,10 @@ public class DepartmentController {
 
     private final DepartmentRepository departmentRepository;
 
-    @Operation(summary = "List departments", description = "Retrieve all active departments for the current tenant")
+    @Operation(summary = "List departments", description = "Retrieve all departments (active and inactive) for the current tenant")
     @GetMapping
     public List<DepartmentResponse> listAll() {
-        return departmentRepository.findAllActive().stream()
+        return departmentRepository.findAll().stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
@@ -69,6 +69,28 @@ public class DepartmentController {
         }
         
         dept.deactivate();
+        departmentRepository.save(dept);
+    }
+
+    @Operation(summary = "Reactivate department", description = "Reactivate a previously deactivated department (DEPT_MANAGE only)")
+    @PatchMapping("/{id}/reactivate")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void reactivate(@PathVariable UUID id) {
+        AuthenticatedUser user = SecurityContext.get();
+        if (user == null) throw new BusinessException("Não autenticado");
+
+        if (!user.hasPermission("DEPT_MANAGE")) {
+            throw new AccessDeniedException("Sem permissão para gerenciar departamentos");
+        }
+
+        Department dept = departmentRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("Departamento não encontrado"));
+
+        if (!dept.getTenantId().equals(user.tenantId())) {
+            throw new BusinessException("Acesso negado");
+        }
+
+        dept.reactivate();
         departmentRepository.save(dept);
     }
 

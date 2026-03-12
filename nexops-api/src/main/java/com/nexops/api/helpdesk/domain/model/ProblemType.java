@@ -38,6 +38,10 @@ public class ProblemType {
         this.active = false;
     }
 
+    public void reactivate() {
+        this.active = true;
+    }
+
     public UUID getId() { return id; }
     public UUID getTenantId() { return tenantId; }
     public String getName() { return name; }

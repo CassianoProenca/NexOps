@@ -1,5 +1,6 @@
 package com.nexops.api.shared.tenant.infrastructure.web;
 
+import com.nexops.api.shared.security.SecurityContext;
 import com.nexops.api.shared.tenant.domain.model.Tenant;
 import com.nexops.api.shared.tenant.domain.model.TenantSettings;
 import com.nexops.api.shared.tenant.domain.ports.in.*;
@@ -7,6 +8,7 @@ import com.nexops.api.shared.tenant.infrastructure.web.dto.TenantResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -20,6 +22,7 @@ public class TenantSettingsController {
     private final GetExtraSettingsUseCase getExtraUseCase;
     private final UpdateSmtpSettingsUseCase updateSmtpUseCase;
     private final UpdateAiSettingsUseCase updateAiUseCase;
+    private final TestSmtpConnectionUseCase testSmtpUseCase;
 
     @Operation(summary = "Get current tenant settings")
     @GetMapping
@@ -54,6 +57,14 @@ public class TenantSettingsController {
         return updateAiUseCase.updateAi(request.provider(), request.apiKey(), request.model(), request.enabled());
     }
 
+    @Operation(summary = "Test current tenant SMTP connection")
+    @PostMapping("/smtp/test")
+    public ResponseEntity<TestSmtpResponse> testSmtp() {
+        var caller = SecurityContext.get();
+        testSmtpUseCase.test(caller.tenantId());
+        return ResponseEntity.ok(new TestSmtpResponse(true, "Conexão SMTP estabelecida com sucesso."));
+    }
+
     private TenantResponse toResponse(Tenant t) {
         return new TenantResponse(
                 t.getId(),
@@ -68,4 +79,5 @@ public class TenantSettingsController {
     public record UpdateSettingsRequest(String nomeFantasia) {}
     public record UpdateSmtpRequest(String host, Integer port, String username, String password, String fromEmail, String fromName, Boolean useTls) {}
     public record UpdateAiRequest(String provider, String apiKey, String model, Boolean enabled) {}
+    public record TestSmtpResponse(boolean success, String message) {}
 }

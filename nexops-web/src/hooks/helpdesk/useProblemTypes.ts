@@ -24,13 +24,22 @@ export function useProblemTypes() {
     },
   })
 
+  const reactivateMutation = useMutation({
+    mutationFn: (id: string) => helpdeskService.reactivateProblemType(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['problem-types'] })
+    },
+  })
+
   return {
     problemTypes,
     isLoading,
     error,
     create: createMutation.mutateAsync,
     delete: deleteMutation.mutateAsync,
+    reactivate: reactivateMutation.mutateAsync,
     isSaving: createMutation.isPending,
     isDeleting: deleteMutation.isPending,
+    isReactivating: reactivateMutation.isPending,
   }
 }

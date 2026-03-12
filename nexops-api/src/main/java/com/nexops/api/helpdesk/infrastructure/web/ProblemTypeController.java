@@ -27,10 +27,10 @@ public class ProblemTypeController {
 
     private final ProblemTypeRepository problemTypeRepository;
 
-    @Operation(summary = "List problem types", description = "Retrieve all active problem types for the current tenant")
+    @Operation(summary = "List problem types", description = "Retrieve all problem types (active and inactive) for the current tenant")
     @GetMapping
     public List<ProblemTypeResponse> listAll() {
-        return problemTypeRepository.findAllActive().stream()
+        return problemTypeRepository.findAll().stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
     }
@@ -74,6 +74,28 @@ public class ProblemTypeController {
         }
         
         pt.deactivate();
+        problemTypeRepository.save(pt);
+    }
+
+    @Operation(summary = "Reactivate problem type", description = "Reactivate a previously deactivated problem type (DEPT_MANAGE only)")
+    @PatchMapping("/{id}/reactivate")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void reactivate(@PathVariable UUID id) {
+        AuthenticatedUser user = SecurityContext.get();
+        if (user == null) throw new BusinessException("Não autenticado");
+
+        if (!user.hasPermission("DEPT_MANAGE")) {
+            throw new AccessDeniedException("Sem permissão para gerenciar tipos de problema");
+        }
+
+        ProblemType pt = problemTypeRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("Tipo de problema não encontrado"));
+
+        if (!pt.getTenantId().equals(user.tenantId())) {
+            throw new BusinessException("Acesso negado");
+        }
+
+        pt.reactivate();
         problemTypeRepository.save(pt);
     }
 

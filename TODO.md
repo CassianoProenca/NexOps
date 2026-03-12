@@ -8,9 +8,9 @@ Este arquivo lista as funcionalidades que já possuem interface e banco de dados
 **Status Atual:** UI pronta e persistência de chaves de API por Tenant via `tenant_settings` concluída.
 
 ### Como vamos fazer:
-- [ ] **IA Service (Backend):** Criar um serviço centralizador de IA no módulo `shared`.
-- [ ] **Strategy/Factory Pattern:** Implementar o padrão Strategy para suportar múltiplos provedores (OpenAI, Google Gemini, Anthropic).
-- [ ] **Instanciação Dinâmica:** O serviço deve buscar a `api_key` e o `provider` do Tenant no banco de dados no momento da requisição.
+- [x] **IA Service (Backend):** `AiService` no módulo `shared/ai` implementa `AiCompletionUseCase`.
+- [x] **Strategy/Factory Pattern:** `AiProviderAdapter` roteia para `OpenAiProvider`, `GeminiProvider` (aceita `google`/`gemini`), `AnthropicProvider` via switch. `NullAiProvider` para casos inválidos.
+- [x] **Instanciação Dinâmica:** `AiService` busca `TenantSettings` (provider, apiKey, model, enabled) no banco a cada chamada.
 - [ ] **Integrações Iniciais:**
     - Sugestão automática de solução na abertura de chamados.
     - Categorização baseada no texto do usuário.
@@ -22,13 +22,22 @@ Este arquivo lista as funcionalidades que já possuem interface e banco de dados
 **Status Atual:** UI original restaurada e persistência de parâmetros SMTP por Tenant concluída.
 
 ### Como vamos fazer:
-- [ ] **DynamicMailService (Backend):** Criar um serviço de e-mail que ignore as configurações estáticas do `application.yaml`.
-- [ ] **JavaMailSender Manager:** Implementar uma lógica que instancie um `JavaMailSenderImpl` programaticamente usando os dados (host, porta, user, pass, tls) recuperados da tabela `tenant_settings`.
-- [ ] **Pooling/Cache:** (Opcional) Cachear o objeto de envio por Tenant para evitar re-instanciação frequente, com invalidação quando a config mudar.
+- [x] **DynamicMailService (Backend):** `DynamicMailService` em `shared/tenant/infrastructure/mail` instancia `JavaMailSenderImpl` programaticamente por requisição, sem depender do `application.yaml`.
+- [x] **JavaMailSender Manager:** Lê `TenantSettings` (host, porta, user, pass, fromEmail, fromName, useTls) do banco e constrói o sender a cada envio.
+- [x] **Endpoint de teste:** `POST /v1/tenant/settings/smtp/test` chama `sender.testConnection()` e retorna resultado ao frontend. Botão "Testar Conexão" na `SmtpPage` integrado com a API real.
 - [ ] **Fluxos de Disparo:**
     - Envio de e-mail de convite para novos usuários.
     - Notificação de "Chamado Aberto" e "Chamado Resolvido".
     - Alertas de SLA crítico para técnicos.
+
+---
+
+## 4. Limpeza pós-testes (DEV only)
+
+- [ ] **Remover switcher de perfil de preview** após validar todos os fluxos de permissão:
+  1. Deletar `nexops-web/src/hooks/useDevPermissions.ts`
+  2. Em `Sidebar.tsx`: remover import de `useDevPermissions` e `FlaskConical`, remover constante `DevProfile`, remover componente `DevProfileSwitcher`, trocar `useDevPermissions(realPermissions)` por `realPermissions`, remover o bloco `{import.meta.env.DEV && <DevProfileSwitcher />}` do JSX
+  3. Em `App.tsx`: remover import de `useDevPermissions`, trocar `useDevPermissions(rawPermissions)` por `rawPermissions`
 
 ---
 

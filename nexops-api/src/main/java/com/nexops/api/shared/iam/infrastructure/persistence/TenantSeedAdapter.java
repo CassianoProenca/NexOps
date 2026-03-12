@@ -34,6 +34,13 @@ public class TenantSeedAdapter implements TenantSeedPort {
             techRoleId, tenantId
         );
 
+        // Create GESTOR role for this tenant
+        UUID gestorRoleId = UUID.randomUUID();
+        jdbcTemplate.update(
+            "INSERT INTO roles (id, tenant_id, name, description, system_role) VALUES (?, ?, 'GESTOR', 'Gestor — acesso operacional e relatórios de SLA', true)",
+            gestorRoleId, tenantId
+        );
+
         // Create USER role for this tenant
         UUID userRoleId = UUID.randomUUID();
         jdbcTemplate.update(
@@ -47,17 +54,28 @@ public class TenantSeedAdapter implements TenantSeedPort {
             adminRoleId
         );
 
-        // Assign TECH permissions
+        // Assign TECH permissions — operação de chamados e ativos, sem relatórios
         jdbcTemplate.update(
             "INSERT INTO role_permissions (role_id, permission_id) " +
             "SELECT ?, id FROM permissions WHERE code IN (" +
             "'TICKET_CREATE', 'TICKET_VIEW_OWN', 'TICKET_VIEW_ALL', 'TICKET_MANAGE', " +
-            "'TICKET_ASSIGN', 'TICKET_RESOLVE', 'ASSET_VIEW', 'ASSET_CREATE', " +
-            "'ASSET_EDIT', 'ASSET_MOVE', 'REPORT_VIEW_ALL')",
+            "'TICKET_ASSIGN', 'TICKET_RESOLVE', " +
+            "'ASSET_VIEW', 'ASSET_CREATE', 'ASSET_EDIT', 'ASSET_MOVE')",
             techRoleId
         );
 
-        // Assign USER permissions
+        // Assign GESTOR permissions — tudo do TECH mais relatórios de SLA e convites
+        jdbcTemplate.update(
+            "INSERT INTO role_permissions (role_id, permission_id) " +
+            "SELECT ?, id FROM permissions WHERE code IN (" +
+            "'TICKET_CREATE', 'TICKET_VIEW_OWN', 'TICKET_VIEW_ALL', 'TICKET_MANAGE', " +
+            "'TICKET_ASSIGN', 'TICKET_RESOLVE', 'TICKET_DELETE', " +
+            "'ASSET_VIEW', 'ASSET_CREATE', 'ASSET_EDIT', 'ASSET_MOVE', " +
+            "'REPORT_VIEW_ALL', 'SLA_CONFIG', 'INVITE_CREATE')",
+            gestorRoleId
+        );
+
+        // Assign USER permissions — apenas abrir e ver os próprios chamados
         jdbcTemplate.update(
             "INSERT INTO role_permissions (role_id, permission_id) " +
             "SELECT ?, id FROM permissions WHERE code IN (" +

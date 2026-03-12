@@ -84,7 +84,7 @@ function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (
 type TestState = 'idle' | 'loading' | 'success' | 'error'
 
 export default function SmtpPage() {
-  const { extra, isLoading, updateSmtp, isSavingSmtp } = useExtraSettings()
+  const { extra, isLoading, updateSmtp, testSmtp, isSavingSmtp, isTestingSmtp } = useExtraSettings()
 
   const [enabled, setEnabled]     = useState(false)
   const [host, setHost]           = useState('')
@@ -123,7 +123,7 @@ export default function SmtpPage() {
     toastTimer.current = setTimeout(() => setToast((t) => ({ ...t, visible: false })), 3000)
   }
 
-  function handleTest() {
+  async function handleTest() {
     if (!host || !port || !user || !password) {
       setTestState('error')
       setTestMsg('Preencha todos os campos antes de testar.')
@@ -131,11 +131,15 @@ export default function SmtpPage() {
     }
     setTestState('loading')
     setTestMsg('')
-    setTimeout(() => {
-      const ok = host.includes('.')
-      setTestState(ok ? 'success' : 'error')
-      setTestMsg(ok ? 'Conexão estabelecida com sucesso.' : 'Não foi possível conectar ao servidor SMTP.')
-    }, 1400)
+    try {
+      const result = await testSmtp()
+      setTestState('success')
+      setTestMsg(result.message)
+    } catch (e: unknown) {
+      setTestState('error')
+      const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setTestMsg(msg || 'Não foi possível conectar ao servidor SMTP.')
+    }
   }
 
   async function handleSave() {
@@ -269,7 +273,7 @@ export default function SmtpPage() {
                   className="flex items-center gap-1.5 text-sm font-medium text-zinc-600 hover:text-zinc-900 px-3 py-2 rounded-lg border border-zinc-200 hover:bg-zinc-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Zap className="w-4 h-4" />
-                  {testState === 'loading' ? 'Testando...' : 'Testar Conexão'}
+                  {isTestingSmtp ? 'Testando...' : 'Testar Conexão'}
                 </button>
 
                 {testState === 'success' && (

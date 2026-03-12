@@ -29,6 +29,9 @@ export const helpdeskService = {
   deleteDepartment: (id: string): Promise<void> =>
     api.delete(`/v1/departments/${id}`).then(() => undefined),
 
+  reactivateDepartment: (id: string): Promise<void> =>
+    api.patch(`/v1/departments/${id}/reactivate`).then(() => undefined),
+
   // ─── Problem Types ────────────────────────────────────────────────────────
   
   getProblemTypes: (): Promise<ProblemType[]> =>
@@ -39,4 +42,7 @@ export const helpdeskService = {
 
   deleteProblemType: (id: string): Promise<void> =>
     api.delete(`/v1/problem-types/${id}`).then(() => undefined),
+
+  reactivateProblemType: (id: string): Promise<void> =>
+    api.patch(`/v1/problem-types/${id}/reactivate`).then(() => undefined),
 }

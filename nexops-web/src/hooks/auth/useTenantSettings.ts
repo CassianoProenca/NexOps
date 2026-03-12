@@ -47,12 +47,18 @@ export function useExtraSettings() {
     },
   })
 
+  const testSmtpMutation = useMutation({
+    mutationFn: () => tenantService.testSmtp(),
+  })
+
   return {
     extra,
     isLoading,
     updateSmtp: updateSmtpMutation.mutateAsync,
     updateAi: updateAiMutation.mutateAsync,
+    testSmtp: testSmtpMutation.mutateAsync,
     isSavingSmtp: updateSmtpMutation.isPending,
     isSavingAi: updateAiMutation.isPending,
+    isTestingSmtp: testSmtpMutation.isPending,
   }
 }

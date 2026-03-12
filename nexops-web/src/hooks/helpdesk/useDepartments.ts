@@ -24,13 +24,22 @@ export function useDepartments() {
     },
   })
 
+  const reactivateMutation = useMutation({
+    mutationFn: (id: string) => helpdeskService.reactivateDepartment(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['departments'] })
+    },
+  })
+
   return {
     departments,
     isLoading,
     error,
     create: createMutation.mutateAsync,
     delete: deleteMutation.mutateAsync,
+    reactivate: reactivateMutation.mutateAsync,
     isSaving: createMutation.isPending,
     isDeleting: deleteMutation.isPending,
+    isReactivating: reactivateMutation.isPending,
   }
 }

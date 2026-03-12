@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   LayoutDashboard,
+  FlaskConical,
   Home,
   Ticket,
   PlusCircle,
@@ -27,6 +28,13 @@ import {
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAppStore } from '@/store/appStore'
 import { authService } from '@/services/auth.service'
+import {
+  useDevPermissions,
+  DEV_STORAGE_KEY,
+  DEV_PROFILES,
+  DEV_PROFILE_LABELS,
+  DEV_PROFILE_COLORS,
+} from '@/hooks/useDevPermissions'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
@@ -358,6 +366,85 @@ function AdminNavSection({ collapsed }: { collapsed: boolean }) {
   )
 }
 
+// ── Dev Preview ───────────────────────────────────────────────────────────────
+
+type DevProfile = keyof typeof DEV_PROFILES
+
+function DevProfileSwitcher({ collapsed }: { collapsed: boolean }) {
+  const [profile, setProfile] = useState<DevProfile>(
+    () => (localStorage.getItem(DEV_STORAGE_KEY) as DevProfile) ?? 'real'
+  )
+  const [open, setOpen] = useState(false)
+
+  useEffect(() => {
+    localStorage.setItem(DEV_STORAGE_KEY, profile)
+    window.dispatchEvent(new Event('nexops:dev-profile-change'))
+  }, [profile])
+
+  const options = Object.keys(DEV_PROFILES) as DevProfile[]
+
+  if (collapsed) {
+    return (
+      <TooltipProvider delayDuration={0}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => {
+                const idx = options.indexOf(profile)
+                setProfile(options[(idx + 1) % options.length])
+              }}
+              className={cn(
+                'w-full h-8 flex items-center justify-center rounded-md border border-dashed text-[10px] font-bold transition-colors',
+                DEV_PROFILE_COLORS[profile]
+              )}
+            >
+              <FlaskConical className="w-3.5 h-3.5" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">
+            <p className="text-xs font-semibold">Preview: {DEV_PROFILE_LABELS[profile]}</p>
+            <p className="text-[10px] text-zinc-400">Clique para trocar</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    )
+  }
+
+  return (
+    <div className="relative mb-1">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          'w-full flex items-center gap-2 px-2.5 py-1.5 rounded-md border border-dashed text-xs font-semibold transition-colors',
+          DEV_PROFILE_COLORS[profile]
+        )}
+      >
+        <FlaskConical className="w-3.5 h-3.5 shrink-0" />
+        <span className="flex-1 text-left truncate">Preview: {DEV_PROFILE_LABELS[profile]}</span>
+        <ChevronDown className={cn('w-3.5 h-3.5 shrink-0 transition-transform', open && 'rotate-180')} />
+      </button>
+
+      {open && (
+        <div className="absolute top-full mt-1 left-0 right-0 z-50 bg-white border border-zinc-200 rounded-lg shadow-lg overflow-hidden">
+          {options.map((opt) => (
+            <button
+              key={opt}
+              onClick={() => { setProfile(opt); setOpen(false) }}
+              className={cn(
+                'w-full flex items-center gap-2 px-3 py-2 text-xs font-medium transition-colors hover:bg-zinc-50',
+                profile === opt ? 'font-semibold' : 'text-zinc-600'
+              )}
+            >
+              <span className={cn('w-2 h-2 rounded-full shrink-0', profile === opt ? 'bg-current' : 'bg-zinc-300')} />
+              {DEV_PROFILE_LABELS[opt]}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function getInitials(nome: string): string {
@@ -369,6 +456,7 @@ function getInitials(nome: string): string {
 
 function getRoleLabel(permissions: string[]): string {
   if (permissions.includes('USER_MANAGE') || permissions.includes('ROLE_MANAGE')) return 'Administrador'
+  if (permissions.includes('REPORT_VIEW_ALL')) return 'Gestor'
   if (permissions.includes('TICKET_MANAGE')) return 'Técnico'
   return 'Usuário'
 }
@@ -378,20 +466,25 @@ function getRoleLabel(permissions: string[]): string {
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const navigate = useNavigate()
   const user = useAppStore((s) => s.user)
-  const permissions = useAppStore((s) => s.permissions)
+  const realPermissions = useAppStore((s) => s.permissions)
   const clearAuth = useAppStore((s) => s.clearAuth)
   const refreshToken = useAppStore((s) => s.refreshToken)
+
+  const permissions = useDevPermissions(realPermissions)
 
   const displayName = user?.nome ?? ''
   const initials = displayName ? getInitials(displayName) : '?'
   const roleLabel = getRoleLabel(permissions)
 
   // ── Permission flags ──────────────────────────────────────────────────────
-  const isTech = permissions.includes('TICKET_MANAGE') && !permissions.includes('TICKET_VIEW_ALL')
-  const isManagerOrAdmin = permissions.includes('TICKET_VIEW_ALL')
-  const isEndUser = !isTech && !isManagerOrAdmin
+  // Pode operar chamados (TECH, GESTOR, ADMIN)
+  const canManageTickets = permissions.includes('TICKET_MANAGE')
+  // Sem TICKET_MANAGE → usuário final
+  const isEndUser = !canManageTickets
+  // Tem relatórios → GESTOR ou ADMIN
   const hasReports = permissions.includes('REPORT_VIEW_ALL')
   const hasSlaConfig = permissions.includes('SLA_CONFIG')
+  // Seção sistema → só ADMIN
   const hasAdminSettings = permissions.includes('USER_MANAGE') || permissions.includes('ROLE_MANAGE')
 
   // ── Nav groups ────────────────────────────────────────────────────────────
@@ -402,16 +495,19 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   ]
 
   const techItems: NavItem[] = [
-    { icon: LayoutDashboard, label: 'Home',             href: '/app'                        },
+    { icon: LayoutDashboard, label: 'Home',             href: '/app'                          },
     { icon: Briefcase,       label: 'Meus Trabalhos',   href: '/app/helpdesk/meus-trabalhos', badge: '7' },
-    { icon: ListTodo,        label: 'Fila de Chamados', href: '/app/helpdesk/fila'           },
-    { icon: Monitor,         label: 'Painel TV',        href: '/app/helpdesk/painel'         },
+    { icon: ListTodo,        label: 'Fila de Chamados', href: '/app/helpdesk/fila'            },
+    { icon: Monitor,         label: 'Painel TV',        href: '/app/helpdesk/painel'          },
+    { icon: Ticket,          label: 'Meus Chamados',    href: '/app/helpdesk/meus-chamados'   },
+    { icon: PlusCircle,      label: 'Abrir Chamado',    href: '/app/helpdesk/novo'            },
   ]
 
+  // Gestão/visão geral — apenas GESTOR e ADMIN (têm REPORT_VIEW_ALL)
+  // Home já aparece no grupo tech; aqui só os itens extras de oversight
   const managerItems: NavItem[] = [
-    { icon: LayoutDashboard, label: 'Home',              href: '/app'                    },
-    { icon: Users,           label: 'Todos os Chamados', href: '/app/helpdesk/todos'     },
-    { icon: Package,         label: 'Inventário',        href: '/app/inventory'          },
+    { icon: Users,   label: 'Todos os Chamados', href: '/app/helpdesk/todos' },
+    { icon: Package, label: 'Inventário',        href: '/app/inventory'      },
   ]
 
   // Build the list of visible groups (each is a ReactNode or null)
@@ -425,12 +521,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
     },
     {
       key: 'tech',
-      show: isTech,
+      show: canManageTickets,
       node: <NavGroup items={techItems} collapsed={collapsed} />,
     },
     {
       key: 'manager',
-      show: isManagerOrAdmin,
+      show: hasReports,           // só GESTOR e ADMIN
       node: <NavGroup items={managerItems} collapsed={collapsed} />,
     },
     {
@@ -487,6 +583,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* Nav */}
       <div className="flex-1 min-h-0 overflow-y-auto px-2 py-3">
+        {import.meta.env.DEV && (
+          <>
+            <DevProfileSwitcher collapsed={collapsed} />
+            <GroupSeparator collapsed={collapsed} />
+          </>
+        )}
         {visibleGroups.map((group, idx) => (
           <div key={group.key}>
             {idx > 0 && <GroupSeparator collapsed={collapsed} />}

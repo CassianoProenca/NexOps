@@ -40,4 +40,7 @@ export const tenantService = {
 
   updateAi: (data: Partial<ExtraSettings>): Promise<ExtraSettings> =>
     api.put('/v1/tenant/settings/ai', data).then((r) => r.data),
+
+  testSmtp: (): Promise<{ success: boolean; message: string }> =>
+    api.post('/v1/tenant/settings/smtp/test').then((r) => r.data),
 }

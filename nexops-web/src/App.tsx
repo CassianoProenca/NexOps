@@ -3,6 +3,7 @@ import { Layout } from '@/components/shared/Layout'
 import { ProtectedRoute } from '@/components/shared/ProtectedRoute'
 import { useAppStore } from '@/store/appStore'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { useDevPermissions } from '@/hooks/useDevPermissions'
 
 // Pages — auth
 import LoginPage           from '@/pages/auth/LoginPage'
@@ -64,9 +65,13 @@ function AppShell() {
 
 /* ── AppIndex: renders the correct home based on permissions (no redirect) ── */
 function AppIndex() {
-  const permissions = useAppStore((s) => s.permissions)
+  const rawPermissions = useAppStore((s) => s.permissions)
+  const permissions = useDevPermissions(rawPermissions)
 
-  if (permissions.includes('TICKET_VIEW_ALL') || permissions.includes('SLA_CONFIG')) {
+  if (permissions.includes('USER_MANAGE') || permissions.includes('SETTINGS_EDIT')) {
+    return <AdminHomePage />
+  }
+  if (permissions.includes('REPORT_VIEW_ALL')) {
     return <AdminHomePage />
   }
   if (permissions.includes('TICKET_MANAGE')) {
@@ -167,7 +172,7 @@ export default function App() {
             <Route
               path="inventory/assets"
               element={
-                <ProtectedRoute permission="DEPT_MANAGE">
+                <ProtectedRoute permission="ASSET_VIEW">
                   <AssetsPage />
                 </ProtectedRoute>
               }
@@ -175,7 +180,7 @@ export default function App() {
             <Route
               path="inventory/stock"
               element={
-                <ProtectedRoute permission="DEPT_MANAGE">
+                <ProtectedRoute permission="ASSET_VIEW">
                   <StockPage />
                 </ProtectedRoute>
               }
@@ -223,7 +228,7 @@ export default function App() {
             <Route
               path="admin/usuarios"
               element={
-                <ProtectedRoute permission="TICKET_VIEW_ALL">
+                <ProtectedRoute permission="USER_MANAGE">
                   <UsersPage />
                 </ProtectedRoute>
               }
@@ -231,7 +236,7 @@ export default function App() {
             <Route
               path="admin/perfis"
               element={
-                <ProtectedRoute permission="TICKET_VIEW_ALL">
+                <ProtectedRoute permission="ROLE_MANAGE">
                   <ProfilesPage />
                 </ProtectedRoute>
               }
@@ -239,7 +244,7 @@ export default function App() {
             <Route
               path="admin/configuracoes"
               element={
-                <ProtectedRoute permission="TICKET_VIEW_ALL">
+                <ProtectedRoute permission="SETTINGS_EDIT">
                   <TenantSettingsPage />
                 </ProtectedRoute>
               }
@@ -247,7 +252,7 @@ export default function App() {
             <Route
               path="admin/smtp"
               element={
-                <ProtectedRoute permission="TICKET_VIEW_ALL">
+                <ProtectedRoute permission="SETTINGS_EDIT">
                   <SmtpPage />
                 </ProtectedRoute>
               }
@@ -255,7 +260,7 @@ export default function App() {
             <Route
               path="admin/ia"
               element={
-                <ProtectedRoute permission="TICKET_VIEW_ALL">
+                <ProtectedRoute permission="AI_CONFIG">
                   <AISettingsPage />
                 </ProtectedRoute>
               }
