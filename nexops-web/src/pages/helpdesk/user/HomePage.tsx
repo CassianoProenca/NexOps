@@ -1,424 +1,375 @@
 // [ROLE: END_USER]
 
-import { useState } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Sparkles, CheckCircle2, ChevronRight, Lightbulb, ThumbsUp, ArrowRight, Loader2 } from 'lucide-react'
-import { useMyTickets } from '@/hooks/helpdesk/useTickets'
-import { useSuggestSolutions } from '@/hooks/ai/useAi'
+import { 
+  Sparkles, CheckCircle2, ChevronRight, 
+  ThumbsUp, Bot, User, Send, Tag, RefreshCw, Lightbulb, PlusCircle
+} from 'lucide-react'
+import { useMyTickets, useCreateTicket } from '@/hooks/helpdesk/useTickets'
+import { useAnalyzeTicket } from '@/hooks/ai/useAi'
+import { useDepartments } from '@/hooks/helpdesk/useDepartments'
+import { useProblemTypes } from '@/hooks/helpdesk/useProblemTypes'
 import { useAppStore } from '@/store/appStore'
-import { formatRelativeTime } from '@/lib/utils'
-import type { TicketStatus } from '@/types/helpdesk.types'
-
-// ── Status mapping ────────────────────────────────────────────────────────────
-
-type DisplayStatus = 'Aberto' | 'Em Andamento' | 'Pausado' | 'Finalizado'
-
-const STATUS_DISPLAY: Record<TicketStatus, DisplayStatus> = {
-  OPEN:        'Aberto',
-  IN_PROGRESS: 'Em Andamento',
-  PAUSED:      'Pausado',
-  CLOSED:      'Finalizado',
-}
-
-const STATUS_COLOR: Record<DisplayStatus, string> = {
-  'Aberto':       '#4f6ef7',
-  'Em Andamento': '#d97706',
-  'Pausado':      '#71717a',
-  'Finalizado':   '#16a34a',
-}
-
-const STATUS_BADGE_BG: Record<DisplayStatus, string> = {
-  'Aberto':       '#eef1ff',
-  'Em Andamento': '#fffbeb',
-  'Pausado':      '#f4f4f5',
-  'Finalizado':   '#f0fdf4',
-}
-
-const MAX_CHARS = 1000
+import { formatRelativeTime, cn } from '@/lib/utils'
+import AI_TIPS from '@/assets/data/ai-tips.json'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-type FlowState = 'idle' | 'loading' | 'suggestions' | 'resolved' | 'error'
+interface SuccessContent {
+  ticketId: string
+  pType?: string
+  title?: string
+}
+
+interface Message {
+  id: string
+  sender: 'bot' | 'user'
+  type: 'text' | 'suggestions' | 'dept-select' | 'success'
+  content: string | SuccessContent
+  timestamp: Date
+}
 
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
   const navigate = useNavigate()
-  const user = useAppStore((s) => s.user)
-  const firstName = user?.nome?.split(' ')[0] ?? user?.email ?? 'Olá'
+  const user = useAppStore(s => s.user)
+  const firstName = user?.nome?.split(' ')[0] ?? 'Usuário'
 
-  const [description, setDescription] = useState('')
-  const [textareaFocused, setTextareaFocused] = useState(false)
-  const [flowState, setFlowState] = useState<FlowState>('idle')
-  const [solutions, setSolutions] = useState<string[]>([])
-  const [aiErrorMsg, setAiErrorMsg] = useState<string>('')
+  // Dynamic Tip Selection (changes based on the hour)
+  const currentTip = useMemo(() => {
+    const now = new Date()
+    const seed = now.getDate() + now.getHours()
+    return AI_TIPS[seed % AI_TIPS.length]
+  }, [])
 
-  const { data: tickets = [], isLoading } = useMyTickets()
-  const { suggestAsync, isLoading: isLoadingAi } = useSuggestSolutions()
+  // Data Hooks
+  const { data: tickets = [] } = useMyTickets()
+  const { departments = [] } = useDepartments()
+  const { problemTypes = [] } = useProblemTypes()
+  const { analyze } = useAnalyzeTicket()
+  const createTicket = useCreateTicket()
 
-  const activeTickets = tickets
-    .filter((t) => t.status !== 'CLOSED')
-    .slice(0, 3)
+  // Chat State
+  const [messages, setMessages] = useState<Message[]>([])
+  const [userInput, setUserInput] = useState('')
+  const [isBotTyping, setIsBotTyping] = useState(false)
+  
+  // Internal Flow State
+  const [fullDescription, setFullDescription] = useState('')
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([])
 
-  const canSubmit = description.trim().length >= 10
+  const chatEndRef = useRef<HTMLDivElement>(null)
 
-  async function handleAnalyze() {
-    if (!canSubmit) return
-    setFlowState('loading')
+  // ── Initial Message ──
+  useEffect(() => {
+    setMessages([{
+      id: '1',
+      sender: 'bot',
+      type: 'text',
+      content: `Olá, ${firstName}! Descreva o que está acontecendo para que eu possa te ajudar.`,
+      timestamp: new Date()
+    }])
+  }, [firstName])
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages, isBotTyping])
+
+  // ── Logic ──
+
+  const addMessage = (msg: Omit<Message, 'id' | 'timestamp'>) => {
+    setMessages(prev => [...prev, {
+      ...msg,
+      id: Math.random().toString(36).substring(2, 11),
+      timestamp: new Date()
+    }])
+  }
+
+  const handleSend = async () => {
+    if (!userInput.trim() || isBotTyping) return
+    
+    const text = userInput.trim()
+    setUserInput('')
+    setFullDescription(text)
+    
+    addMessage({ sender: 'user', type: 'text', content: text })
+    
+    setIsBotTyping(true)
     try {
-      const result = await suggestAsync(description)
-      if (result.solutions && result.solutions.length > 0) {
-        setSolutions(result.solutions)
-        setFlowState('suggestions')
+      const res = await analyze({
+        description: text,
+        departments: departments.map(d => ({ id: d.id, name: d.name })),
+        problemTypes: problemTypes.map(p => ({ id: p.id, name: p.name }))
+      })
+      
+      setAiSuggestions(res.solutions || [])
+      setIsBotTyping(false)
+
+      if (res.solutions && res.solutions.length > 0) {
+        addMessage({
+          sender: 'bot',
+          type: 'suggestions',
+          content: 'Entendi. Antes de abrirmos um chamado, tente estas soluções simples:'
+        })
       } else {
-        setFlowState('error')
+        // Se não houver sugestões, pula direto para a pergunta do departamento
+        addMessage({
+          sender: 'bot',
+          type: 'dept-select',
+          content: 'Entendido. Para me ajudar a triar seu atendimento, em qual departamento você trabalha?'
+        })
       }
-    } catch (err: unknown) {
-      // Extract backend message from Axios error response when available
-      const axiosMsg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      const msg = axiosMsg ?? (err instanceof Error ? err.message : String(err))
-      setAiErrorMsg(msg)
-      setFlowState('error')
+    } catch {
+      setIsBotTyping(false)
+      addMessage({ 
+        sender: 'bot', 
+        type: 'text', 
+        content: 'Tive um problema ao analisar sua solicitação. Gostaria de tentar novamente ou abrir o chamado de forma manual?' 
+      })
     }
   }
 
-  function openTicket(aiContext?: string) {
-    const enrichedDescription = aiContext
-      ? `${description}\n\n---\nSoluções sugeridas pela IA que não resolveram:\n${aiContext}`
-      : description
-    navigate('/app/helpdesk/novo', { state: { description: enrichedDescription } })
+  const handleSolutionResolved = () => {
+    addMessage({ sender: 'bot', type: 'text', content: 'Excelente! Fico feliz em ter ajudado. Precisando de algo mais, é só chamar!' })
   }
 
-  function handleNotResolved() {
-    const aiContext = solutions.map((s, i) => `${i + 1}. ${s}`).join('\n')
-    openTicket(aiContext)
+  const handleSolutionFailed = () => {
+    addMessage({
+      sender: 'bot',
+      type: 'dept-select',
+      content: 'Entendi. Para prosseguirmos com a abertura do chamado, informe em qual departamento você trabalha:'
+    })
   }
 
-  function handleResolved() {
-    setFlowState('resolved')
-  }
+  const handleDeptSelect = async (deptId: string) => {
+    const deptName = departments.find(d => d.id === deptId)?.name
+    addMessage({ sender: 'user', type: 'text', content: `Para o departamento: ${deptName}` })
+    
+    setIsBotTyping(true)
+    try {
+      const res = await analyze({
+        description: fullDescription,
+        departments: departments.map(d => ({ id: d.id, name: d.name })),
+        problemTypes: problemTypes.map(p => ({ id: p.id, name: p.name }))
+      })
 
-  function handleReset() {
-    setFlowState('idle')
-    setDescription('')
-    setSolutions([])
+      const pType = problemTypes.find(p => p.id === res.suggestedProblemTypeId)
+      
+      createTicket.mutate({
+        title: res.suggestedTitle || 'Solicitação de Suporte',
+        description: fullDescription,
+        departmentId: deptId,
+        problemTypeId: res.suggestedProblemTypeId || ''
+      }, {
+        onSuccess: (ticket) => {
+          setIsBotTyping(false)
+          addMessage({
+            sender: 'bot',
+            type: 'success',
+            content: { ticketId: ticket.id, pType: pType?.name, title: res.suggestedTitle }
+          })
+        }
+      })
+    } catch {
+      setIsBotTyping(false)
+      addMessage({ sender: 'bot', type: 'text', content: 'Erro ao processar. Vamos tentar novamente?' })
+    }
   }
 
   return (
-    <div className="p-8 space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-semibold text-zinc-900">Olá, {firstName}.</h1>
-        <p className="mt-1 text-text-secondary">Como podemos ajudar você hoje?</p>
-      </div>
-
-      {/* Two panels */}
-      <div className="flex flex-col lg:flex-row gap-6 items-start">
-
-        {/* ── Main panel — Request (60%) ── */}
-        <div className="w-full lg:w-[60%]">
-          <div className="p-6 rounded-xl border bg-surface space-y-4">
-
-            {/* ── State: resolved ── */}
-            {flowState === 'resolved' && (
-              <div className="flex flex-col items-center justify-center py-8 gap-3 text-center">
-                <div className="w-12 h-12 rounded-full flex items-center justify-center" style={{ backgroundColor: '#f0fdf4' }}>
-                  <ThumbsUp className="w-6 h-6" style={{ color: '#16a34a' }} />
-                </div>
-                <div>
-                  <p className="text-base font-semibold text-text-primary">Que ótimo!</p>
-                  <p className="text-sm text-text-secondary mt-1">Fico feliz que o problema tenha sido resolvido.</p>
-                </div>
-                <button
-                  onClick={handleReset}
-                  className="mt-2 text-sm font-medium text-brand hover:underline"
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
-                >
-                  Nova solicitação
-                </button>
+    <div className="max-w-[1400px] mx-auto h-[calc(100vh-64px)] flex flex-col lg:flex-row overflow-hidden bg-zinc-50/50">
+      
+      {/* ── LEFT: CHAT AREA ── */}
+      <div className="flex-1 flex flex-col h-full bg-white lg:border-r border-zinc-200">
+        
+        {/* Chat Header */}
+        <div className="px-8 py-4 border-b border-zinc-100 flex items-center justify-between bg-zinc-50/30">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-brand flex items-center justify-center shadow-lg shadow-brand/20">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-sm font-black text-zinc-900 uppercase tracking-tight">Suporte Inteligente</h2>
+              <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-[10px] font-bold text-zinc-400 uppercase">IA Online</span>
               </div>
-            )}
+            </div>
+          </div>
+        </div>
 
-            {/* ── State: error ── */}
-            {flowState === 'error' && (
-              <div className="space-y-4">
-                <div className="flex items-start gap-3 p-4 rounded-lg border" style={{ backgroundColor: '#fef9ec', borderColor: '#fcd34d' }}>
-                  <span className="text-lg shrink-0">⚠️</span>
-                  <div>
-                    <p className="text-sm font-semibold text-zinc-800">IA indisponível no momento</p>
-                    <p className="text-xs text-zinc-500 mt-0.5">
-                      O assistente não conseguiu analisar seu problema. Verifique se a IA está configurada e ativada nas configurações do sistema, ou abra o chamado diretamente.
-                    </p>
-                    {aiErrorMsg && (
-                      <p className="text-xs font-mono text-zinc-400 mt-2 break-all">{aiErrorMsg}</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleReset}
-                    className="px-4 py-2 rounded-lg text-sm font-medium border border-[#e4e4e7] bg-surface hover:bg-[#f4f4f5] transition-colors text-text-secondary"
-                    style={{ fontFamily: 'inherit', cursor: 'pointer' }}
-                  >
-                    ← Voltar
-                  </button>
-                  <button
-                    onClick={() => openTicket()}
-                    className="flex-1 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors"
-                    style={{ backgroundColor: '#4f6ef7', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
-                  >
-                    Abrir chamado mesmo assim
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* ── State: suggestions ── */}
-            {flowState === 'suggestions' && (
-              <div className="space-y-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <Sparkles className="w-4 h-4" style={{ color: '#4f6ef7' }} />
-                    <h2 className="text-base font-semibold text-text-primary">Sugestões da IA</h2>
-                  </div>
-                  <p className="text-xs text-text-secondary">
-                    Antes de abrir um chamado, tente estas soluções simples:
-                  </p>
+        {/* Messages List */}
+        <div className="flex-1 overflow-y-auto p-6 lg:p-10 space-y-8 custom-scrollbar">
+          {messages.map((m) => {
+            const isBot = m.sender === 'bot'
+            const isUser = m.sender === 'user'
+            return (
+              <div key={m.id} className={cn("flex gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300", isUser ? "flex-row-reverse" : "flex-row")}>
+                <div className={cn(
+                  "w-10 h-10 rounded-2xl shrink-0 flex items-center justify-center shadow-sm border",
+                  isBot ? "bg-white border-zinc-100 text-brand" : "bg-zinc-900 border-zinc-800 text-white"
+                )}>
+                  {isBot ? <Bot className="w-5 h-5" /> : <User className="w-5 h-5" />}
                 </div>
 
-                <div className="space-y-2.5">
-                  {solutions.map((s, i) => (
-                    <div
-                      key={i}
-                      className="flex items-start gap-3 p-4 rounded-lg border"
-                      style={{ backgroundColor: '#f8faff', borderColor: '#c7d2fe' }}
-                    >
-                      <span
-                        className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white mt-0.5"
-                        style={{ backgroundColor: '#4f6ef7' }}
-                      >
-                        {i + 1}
-                      </span>
-                      <p className="text-sm text-text-primary leading-relaxed">{s}</p>
+                <div className={cn("max-w-[85%] space-y-2", isUser ? "items-end text-right" : "items-start")}>
+                  {m.type === 'text' && (
+                    <div className={cn(
+                      "px-5 py-3 rounded-3xl text-sm leading-relaxed shadow-sm border text-left",
+                      isBot ? "bg-zinc-50 border-zinc-100 text-zinc-700 rounded-tl-none" : "bg-brand text-white border-brand/10 rounded-tr-none font-medium"
+                    )}>
+                      {m.content as string}
                     </div>
-                  ))}
-                </div>
-
-                <div className="flex flex-col sm:flex-row gap-2 pt-1">
-                  <button
-                    onClick={handleResolved}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors"
-                    style={{ backgroundColor: '#16a34a', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Problema resolvido!
-                  </button>
-                  <button
-                    onClick={handleNotResolved}
-                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors"
-                    style={{
-                      backgroundColor: '#fafafa',
-                      border: '1px solid #e4e4e7',
-                      color: '#18181b',
-                      cursor: 'pointer',
-                      fontFamily: 'inherit',
-                    }}
-                  >
-                    <ArrowRight className="w-4 h-4" />
-                    Não resolveu, abrir chamado
-                  </button>
-                </div>
-
-                <button
-                  onClick={handleReset}
-                  className="text-xs text-text-muted hover:text-text-secondary transition-colors"
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
-                >
-                  ← Voltar e editar descrição
-                </button>
-              </div>
-            )}
-
-            {/* ── State: idle / loading ── */}
-            {(flowState === 'idle' || flowState === 'loading') && (
-              <>
-                <div>
-                  <h2 className="text-base font-semibold text-text-primary">Nova solicitação</h2>
-                  <p className="text-xs mt-0.5 text-text-secondary">
-                    Descreva o problema. A IA vai sugerir soluções antes de abrir um chamado.
-                  </p>
-                </div>
-
-                <div className="relative">
-                  <textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value.slice(0, MAX_CHARS))}
-                    onFocus={() => setTextareaFocused(true)}
-                    onBlur={() => setTextareaFocused(false)}
-                    disabled={flowState === 'loading'}
-                    placeholder="Descreva o que está acontecendo... Ex: Minha impressora não está imprimindo desde ontem."
-                    style={{
-                      width: '100%',
-                      minHeight: '120px',
-                      borderRadius: '8px',
-                      border: `1px solid ${textareaFocused ? '#4f6ef7' : '#e4e4e7'}`,
-                      padding: '12px',
-                      paddingBottom: description.length > 0 ? '32px' : '12px',
-                      fontSize: '14px',
-                      color: '#18181b',
-                      backgroundColor: flowState === 'loading' ? '#f4f4f5' : '#fafafa',
-                      outline: 'none',
-                      resize: 'vertical',
-                      fontFamily: 'inherit',
-                      lineHeight: '1.6',
-                      transition: 'border-color 0.15s',
-                      cursor: flowState === 'loading' ? 'not-allowed' : 'text',
-                    }}
-                  />
-                  {description.length > 0 && (
-                    <span
-                      className="absolute bottom-3 right-3 text-xs select-none pointer-events-none"
-                      style={{ color: description.length >= MAX_CHARS ? '#dc2626' : '#a1a1aa' }}
-                    >
-                      {description.length} / {MAX_CHARS}
-                    </span>
                   )}
-                </div>
 
-                <div className="flex items-center justify-between gap-4">
-                  {/* AI badge */}
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full" style={{ backgroundColor: '#eef1ff' }}>
-                    <Sparkles className="w-3.5 h-3.5" style={{ color: '#4f6ef7' }} />
-                    <span className="text-xs font-medium" style={{ color: '#4f6ef7' }}>IA disponível</span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {/* Skip AI — open ticket directly */}
-                    <button
-                      onClick={() => openTicket()}
-                      disabled={!canSubmit || flowState === 'loading'}
-                      className="px-3 py-2 rounded-lg text-sm text-text-secondary border border-[#e4e4e7] bg-surface hover:bg-[#f4f4f5] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                      style={{ fontFamily: 'inherit', cursor: canSubmit ? 'pointer' : 'not-allowed' }}
-                    >
-                      Abrir chamado
-                    </button>
-
-                    {/* Main CTA — Analyze with AI */}
-                    <button
-                      onClick={handleAnalyze}
-                      disabled={!canSubmit || isLoadingAi}
-                      className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors disabled:cursor-not-allowed"
-                      style={{
-                        backgroundColor: !canSubmit || isLoadingAi ? '#a5b4fc' : '#4f6ef7',
-                        border: 'none',
-                        fontFamily: 'inherit',
-                        cursor: !canSubmit || isLoadingAi ? 'not-allowed' : 'pointer',
-                      }}
-                    >
-                      {isLoadingAi ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          Analisando...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-3.5 h-3.5" />
-                          Analisar com IA
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* ── Side panel — Active tickets (40%) ── */}
-        <div className="w-full lg:w-[40%]">
-          <div className="p-6 rounded-xl border bg-surface space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-text-primary">Meus chamados</h2>
-              <button
-                onClick={() => navigate('/app/helpdesk/meus-chamados')}
-                className="text-xs font-medium transition-colors"
-                style={{ color: '#4f6ef7', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
-              >
-                Ver todos →
-              </button>
-            </div>
-
-            {isLoading ? (
-              <div className="space-y-2">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="h-14 rounded-lg border border-[#e4e4e7] bg-zinc-50 animate-pulse" />
-                ))}
-              </div>
-            ) : activeTickets.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 gap-2">
-                <CheckCircle2 className="w-8 h-8" style={{ color: '#16a34a' }} />
-                <p className="text-sm text-text-secondary text-center">
-                  Nenhum chamado aberto. Tudo certo por aqui!
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {activeTickets.map((ticket) => {
-                  const displayStatus = STATUS_DISPLAY[ticket.status]
-                  return (
-                    <button
-                      key={ticket.id}
-                      onClick={() => navigate(`/app/helpdesk/meu-chamado/${ticket.id}`)}
-                      className="w-full text-left group"
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontFamily: 'inherit' }}
-                    >
-                      <div className="flex items-center gap-3 p-3 rounded-lg border border-[#e4e4e7] group-hover:border-[#4f6ef7]/40 group-hover:shadow-sm transition-all bg-background/30">
-                        <div
-                          className="shrink-0 w-2.5 h-2.5 rounded-full"
-                          style={{ backgroundColor: STATUS_COLOR[displayStatus] }}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-text-primary truncate">
-                            {ticket.title}
-                          </p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <span
-                              className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
-                              style={{
-                                backgroundColor: STATUS_BADGE_BG[displayStatus],
-                                color: STATUS_COLOR[displayStatus],
-                              }}
-                            >
-                              {displayStatus}
-                            </span>
-                            <span className="text-[10px] text-text-muted">
-                              {formatRelativeTime(ticket.openedAt)}
-                            </span>
-                          </div>
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-text-muted shrink-0" />
+                  {m.type === 'suggestions' && (
+                    <div className="space-y-4 text-left">
+                      <div className="px-5 py-3 rounded-3xl bg-zinc-50 border border-zinc-100 text-zinc-700 rounded-tl-none text-sm leading-relaxed">
+                        {m.content as string}
                       </div>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
+                      <div className="grid gap-2">
+                        {aiSuggestions.map((s, i) => (
+                          <div key={i} className="flex gap-3 p-4 bg-blue-50 border border-blue-100 rounded-2xl text-sm text-blue-900 font-medium">
+                            <span className="w-5 h-5 rounded-lg bg-brand text-white flex items-center justify-center text-[10px] font-black shrink-0">{i+1}</span>
+                            {s}
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={handleSolutionResolved} className="flex-1 px-4 py-2.5 bg-green-600 text-white text-xs font-bold rounded-xl hover:bg-green-700 transition-all active:scale-95 shadow-lg shadow-green-600/10">Resolvido!</button>
+                        <button onClick={handleSolutionFailed} className="flex-1 px-4 py-2.5 bg-zinc-900 text-white text-xs font-bold rounded-xl hover:bg-zinc-800 transition-all active:scale-95">Não resolveu</button>
+                      </div>
+                    </div>
+                  )}
 
-          {/* AI hint */}
-          <div className="mt-3 p-4 rounded-xl border bg-surface">
-            <div className="flex items-start gap-2.5">
-              <Lightbulb className="w-4 h-4 shrink-0 mt-0.5" style={{ color: '#d97706' }} />
-              <p className="text-xs text-text-secondary leading-relaxed">
-                <span className="font-semibold text-text-primary">Dica: </span>
-                Antes de abrir um chamado, deixe a IA sugerir soluções rápidas. Muitos problemas comuns
-                podem ser resolvidos em minutos sem precisar esperar um técnico.
-              </p>
+                  {m.type === 'dept-select' && (
+                    <div className="space-y-4 text-left">
+                      <div className="px-5 py-3 rounded-3xl bg-zinc-50 border border-zinc-100 text-zinc-700 rounded-tl-none text-sm leading-relaxed">
+                        {m.content as string}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {departments.filter(d => d.active).map(d => (
+                          <button key={d.id} onClick={() => handleDeptSelect(d.id)} className="px-4 py-2 bg-white border border-zinc-200 rounded-xl text-xs font-bold text-zinc-600 hover:border-brand hover:text-brand hover:bg-brand/5 transition-all shadow-sm">
+                            {d.name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {m.type === 'success' && (
+                    <div className="p-6 bg-green-50 border border-green-100 rounded-3xl rounded-tl-none space-y-4 text-left">
+                      <div className="flex items-center gap-2 text-green-700">
+                        <CheckCircle2 className="w-5 h-5" />
+                        <span className="text-sm font-black uppercase tracking-tight">Chamado Protocolado!</span>
+                      </div>
+                      <div className="bg-white/60 p-4 rounded-2xl space-y-2">
+                        <p className="text-xs font-bold text-green-900">{(m.content as SuccessContent).title}</p>
+                        <div className="flex items-center gap-2 text-[10px] text-green-700 font-bold opacity-70">
+                          <Tag className="w-3.5 h-3.5" /> {(m.content as SuccessContent).pType}
+                        </div>
+                      </div>
+                      <button onClick={() => navigate(`/app/helpdesk/chamado-usuario/${(m.content as SuccessContent).ticketId}`)} className="w-full py-3 bg-green-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-green-700 transition-all shadow-lg shadow-green-600/20">
+                        Ver Chamado <ChevronRight className="w-4 h-4 inline ml-1" />
+                      </button>
+                    </div>
+                  )}
+
+                  <span className="text-[9px] font-bold text-zinc-300 uppercase tracking-widest px-1 block">
+                    {m.timestamp.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              </div>
+            )
+          })}
+
+          {isBotTyping && (
+            <div className="flex gap-4 animate-in fade-in duration-300">
+              <div className="w-10 h-10 rounded-2xl bg-white border border-zinc-100 flex items-center justify-center text-brand shadow-sm"><Bot className="w-5 h-5" /></div>
+              <div className="bg-zinc-50 border border-zinc-100 px-5 py-3 rounded-3xl rounded-tl-none flex gap-1 items-center">
+                <div className="w-1 h-1 bg-zinc-400 rounded-full animate-bounce" />
+                <div className="w-1 h-1 bg-zinc-400 rounded-full animate-bounce [animation-delay:0.2s]" />
+                <div className="w-1 h-1 bg-zinc-400 rounded-full animate-bounce [animation-delay:0.4s]" />
+              </div>
             </div>
+          )}
+          <div ref={chatEndRef} />
+        </div>
+
+        {/* Input Area */}
+        <div className="p-6 bg-white border-t border-zinc-100">
+          <div className="max-w-3xl mx-auto relative">
+            <textarea 
+              value={userInput}
+              onChange={e => setUserInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+              placeholder="O que está acontecendo? (Ex: Minha internet parou...)"
+              className="w-full min-h-[100px] p-6 pr-16 bg-zinc-50 border-2 border-zinc-100 rounded-[32px] focus:bg-white focus:border-brand/30 outline-none transition-all resize-none text-base"
+            />
+            <button 
+              disabled={!userInput.trim() || isBotTyping}
+              onClick={handleSend}
+              className="absolute right-6 bottom-6 p-1 text-zinc-400 hover:text-brand disabled:opacity-20 transition-colors active:scale-90"
+            >
+              {isBotTyping ? <RefreshCw className="w-6 h-6 animate-spin" /> : <Send className={cn("w-6 h-6", userInput.trim() && "text-brand")} />}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── RIGHT: SIDEBAR ── */}
+      <aside className="hidden lg:flex flex-col w-[380px] p-8 space-y-10 bg-white h-full overflow-y-auto shrink-0 border-l border-zinc-100">
+        
+        {/* RECENT TICKETS */}
+        <section className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Chamados Recentes</h3>
+            <button onClick={() => navigate('/app/helpdesk/meus-chamados')} className="text-[10px] font-black text-brand uppercase tracking-widest hover:underline">Ver Todos</button>
+          </div>
+          <div className="space-y-2">
+            {tickets.slice(0, 3).map(t => (
+              <button key={t.id} onClick={() => navigate(`/app/helpdesk/chamado-usuario/${t.id}`)} className="w-full p-3 bg-zinc-50 border border-zinc-100 rounded-2xl flex items-center gap-3 hover:bg-white hover:border-brand/30 hover:shadow-md transition-all text-left group">
+                <div className={cn("w-1.5 h-1.5 rounded-full shrink-0", t.status === 'CLOSED' ? "bg-zinc-300" : "bg-brand")} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-bold text-zinc-800 truncate uppercase tracking-tight">{t.title}</p>
+                  <p className="text-[9px] font-bold text-zinc-400 mt-0.5 uppercase">{formatRelativeTime(t.openedAt)}</p>
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 text-zinc-300 group-hover:text-brand" />
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <div className="space-y-6 flex-1 flex flex-col justify-end">
+          {/* DYNAMIC TIPS */}
+          <section className="bg-zinc-50 rounded-2xl p-5 border border-zinc-100 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-3 opacity-5 group-hover:rotate-12 transition-transform"><Sparkles className="w-12 h-12 text-brand" /></div>
+            <div className="relative z-10 space-y-2">
+              <div className="flex items-center gap-2">
+                <Lightbulb className="w-4 h-4 text-amber-500" />
+                <h4 className="text-[10px] font-black uppercase tracking-[0.1em] text-zinc-400">Dica NexOps</h4>
+              </div>
+              <p className="text-xs font-bold leading-relaxed text-zinc-600 italic">"{currentTip}"</p>
+            </div>
+          </section>
+
+          {/* MANUAL BUTTON (Highlighted) */}
+          <div className="pt-6">
+            <button 
+              onClick={() => navigate('/app/helpdesk/novo')}
+              className="w-full py-5 px-6 bg-blue-50 border-2 border-blue-100 text-brand rounded-[28px] flex flex-col items-center justify-center gap-2 hover:bg-brand hover:text-white hover:border-brand transition-all shadow-sm active:scale-[0.98] group"
+            >
+              <PlusCircle className="w-7 h-7 transition-transform group-hover:rotate-90 duration-300" />
+              <span className="text-[11px] font-black uppercase tracking-[0.2em]">Abrir Chamado Manual</span>
+            </button>
+            <p className="text-[9px] text-center text-zinc-400 mt-4 font-medium px-4 leading-relaxed uppercase tracking-tighter">Pule a triagem por IA e preencha o formulário completo.</p>
           </div>
         </div>
 
-      </div>
+      </aside>
+
     </div>
   )
 }

@@ -1,359 +1,226 @@
-import { useState } from 'react'
-import { Save, Trash2, Plus } from 'lucide-react'
+// [ROLE: ADMIN, MANAGER]
+
+import { useState, useMemo } from 'react'
+import { 
+  Save, Trash2, Plus, Clock, ShieldCheck, 
+  Building2, AlertCircle, ChevronRight, ChevronLeft,
+  Settings2, BellRing, Zap, Filter
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
+import { Separator } from '@/components/ui/separator'
+import { cn } from '@/lib/utils'
 import { useSlaConfigs, useUpdateSlaConfig } from '@/hooks/governance/useGovernance'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface LevelConfig {
   id: string
-  response: number    // hours
-  resolution: number  // hours
-  notifyAt: number    // percent
+  response: number
+  resolution: number
 }
 
-interface DepartmentRow {
-  id: number
+interface CustomRule {
+  id: string
   name: string
-  n1: { response: number; resolution: number }
-  n2: { response: number; resolution: number }
-  n3: { response: number; resolution: number }
+  condition: string
+  action: string
+  active: boolean
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const LEVEL_META = {
-  N1: { label: 'N1', color: 'bg-blue-100 text-blue-700',   desc: 'Primeiro atendimento'      },
-  N2: { label: 'N2', color: 'bg-amber-100 text-amber-700', desc: 'Suporte especializado'     },
-  N3: { label: 'N3', color: 'bg-red-100 text-red-700',     desc: 'Escalado / Hardware'        },
+  N1: { label: 'NÍVEL 1', color: 'text-blue-600', desc: 'Suporte de Primeiro Nível (Triagem e Problemas Comuns)' },
+  N2: { label: 'NÍVEL 2', color: 'text-amber-600', desc: 'Suporte Técnico Especializado' },
+  N3: { label: 'NÍVEL 3', color: 'text-red-600', desc: 'Alta Complexidade / Engenharia / Hardware' },
 }
 
-function minutesToHours(min: number) { return Math.round(min / 60) }
-function hoursToMinutes(h: number)   { return h * 60 }
+const MOCK_RULES: CustomRule[] = [
+  { id: '1', name: 'Alerta Diretor (Crítico)', condition: 'Se Prioridade = Crítica e Tempo > 1h', action: 'Notificar Diretor TI', active: true },
+  { id: '2', name: 'Escalonamento Automático', condition: 'Se Tempo Resposta > 4h', action: 'Mover para N2', active: true },
+  { id: '3', name: 'Aviso Cliente VIP', condition: 'Se Cliente = VIP e Status = Aberto', action: 'Email de Boas Vindas', active: false },
+]
 
-function NumInput({
-  value,
-  onChange,
-  compact = false,
-}: {
-  value: number
-  onChange: (v: number) => void
-  compact?: boolean
-}) {
+function NumInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   return (
-    <div className={`flex items-center gap-1 ${compact ? 'w-20' : 'w-full'}`}>
+    <div className="flex items-center gap-3">
       <input
         type="number"
         min={1}
         value={value}
         onChange={(e) => onChange(Math.max(1, Number(e.target.value)))}
-        className={`border border-zinc-200 rounded-md text-zinc-700 bg-white focus:outline-none focus:ring-2 focus:ring-[#4f6ef7]/30 focus:border-[#4f6ef7] transition-colors
-          ${compact ? 'h-8 text-xs px-2 w-14' : 'h-9 text-sm px-3 w-full'}`}
+        className="w-20 h-10 bg-zinc-50 border border-zinc-200 rounded-xl px-3 text-sm font-black text-zinc-900 focus:bg-white focus:border-brand/30 outline-none transition-all"
       />
-      <span className={`text-zinc-400 shrink-0 ${compact ? 'text-xs' : 'text-sm'}`}>h</span>
+      <span className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">horas</span>
     </div>
   )
 }
 
-// ── Page ─────────────────────────────────────────────────────────────────────
-// [ROLE: ADMIN]
+// ── Component ────────────────────────────────────────────────────────────────
 
 export default function SLAConfigPage() {
   const { data: slaConfigs = [] } = useSlaConfigs()
   const updateSlaConfig = useUpdateSlaConfig()
 
-  // Build initial levels from API data (first config per level)
-  function buildInitialLevels(): Record<'N1' | 'N2' | 'N3', LevelConfig> {
-    const defaults: Record<'N1' | 'N2' | 'N3', LevelConfig> = {
-      N1: { id: '', response: 2,  resolution: 8,  notifyAt: 80 },
-      N2: { id: '', response: 4,  resolution: 24, notifyAt: 80 },
-      N3: { id: '', response: 8,  resolution: 72, notifyAt: 80 },
-    }
-    for (const cfg of slaConfigs) {
-      const lvl = cfg.slaLevel as 'N1' | 'N2' | 'N3'
-      if (!defaults[lvl].id) {
-        defaults[lvl] = {
-          id:         cfg.id,
-          response:   minutesToHours(cfg.responseMinutes),
-          resolution: minutesToHours(cfg.resolutionMinutes),
-          notifyAt:   cfg.notifyManagerAtPercent,
-        }
-      }
-    }
-    return defaults
-  }
+  // Níveis
+  const [levels, setLevels] = useState<Record<'N1' | 'N2' | 'N3', LevelConfig>>({
+    N1: { id: '', response: 2, resolution: 8 },
+    N2: { id: '', response: 4, resolution: 24 },
+    N3: { id: '', response: 8, resolution: 72 },
+  })
 
-  // Editable local state: one entry per SLA level
-  const [levels, setLevels] = useState<Record<'N1' | 'N2' | 'N3', LevelConfig>>(buildInitialLevels)
+  // Regras
+  const [rules, setRules] = useState<CustomRule[]>(MOCK_RULES)
+  const [page, setPage] = useState(1)
+  const rulesPerPage = 3
+  const totalPages = Math.ceil(rules.length / rulesPerPage)
+  const paginatedRules = rules.slice((page - 1) * rulesPerPage, page * rulesPerPage)
 
-  // Departament exceptions — local only, no backend endpoint
-  const [departments, setDepartments] = useState<DepartmentRow[]>([])
-
-  const [notify80,      setNotify80]      = useState(true)
-  const [notifyBreach,  setNotifyBreach]  = useState(true)
-  const [dailyReport,   setDailyReport]   = useState(false)
-
-  function updateLevel(level: 'N1' | 'N2' | 'N3', field: keyof LevelConfig, value: number | string) {
-    setLevels((prev) => ({ ...prev, [level]: { ...prev[level], [field]: value } }))
-  }
-
-  function updateDept(id: number, level: 'n1' | 'n2' | 'n3', field: 'response' | 'resolution', value: number) {
-    setDepartments((prev) =>
-      prev.map((d) => d.id === id ? { ...d, [level]: { ...d[level], [field]: value } } : d)
-    )
-  }
-
-  function removeDept(id: number) {
-    setDepartments((prev) => prev.filter((d) => d.id !== id))
-  }
-
-  async function handleSave() {
-    const promises: Promise<unknown>[] = []
-    for (const lvl of ['N1', 'N2', 'N3'] as const) {
-      const cfg = levels[lvl]
-      if (!cfg.id) continue
-      promises.push(
-        new Promise<void>((resolve, reject) =>
-          updateSlaConfig.mutate(
-            {
-              id: cfg.id,
-              data: {
-                responseMinutes:        hoursToMinutes(cfg.response),
-                resolutionMinutes:      hoursToMinutes(cfg.resolution),
-                notifyManagerAtPercent: cfg.notifyAt,
-              },
-            },
-            { onSuccess: () => resolve(), onError: reject }
-          )
-        )
-      )
-    }
-    await Promise.allSettled(promises)
+  const handleUpdateLevel = (lvl: 'N1' | 'N2' | 'N3', field: keyof LevelConfig, val: number) => {
+    setLevels(prev => ({ ...prev, [lvl]: { ...prev[lvl], [field]: val } }))
   }
 
   return (
-    <div className="p-8 space-y-6">
-
-      {/* ── Header ── */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+    <div className="flex flex-col h-[calc(100vh-64px)] bg-white overflow-hidden font-sans">
+      
+      {/* ── HEADER ── */}
+      <header className="px-10 py-6 border-b border-zinc-100 flex items-center justify-between shrink-0 bg-white shadow-sm z-10">
         <div>
-          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-            <span>Governança</span>
-            <span className="text-zinc-300">/</span>
-            <span className="text-[#4f6ef7]">Configuração de SLA</span>
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-1">
+            <Settings2 className="w-3 h-3 text-brand" /> Parâmetros de Governança
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-zinc-900 mt-1">
-            Configuração de SLA
-          </h1>
-          <p className="text-sm text-zinc-500 mt-0.5">
-            Defina os tempos de atendimento por nível e departamento
-          </p>
+          <h1 className="text-xl font-black text-zinc-900 tracking-tight uppercase">Configurações de SLA</h1>
         </div>
 
-        <Button
-          className="bg-[#4f6ef7] hover:bg-[#3d5de6] text-white gap-2 shrink-0"
-          onClick={handleSave}
-          disabled={updateSlaConfig.isPending}
-        >
-          <Save className="h-4 w-4" />
-          {updateSlaConfig.isPending ? 'Salvando…' : 'Salvar alterações'}
+        <Button className="bg-brand hover:bg-brand/90 text-white px-8 py-6 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-lg shadow-brand/20 transition-all active:scale-95">
+          <Save className="w-4 h-4 mr-2" /> Salvar Tudo
         </Button>
-      </div>
+      </header>
 
-      {/* ── Seção 1 — Tempos por Nível ── */}
-      <div className="rounded-xl border border-zinc-200 bg-white p-6 space-y-5">
-        <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400">
-          Tempos por Nível
-        </h2>
+      {/* ── CONTENT ── */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className="max-w-5xl mx-auto p-10 space-y-16">
+          
+          {/* SEÇÃO 1: NÍVEIS DE ATENDIMENTO (LISTA ALINHADA) */}
+          <section className="space-y-8">
+            <div className="flex items-center gap-3">
+              <Clock className="w-5 h-5 text-zinc-400" />
+              <h2 className="text-[11px] font-black text-zinc-900 uppercase tracking-[0.3em]">Tempos Padrão por Nível</h2>
+            </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {(['N1', 'N2', 'N3'] as const).map((lvl) => {
-            const meta = LEVEL_META[lvl]
-            return (
-              <div key={lvl} className="rounded-lg border border-zinc-200 p-4 space-y-4">
+            <div className="space-y-0 border border-zinc-100 rounded-[32px] overflow-hidden">
+              {(['N1', 'N2', 'N3'] as const).map((lvl, idx) => {
+                const meta = LEVEL_META[lvl]
+                return (
+                  <div key={lvl} className={cn("p-8 flex items-center gap-12 group transition-colors", idx !== 2 && "border-b border-zinc-50")}>
+                    <div className="w-32 shrink-0">
+                      <span className={cn("text-xs font-black tracking-widest", meta.color)}>{meta.label}</span>
+                      <p className="text-[9px] font-bold text-zinc-400 mt-1 uppercase leading-tight">{meta.desc}</p>
+                    </div>
+                    
+                    <div className="flex-1 flex items-center gap-16">
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Resposta Inicial</label>
+                        <NumInput value={levels[lvl].response} onChange={v => handleUpdateLevel(lvl, 'response', v)} />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Resolução Final</label>
+                        <NumInput value={levels[lvl].resolution} onChange={v => handleUpdateLevel(lvl, 'resolution', v)} />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 px-4 py-2 bg-zinc-50 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span className="text-[9px] font-black text-zinc-400 uppercase">Status: Ativo</span>
+                      <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </section>
+
+          <Separator className="bg-zinc-100" />
+
+          {/* SEÇÃO 2: REGRAS DE ESCALONAMENTO (LISTA PAGINADA) */}
+          <section className="space-y-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Zap className="w-5 h-5 text-zinc-400" />
+                <h2 className="text-[11px] font-black text-zinc-900 uppercase tracking-[0.3em]">Regras de Escalonamento e Alerta</h2>
+              </div>
+              <Button variant="ghost" className="text-[10px] font-black text-brand uppercase tracking-widest hover:underline hover:bg-brand/5">
+                <Plus className="w-3.5 h-3.5 mr-1.5" /> Adicionar Regra
+              </Button>
+            </div>
+
+            <div className="border border-zinc-100 rounded-[32px] overflow-hidden bg-zinc-50/30">
+              <div className="divide-y divide-zinc-100">
+                {paginatedRules.map((rule) => (
+                  <div key={rule.id} className="p-8 flex items-center justify-between bg-white hover:bg-zinc-50/50 transition-colors">
+                    <div className="flex items-center gap-6 flex-1">
+                      <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center text-brand">
+                        <BellRing className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-black text-zinc-900 uppercase tracking-tight">{rule.name}</h3>
+                        <div className="flex items-center gap-3 mt-1">
+                          <span className="text-[10px] font-medium text-zinc-500 italic">"{rule.condition}"</span>
+                          <ChevronRight className="w-3 h-3 text-zinc-300" />
+                          <span className="text-[10px] font-black text-brand uppercase">{rule.action}</span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-6">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">{rule.active ? 'Ativa' : 'Pausada'}</span>
+                        <Switch checked={rule.active} onCheckedChange={() => {}} className="data-[state=checked]:bg-brand scale-75" />
+                      </div>
+                      <button className="p-2 text-zinc-300 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Paginação da Lista de Regras */}
+              <div className="px-8 py-4 bg-white border-t border-zinc-100 flex items-center justify-between">
+                <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Página {page} de {totalPages}</p>
                 <div className="flex items-center gap-2">
-                  <Badge className={`${meta.color} hover:${meta.color} font-bold`}>{meta.label}</Badge>
-                  <span className="text-xs text-zinc-500">{meta.desc}</span>
-                </div>
-
-                <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-                      Tempo de primeira resposta
-                    </label>
-                    <NumInput
-                      value={levels[lvl].response}
-                      onChange={(v) => updateLevel(lvl, 'response', v)}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">
-                      Tempo de resolução
-                    </label>
-                    <NumInput
-                      value={levels[lvl].resolution}
-                      onChange={(v) => updateLevel(lvl, 'resolution', v)}
-                    />
-                  </div>
+                  <button disabled={page === 1} onClick={() => setPage(p => p - 1)} className="p-2 text-zinc-400 hover:text-brand disabled:opacity-20"><ChevronLeft className="w-4 h-4" /></button>
+                  <button disabled={page === totalPages} onClick={() => setPage(p => p + 1)} className="p-2 text-zinc-400 hover:text-brand disabled:opacity-20"><ChevronRight className="w-4 h-4" /></button>
                 </div>
               </div>
-            )
-          })}
+            </div>
+          </section>
+
+          <Separator className="bg-zinc-100" />
+
+          {/* SEÇÃO 3: EXCEÇÕES POR DEPARTAMENTO */}
+          <section className="space-y-8 pb-10">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Building2 className="w-5 h-5 text-zinc-400" />
+                <h2 className="text-[11px] font-black text-zinc-900 uppercase tracking-[0.3em]">Exceções por Departamento</h2>
+              </div>
+              <Button variant="ghost" className="text-[10px] font-black text-brand uppercase tracking-widest hover:underline hover:bg-brand/5">
+                <Plus className="w-3.5 h-3.5 mr-1.5" /> Adicionar Departamento
+              </Button>
+            </div>
+
+            <div className="p-12 border-2 border-dashed border-zinc-100 rounded-[40px] flex flex-col items-center justify-center text-center gap-4 group hover:border-brand/30 transition-all">
+              <div className="w-16 h-16 rounded-[24px] bg-zinc-50 flex items-center justify-center text-zinc-300 group-hover:bg-brand/5 group-hover:text-brand transition-all">
+                <Filter className="w-8 h-8" />
+              </div>
+              <div>
+                <p className="text-sm font-black text-zinc-900 uppercase tracking-tight">Nenhuma exceção configurada</p>
+                <p className="text-[10px] font-medium text-zinc-400 uppercase mt-1 leading-relaxed">Departamentos sem configuração própria herdam os tempos padrão.</p>
+              </div>
+            </div>
+          </section>
+
         </div>
       </div>
-
-      {/* ── Seção 2 — Exceções por Departamento ── */}
-      <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
-        <div className="p-6 border-b border-zinc-100 space-y-0.5">
-          <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400">
-            Exceções por Departamento
-          </h2>
-          <p className="text-xs text-zinc-400">
-            Departamentos sem configuração específica herdam os tempos padrão por nível.
-          </p>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-zinc-100 bg-zinc-50/60">
-                <th className="text-left px-5 py-3 font-semibold uppercase tracking-wider text-zinc-400 min-w-40">
-                  Departamento
-                </th>
-                {(['N1', 'N2', 'N3'] as const).map((lvl) => (
-                  <>
-                    <th key={`${lvl}-resp`} className="text-center px-3 py-3 font-semibold uppercase tracking-wider text-zinc-400 whitespace-nowrap">
-                      <span className={`inline-flex items-center gap-1`}>
-                        <span className={`font-bold ${lvl === 'N1' ? 'text-blue-600' : lvl === 'N2' ? 'text-amber-600' : 'text-red-600'}`}>{lvl}</span>
-                        Resposta (h)
-                      </span>
-                    </th>
-                    <th key={`${lvl}-res`} className="text-center px-3 py-3 font-semibold uppercase tracking-wider text-zinc-400 whitespace-nowrap">
-                      <span className={`inline-flex items-center gap-1`}>
-                        <span className={`font-bold ${lvl === 'N1' ? 'text-blue-600' : lvl === 'N2' ? 'text-amber-600' : 'text-red-600'}`}>{lvl}</span>
-                        Resolução (h)
-                      </span>
-                    </th>
-                  </>
-                ))}
-                <th className="text-center px-3 py-3 font-semibold uppercase tracking-wider text-zinc-400">
-                  Ações
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {departments.map((dept, i) => (
-                <tr
-                  key={dept.id}
-                  className={`border-b border-zinc-100 last:border-0 ${i % 2 === 0 ? 'bg-white' : 'bg-zinc-50/40'}`}
-                >
-                  <td className="px-5 py-3 font-medium text-zinc-700">{dept.name}</td>
-
-                  {/* N1 */}
-                  <td className="px-3 py-3">
-                    <NumInput compact value={dept.n1.response}   onChange={(v) => updateDept(dept.id, 'n1', 'response',   v)} />
-                  </td>
-                  <td className="px-3 py-3">
-                    <NumInput compact value={dept.n1.resolution} onChange={(v) => updateDept(dept.id, 'n1', 'resolution', v)} />
-                  </td>
-
-                  {/* N2 */}
-                  <td className="px-3 py-3">
-                    <NumInput compact value={dept.n2.response}   onChange={(v) => updateDept(dept.id, 'n2', 'response',   v)} />
-                  </td>
-                  <td className="px-3 py-3">
-                    <NumInput compact value={dept.n2.resolution} onChange={(v) => updateDept(dept.id, 'n2', 'resolution', v)} />
-                  </td>
-
-                  {/* N3 */}
-                  <td className="px-3 py-3">
-                    <NumInput compact value={dept.n3.response}   onChange={(v) => updateDept(dept.id, 'n3', 'response',   v)} />
-                  </td>
-                  <td className="px-3 py-3">
-                    <NumInput compact value={dept.n3.resolution} onChange={(v) => updateDept(dept.id, 'n3', 'resolution', v)} />
-                  </td>
-
-                  {/* Actions */}
-                  <td className="px-3 py-3 text-center">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-zinc-400 hover:text-red-500 hover:bg-red-50"
-                      onClick={() => removeDept(dept.id)}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="px-5 py-3 border-t border-zinc-100">
-          <Button variant="ghost" size="sm" className="gap-2 text-zinc-500 hover:text-[#4f6ef7]">
-            <Plus className="h-4 w-4" />
-            Adicionar departamento
-          </Button>
-        </div>
-      </div>
-
-      {/* ── Seção 3 — Notificações ── */}
-      <div className="rounded-xl border border-zinc-200 bg-white p-6 space-y-5">
-        <div className="space-y-0.5">
-          <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400">
-            Alertas Proativos
-          </h2>
-          <p className="text-xs text-zinc-400">
-            Visível apenas para perfis com permissão REPORT_VIEW_ALL.
-          </p>
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex items-start justify-between gap-4 py-3 border-b border-zinc-100">
-            <div className="space-y-0.5">
-              <p className="text-sm font-medium text-zinc-700">
-                Notificar gestor ao atingir 80% do tempo de SLA
-              </p>
-              <p className="text-xs text-zinc-400">
-                Envia alerta quando restam 20% do prazo acordado
-              </p>
-            </div>
-            <Switch checked={notify80} onCheckedChange={setNotify80} />
-          </div>
-
-          <div className="flex items-start justify-between gap-4 py-3 border-b border-zinc-100">
-            <div className="space-y-0.5">
-              <p className="text-sm font-medium text-zinc-700">
-                Notificar gestor ao breach de SLA
-              </p>
-              <p className="text-xs text-zinc-400">
-                Envia alerta imediato quando o prazo é ultrapassado
-              </p>
-            </div>
-            <Switch checked={notifyBreach} onCheckedChange={setNotifyBreach} />
-          </div>
-
-          <div className="flex items-start justify-between gap-4 py-3">
-            <div className="space-y-0.5">
-              <p className="text-sm font-medium text-zinc-700">
-                Enviar resumo diário de performance
-              </p>
-              <p className="text-xs text-zinc-400">
-                E-mail consolidado com indicadores do dia anterior
-              </p>
-            </div>
-            <Switch checked={dailyReport} onCheckedChange={setDailyReport} />
-          </div>
-        </div>
-
-        <p className="text-xs text-zinc-400 pt-1 border-t border-zinc-100">
-          As notificações são enviadas por e-mail. Requer SMTP configurado.
-        </p>
-      </div>
-
     </div>
   )
 }

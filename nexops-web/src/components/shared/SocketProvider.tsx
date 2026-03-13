@@ -14,10 +14,10 @@ export const useSocket = () => useContext(SocketContext)
 
 export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [isConnected, setIsConnected] = useState(false)
+  const [clientInstance, setClientInstance] = useState<Client | null>(null)
   const clientRef = useRef<Client | null>(null)
   
   const accessToken = useAppStore(s => s.accessToken)
-  const tenant = useAppStore(s => s.tenant)
 
   useEffect(() => {
     // Só conecta se houver token
@@ -25,6 +25,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       if (clientRef.current) {
         clientRef.current.deactivate()
         clientRef.current = null
+        setClientInstance(null)
         setIsConnected(false)
       }
       return
@@ -56,15 +57,15 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
     client.activate()
     clientRef.current = client
+    setClientInstance(client)
 
     return () => {
-      // Opcional: Desativar ao deslogar. Aqui mantemos enquanto o componente estiver montado
-      // mas como ele envolve o App, só desativa no refresh total ou logout (devido ao check do accessToken)
+      // Mantemos a conexão ativa enquanto o provider existir
     }
   }, [accessToken])
 
   return (
-    <SocketContext.Provider value={{ client: clientRef.current, isConnected }}>
+    <SocketContext.Provider value={{ client: clientInstance, isConnected }}>
       {children}
     </SocketContext.Provider>
   )

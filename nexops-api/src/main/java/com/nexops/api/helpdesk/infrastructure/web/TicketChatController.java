@@ -1,6 +1,7 @@
 package com.nexops.api.helpdesk.infrastructure.web;
 
 import com.nexops.api.helpdesk.domain.model.TicketComment;
+import com.nexops.api.helpdesk.domain.model.TicketStatus;
 import com.nexops.api.helpdesk.domain.ports.in.AddCommentUseCase;
 import com.nexops.api.helpdesk.domain.ports.out.TicketRepository;
 import com.nexops.api.helpdesk.infrastructure.web.dto.ChatMessageRequest;
@@ -36,11 +37,20 @@ public class TicketChatController {
     ) {
         UUID authorId = UUID.fromString(principal.getName());
         
-        UUID tenantId = ticketRepository.findById(ticketId)
-                .map(t -> t.getTenantId())
+        var ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new BusinessException("Chamado não encontrado"));
 
-        TicketComment comment = addCommentUseCase.addComment(tenantId, ticketId, authorId, request.content());
+        // Regra 1: Não permitir chat em chamados finalizados
+        if (ticket.getStatus() == TicketStatus.CLOSED) {
+            throw new BusinessException("Não é permitido enviar mensagens em chamados finalizados");
+        }
+
+        // Regra 2: Solicitante só fala se houver técnico atribuído (Anti-flood)
+        if (authorId.equals(ticket.getRequesterId()) && ticket.getAssigneeId() == null) {
+            throw new BusinessException("Aguarde um técnico assumir o chamado para iniciar a conversa");
+        }
+
+        TicketComment comment = addCommentUseCase.addComment(ticket.getTenantId(), ticketId, authorId, request.content());
         
         String authorName = userRepository.findById(authorId)
                 .map(user -> user.getName())

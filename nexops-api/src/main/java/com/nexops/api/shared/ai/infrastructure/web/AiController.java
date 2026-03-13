@@ -52,11 +52,12 @@ public class AiController {
     public GenerateReportResponse generateReport(@RequestBody GenerateReportRequest req) {
         var caller = SecurityContext.get();
         String system = """
-                Você é um assistente de governança de TI. Dado os dados de métricas do helpdesk, \
-                gere um relatório executivo claro e personalizado em português. \
-                Destaque pontos críticos, tendências e recomendações acionáveis. \
-                Seja direto e objetivo. Sem formatação excessiva.""";
-        String prompt = "Período: " + req.period() + "\nMétricas:\n" + req.metricsData();
+                Você é um assistente de governança de TI da NexOps (NexOps AI Analyst). \
+                Seu objetivo é analisar os dados de métricas do helpdesk e responder às solicitações do gestor de TI. \
+                Se o gestor pedir um relatório, gere um relatório executivo claro. Se ele fizer uma pergunta específica sobre os dados, responda diretamente à pergunta. \
+                Destaque pontos críticos, tendências e recomendações acionáveis quando apropriado. \
+                Seja direto, objetivo e profissional. Responda em português. Sem formatação excessiva.""";
+        String prompt = "Período: " + req.period() + "\nDados ou Pergunta do Gestor:\n" + req.metricsData();
         String result = aiCompletionUseCase.complete(caller.tenantId(), system, prompt);
         return new GenerateReportResponse(result);
     }

@@ -23,4 +23,13 @@ export const governanceService = {
 
   updateSlaConfig: (id: string, data: UpdateSlaConfigRequest): Promise<SlaConfig> =>
     api.put(`/v1/governance/sla/config/${id}`, data).then((r) => r.data),
+
+  getNotifications: (): Promise<any[]> =>
+    api.get('/v1/governance/notifications').then((r) => r.data),
+
+  markNotificationAsRead: (id: string): Promise<void> =>
+    api.post(`/v1/governance/notifications/${id}/read`).then((r) => r.data),
+
+  markAllNotificationsAsRead: (): Promise<void> =>
+    api.post('/v1/governance/notifications/read-all').then((r) => r.data),
 }

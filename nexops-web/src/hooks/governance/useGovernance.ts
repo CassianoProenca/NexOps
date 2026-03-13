@@ -6,6 +6,7 @@ export const govKeys = {
   dashboard:   (from?: string, to?: string) => ['governance', 'dashboard', from, to] as const,
   technician:  (id: string, from?: string, to?: string) => ['governance', 'tech', id, from, to] as const,
   slaConfig:   () => ['governance', 'sla-config'] as const,
+  notifications: () => ['governance', 'notifications'] as const,
 }
 
 export function useGovernanceDashboard(from?: string, to?: string) {
@@ -37,5 +38,29 @@ export function useUpdateSlaConfig() {
     mutationFn: ({ id, data }: { id: string; data: UpdateSlaConfigRequest }) =>
       governanceService.updateSlaConfig(id, data),
     onSuccess: () => qc.invalidateQueries({ queryKey: govKeys.slaConfig() }),
+  })
+}
+
+export function useSlaNotifications() {
+  return useQuery({
+    queryKey: govKeys.notifications(),
+    queryFn: governanceService.getNotifications,
+    refetchInterval: 30_000, // auto-refresh every 30s
+  })
+}
+
+export function useMarkNotificationAsRead() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => governanceService.markNotificationAsRead(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: govKeys.notifications() }),
+  })
+}
+
+export function useMarkAllNotificationsAsRead() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => governanceService.markAllNotificationsAsRead(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: govKeys.notifications() }),
   })
 }
