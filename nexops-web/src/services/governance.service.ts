@@ -2,6 +2,7 @@ import { api } from '@/lib/api'
 import type {
   GovernanceMetrics,
   SlaConfig,
+  TechnicianTicketItem,
   UpdateSlaConfigRequest,
 } from '@/types/governance.types'
 
@@ -16,6 +17,17 @@ export const governanceService = {
   ): Promise<GovernanceMetrics> =>
     api
       .get(`/v1/governance/technicians/${id}/sla`, { params: { from, to } })
+      .then((r) => r.data),
+
+  getTechnicianTickets: (
+    id: string,
+    from?: string,
+    to?: string,
+    page = 0,
+    size = 10,
+  ): Promise<TechnicianTicketItem[]> =>
+    api
+      .get(`/v1/governance/technicians/${id}/tickets`, { params: { from, to, page, size } })
       .then((r) => r.data),
 
   getSlaConfigs: (): Promise<SlaConfig[]> =>

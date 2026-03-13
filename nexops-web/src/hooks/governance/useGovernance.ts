@@ -3,10 +3,11 @@ import { governanceService } from '@/services/governance.service'
 import type { UpdateSlaConfigRequest } from '@/types/governance.types'
 
 export const govKeys = {
-  dashboard:   (from?: string, to?: string) => ['governance', 'dashboard', from, to] as const,
-  technician:  (id: string, from?: string, to?: string) => ['governance', 'tech', id, from, to] as const,
-  slaConfig:   () => ['governance', 'sla-config'] as const,
-  notifications: () => ['governance', 'notifications'] as const,
+  dashboard:        (from?: string, to?: string) => ['governance', 'dashboard', from, to] as const,
+  technician:       (id: string, from?: string, to?: string) => ['governance', 'tech', id, from, to] as const,
+  technicianTickets:(id: string, from?: string, to?: string, page?: number) => ['governance', 'tech-tickets', id, from, to, page] as const,
+  slaConfig:        () => ['governance', 'sla-config'] as const,
+  notifications:    () => ['governance', 'notifications'] as const,
 }
 
 export function useGovernanceDashboard(from?: string, to?: string) {
@@ -20,6 +21,14 @@ export function useTechnicianMetrics(id: string, from?: string, to?: string) {
   return useQuery({
     queryKey: govKeys.technician(id, from, to),
     queryFn: () => governanceService.getTechnicianMetrics(id, from, to),
+    enabled: !!id,
+  })
+}
+
+export function useTechnicianTickets(id: string, from?: string, to?: string, page = 0) {
+  return useQuery({
+    queryKey: govKeys.technicianTickets(id, from, to, page),
+    queryFn: () => governanceService.getTechnicianTickets(id, from, to, page),
     enabled: !!id,
   })
 }

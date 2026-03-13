@@ -179,7 +179,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="max-w-[1400px] mx-auto h-[calc(100vh-64px)] flex flex-col lg:flex-row overflow-hidden bg-zinc-50/50">
+    <div className="max-w-350 mx-auto h-[calc(100vh-64px)] flex flex-col lg:flex-row overflow-hidden bg-zinc-50/50">
       
       {/* ── LEFT: CHAT AREA ── */}
       <div className="flex-1 flex flex-col h-full bg-white lg:border-r border-zinc-200">
@@ -306,7 +306,7 @@ export default function HomePage() {
               onChange={e => setUserInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
               placeholder="O que está acontecendo? (Ex: Minha internet parou...)"
-              className="w-full min-h-[100px] p-6 pr-16 bg-zinc-50 border-2 border-zinc-100 rounded-[32px] focus:bg-white focus:border-brand/30 outline-none transition-all resize-none text-base"
+              className="w-full min-h-25 p-6 pr-16 bg-zinc-50 border-2 border-zinc-100 rounded-[32px] focus:bg-white focus:border-brand/30 outline-none transition-all resize-none text-base"
             />
             <button 
               disabled={!userInput.trim() || isBotTyping}
@@ -320,7 +320,7 @@ export default function HomePage() {
       </div>
 
       {/* ── RIGHT: SIDEBAR ── */}
-      <aside className="hidden lg:flex flex-col w-[380px] p-8 space-y-10 bg-white h-full overflow-y-auto shrink-0 border-l border-zinc-100">
+      <aside className="hidden lg:flex flex-col w-95 p-8 space-y-10 bg-white h-full overflow-y-auto shrink-0 border-l border-zinc-100">
         
         {/* RECENT TICKETS */}
         <section className="space-y-4">
@@ -349,7 +349,7 @@ export default function HomePage() {
             <div className="relative z-10 space-y-2">
               <div className="flex items-center gap-2">
                 <Lightbulb className="w-4 h-4 text-amber-500" />
-                <h4 className="text-[10px] font-black uppercase tracking-[0.1em] text-zinc-400">Dica NexOps</h4>
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Dica NexOps</h4>
               </div>
               <p className="text-xs font-bold leading-relaxed text-zinc-600 italic">"{currentTip}"</p>
             </div>

@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useState, useMemo } from 'react'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip as RTooltip, ReferenceLine, ResponsiveContainer,
@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { cn } from '@/lib/utils'
-import { useTechnicianMetrics } from '@/hooks/governance/useGovernance'
+import { useTechnicianMetrics, useTechnicianTickets } from '@/hooks/governance/useGovernance'
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
@@ -24,39 +24,6 @@ function firstDayOfMonth(): string {
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10)
 }
-
-const SLA_OVER_TIME = [
-  { week: 'Sem 1', sla: 88 },
-  { week: 'Sem 2', sla: 94 },
-  { week: 'Sem 3', sla: 87 },
-  { week: 'Sem 4', sla: 91 },
-]
-
-const LEVEL_DIST = [
-  { name: 'N1', value: 20, color: '#4f6ef7' },
-  { name: 'N2', value: 12, color: '#f59e0b' },
-  { name: 'N3', value: 6,  color: '#dc2626' },
-]
-
-const SLA_BY_TYPE = [
-  { type: 'Hardware',        pct: 95 },
-  { type: 'Software',        pct: 88 },
-  { type: 'Rede',            pct: 91 },
-  { type: 'Acesso/Senha',    pct: 100 },
-  { type: 'Impressora',      pct: 83 },
-  { type: 'E-mail',          pct: 75 },
-]
-
-const TICKET_HISTORY = [
-  { id: '#1042', title: 'Computador não liga',         type: 'Hardware',     level: 'N1', opened: '01/03/2026', closed: '01/03/2026', onSla: true  },
-  { id: '#1039', title: 'VPN sem acesso',              type: 'Rede',         level: 'N2', opened: '28/02/2026', closed: '01/03/2026', onSla: true  },
-  { id: '#1031', title: 'Excel travando',              type: 'Software',     level: 'N1', opened: '25/02/2026', closed: '27/02/2026', onSla: true  },
-  { id: '#1028', title: 'Reset de senha AD',           type: 'Acesso/Senha', level: 'N1', opened: '24/02/2026', closed: '24/02/2026', onSla: true  },
-  { id: '#1024', title: 'Impressora HP sem imprimir',  type: 'Impressora',   level: 'N2', opened: '21/02/2026', closed: '25/02/2026', onSla: false },
-  { id: '#1019', title: 'Troca de HD defeituoso',      type: 'Hardware',     level: 'N3', opened: '18/02/2026', closed: '22/02/2026', onSla: true  },
-  { id: '#1014', title: 'E-mail não sincroniza',       type: 'E-mail',       level: 'N1', opened: '15/02/2026', closed: '19/02/2026', onSla: false },
-  { id: '#1008', title: 'Switch de andar offline',     type: 'Rede',         level: 'N3', opened: '10/02/2026', closed: '12/02/2026', onSla: true  },
-]
 
 // ── Tooltip personalizado ─────────────────────────────────────────────────────
 
@@ -86,10 +53,15 @@ function SlaBadge({ pct }: { pct: number }) {
 
 export default function TechnicianSLADetailPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { id = '' } = useParams<{ id: string }>()
+
+  // Bug #7 fix: read name from navigation state
+  const techName: string = location.state?.name ?? `${id.slice(0, 8)}…`
 
   const [period, setPeriod] = useState('this_month')
   const [page,   setPage]   = useState(0)
+  const pageSize = 10
 
   // Date range derived from period selector
   const { dateFrom, dateTo } = (() => {
@@ -115,19 +87,47 @@ export default function TechnicianSLADetailPage() {
 
   const { data: metrics, isLoading } = useTechnicianMetrics(id, dateFrom, dateTo)
 
-  const pageSize   = 4
-  const visibleTickets = TICKET_HISTORY.slice(page * pageSize, page * pageSize + pageSize)
-  const totalPages = Math.ceil(TICKET_HISTORY.length / pageSize)
-  const levelTotal = LEVEL_DIST.reduce((s, d) => s + d.value, 0)
+  // Bug #6 fix: use real ticket data from API
+  const { data: tickets = [], isLoading: ticketsLoading } = useTechnicianTickets(id, dateFrom, dateTo, page)
+
+  const levelDistData = useMemo(() => {
+    if (!metrics?.ticketsBySlaLevel) return []
+    const colors: Record<string, string> = { 'N1': '#4f6ef7', 'N2': '#f59e0b', 'N3': '#dc2626' }
+    return Object.entries(metrics.ticketsBySlaLevel).map(([name, value]) => ({
+      name,
+      value,
+      color: colors[name] || '#71717a'
+    }))
+  }, [metrics])
+
+  const slaOverTime = useMemo(() => {
+    if (!metrics?.timeSeries) return []
+    return metrics.timeSeries.map(p => ({
+      week: new Date(p.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+      sla: Math.round(p.slaCompliance)
+    }))
+  }, [metrics])
+
+  const slaByType = useMemo(() => {
+    if (!metrics?.slaComplianceByProblemType) return []
+    return Object.entries(metrics.slaComplianceByProblemType).map(([type, pct]) => ({
+      type,
+      pct: Math.round(pct)
+    })).sort((a, b) => b.pct - a.pct)
+  }, [metrics])
+
+  const levelTotal = levelDistData.reduce((s, d) => s + d.value, 0)
 
   // Derived from API metrics
   const attended = metrics?.totalTickets ?? 0
   const sla      = metrics ? Math.round(metrics.slaCompliancePercent) : 0
   const tmrTotal = metrics?.avgResolutionMinutes ?? 0
   const tmrH     = Math.floor(tmrTotal / 60)
-  const tmrM     = tmrTotal % 60
+  const tmrM     = Math.round(tmrTotal % 60)
   const late     = metrics?.slaBreachCount ?? 0
-  const initials = id.slice(0, 2).toUpperCase()
+  const initials = techName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || id.slice(0, 2).toUpperCase()
+
+  const hasNextPage = tickets.length === pageSize
 
   if (isLoading) {
     return (
@@ -162,7 +162,7 @@ export default function TechnicianSLADetailPage() {
 
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-bold text-zinc-900 font-mono">{id.slice(0, 8)}…</h1>
+              <h1 className="text-xl font-bold text-zinc-900">{techName}</h1>
               <SlaBadge pct={sla} />
             </div>
             <p className="text-sm text-zinc-500">Técnico</p>
@@ -172,7 +172,7 @@ export default function TechnicianSLADetailPage() {
         {/* Period select */}
         <select
           value={period}
-          onChange={(e) => setPeriod(e.target.value)}
+          onChange={(e) => { setPeriod(e.target.value); setPage(0) }}
           className="h-9 rounded-md border border-zinc-200 bg-white px-3 text-sm text-zinc-700 focus:outline-none focus:ring-2 focus:ring-[#4f6ef7]/30 cursor-pointer"
         >
           <option value="this_month">Este mês</option>
@@ -224,22 +224,28 @@ export default function TechnicianSLADetailPage() {
       <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-4">
         <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400">SLA ao Longo do Tempo</h2>
         <div className="h-52">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={SLA_OVER_TIME} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
-              <defs>
-                <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#4f6ef7" stopOpacity={0.15} />
-                  <stop offset="95%" stopColor="#4f6ef7" stopOpacity={0}    />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f4f4f5" />
-              <XAxis dataKey="week" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
-              <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} width={30} tickFormatter={(v) => `${v}%`} />
-              <RTooltip content={<SlaTooltip />} />
-              <ReferenceLine y={80} stroke="#a1a1aa" strokeDasharray="4 4" label={{ value: 'Meta', position: 'insideTopRight', fontSize: 10, fill: '#a1a1aa' }} />
-              <Line type="monotone" dataKey="sla" stroke="#4f6ef7" strokeWidth={2} dot={{ r: 4, fill: '#4f6ef7', strokeWidth: 0 }} activeDot={{ r: 5 }} />
-            </LineChart>
-          </ResponsiveContainer>
+          {slaOverTime.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={slaOverTime} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+                <defs>
+                  <linearGradient id="lineGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%"  stopColor="#4f6ef7" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#4f6ef7" stopOpacity={0}    />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f4f4f5" />
+                <XAxis dataKey="week" tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#a1a1aa' }} axisLine={false} tickLine={false} width={30} tickFormatter={(v) => `${v}%`} />
+                <RTooltip content={<SlaTooltip />} />
+                <ReferenceLine y={80} stroke="#a1a1aa" strokeDasharray="4 4" label={{ value: 'Meta', position: 'insideTopRight', fontSize: 10, fill: '#a1a1aa' }} />
+                <Line type="monotone" dataKey="sla" stroke="#4f6ef7" strokeWidth={2} dot={{ r: 4, fill: '#4f6ef7', strokeWidth: 0 }} activeDot={{ r: 5 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="h-full flex items-center justify-center text-zinc-300 text-xs font-bold uppercase tracking-widest">
+              Sem dados históricos
+            </div>
+          )}
         </div>
       </div>
 
@@ -249,46 +255,52 @@ export default function TechnicianSLADetailPage() {
         {/* Distribuição por Nível */}
         <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-4">
           <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400">Distribuição por Nível</h2>
-          <div className="flex items-center gap-6">
-            <div className="shrink-0">
-              <PieChart width={148} height={148}>
-                <Pie
-                  data={LEVEL_DIST}
-                  cx={74}
-                  cy={74}
-                  innerRadius={38}
-                  outerRadius={60}
-                  paddingAngle={3}
-                  dataKey="value"
-                >
-                  {LEVEL_DIST.map((entry) => (
-                    <Cell key={entry.name} fill={entry.color} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </div>
-            <div className="space-y-3 flex-1">
-              {LEVEL_DIST.map((entry) => (
-                <div key={entry.name} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="inline-block h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
-                    <span className="text-sm text-zinc-600 font-medium">{entry.name}</span>
+          {levelDistData.length > 0 ? (
+            <div className="flex items-center gap-6">
+              <div className="shrink-0">
+                <PieChart width={148} height={148}>
+                  <Pie
+                    data={levelDistData}
+                    cx={74}
+                    cy={74}
+                    innerRadius={38}
+                    outerRadius={60}
+                    paddingAngle={3}
+                    dataKey="value"
+                  >
+                    {levelDistData.map((entry) => (
+                      <Cell key={entry.name} fill={entry.color} />
+                    ))}
+                  </Pie>
+                </PieChart>
+              </div>
+              <div className="space-y-3 flex-1">
+                {levelDistData.map((entry) => (
+                  <div key={entry.name} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="inline-block h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: entry.color }} />
+                      <span className="text-sm text-zinc-600 font-medium">{entry.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-zinc-800">{entry.value}</span>
+                      <span className="text-xs text-zinc-400">({Math.round(entry.value / levelTotal * 100)}%)</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-bold text-zinc-800">{entry.value}</span>
-                    <span className="text-xs text-zinc-400">({Math.round(entry.value / levelTotal * 100)}%)</span>
-                  </div>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="h-40 flex items-center justify-center text-zinc-300 text-xs font-bold uppercase tracking-widest">
+              Sem chamados atendidos
+            </div>
+          )}
         </div>
 
         {/* SLA por Tipo de Problema */}
         <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-4">
           <h2 className="text-sm font-bold uppercase tracking-widest text-zinc-400">SLA por Tipo de Problema</h2>
           <div className="space-y-3">
-            {SLA_BY_TYPE.map((item) => (
+            {slaByType.length > 0 ? slaByType.map((item) => (
               <div key={item.type} className="space-y-1">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-zinc-600 font-medium">{item.type}</span>
@@ -303,7 +315,11 @@ export default function TechnicianSLADetailPage() {
                   />
                 </div>
               </div>
-            ))}
+            )) : (
+              <div className="h-40 flex items-center justify-center text-zinc-300 text-xs font-bold uppercase tracking-widest">
+                Sem dados por tipo
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -317,7 +333,6 @@ export default function TechnicianSLADetailPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-zinc-100 bg-zinc-50/60">
-              <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-400">ID</th>
               <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-400">Título</th>
               <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-400 hidden md:table-cell">Tipo</th>
               <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-zinc-400 hidden lg:table-cell">Nível</th>
@@ -327,26 +342,43 @@ export default function TechnicianSLADetailPage() {
             </tr>
           </thead>
           <tbody>
-            {visibleTickets.map((t, i) => (
+            {ticketsLoading ? (
+              [...Array(3)].map((_, i) => (
+                <tr key={i}>
+                  <td colSpan={6} className="px-5 py-3">
+                    <div className="h-4 bg-zinc-100 rounded animate-pulse" />
+                  </td>
+                </tr>
+              ))
+            ) : tickets.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-5 py-8 text-center text-zinc-400 text-xs font-semibold uppercase tracking-widest">
+                  Nenhum chamado finalizado no período
+                </td>
+              </tr>
+            ) : tickets.map((t, i) => (
               <tr
                 key={t.id}
                 className={cn('border-b border-zinc-100 last:border-0', i % 2 === 0 ? 'bg-white' : 'bg-zinc-50/40')}
               >
-                <td className="px-5 py-3 font-mono text-xs text-zinc-400 font-semibold">{t.id}</td>
                 <td className="px-5 py-3 text-zinc-700 font-medium max-w-45 truncate">{t.title}</td>
-                <td className="px-5 py-3 text-zinc-500 hidden md:table-cell">{t.type}</td>
+                <td className="px-5 py-3 text-zinc-500 hidden md:table-cell">{t.problemTypeName}</td>
                 <td className="px-5 py-3 hidden lg:table-cell">
                   <span className={cn(
                     'text-xs font-bold px-2 py-0.5 rounded-full',
-                    t.level === 'N1' ? 'bg-blue-100 text-blue-700' :
-                    t.level === 'N2' ? 'bg-amber-100 text-amber-700' :
-                                       'bg-red-100 text-red-700'
+                    t.slaLevel === 'N1' ? 'bg-blue-100 text-blue-700' :
+                    t.slaLevel === 'N2' ? 'bg-amber-100 text-amber-700' :
+                                         'bg-red-100 text-red-700'
                   )}>
-                    {t.level}
+                    {t.slaLevel}
                   </span>
                 </td>
-                <td className="px-5 py-3 text-zinc-500 hidden lg:table-cell">{t.opened}</td>
-                <td className="px-5 py-3 text-zinc-500 hidden lg:table-cell">{t.closed}</td>
+                <td className="px-5 py-3 text-zinc-500 hidden lg:table-cell">
+                  {t.openedAt ? new Date(t.openedAt).toLocaleDateString('pt-BR') : '—'}
+                </td>
+                <td className="px-5 py-3 text-zinc-500 hidden lg:table-cell">
+                  {t.closedAt ? new Date(t.closedAt).toLocaleDateString('pt-BR') : '—'}
+                </td>
                 <td className="px-5 py-3 text-center">
                   {t.onSla
                     ? <CheckCircle className="h-4 w-4 text-green-500 inline" />
@@ -361,7 +393,9 @@ export default function TechnicianSLADetailPage() {
         {/* Pagination */}
         <div className="flex items-center justify-between px-5 py-3 border-t border-zinc-100">
           <p className="text-xs text-zinc-400">
-            {page * pageSize + 1}–{Math.min((page + 1) * pageSize, TICKET_HISTORY.length)} de {TICKET_HISTORY.length} chamados
+            {tickets.length === 0
+              ? 'Nenhum resultado'
+              : `Página ${page + 1} · ${tickets.length} chamado${tickets.length !== 1 ? 's' : ''}`}
           </p>
           <div className="flex items-center gap-1">
             <Button
@@ -377,8 +411,8 @@ export default function TechnicianSLADetailPage() {
               variant="outline"
               size="icon"
               className="h-7 w-7"
-              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-              disabled={page === totalPages - 1}
+              onClick={() => setPage((p) => p + 1)}
+              disabled={!hasNextPage}
             >
               <ChevronRight className="h-3.5 w-3.5" />
             </Button>

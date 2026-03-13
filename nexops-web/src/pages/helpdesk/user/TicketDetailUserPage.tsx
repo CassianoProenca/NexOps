@@ -195,13 +195,13 @@ export default function TicketDetailUserPage() {
             <div className="space-y-6 pl-2 border-l-2 border-zinc-50 ml-2">
               {timelineEvents.map((ev, i) => (
                 <div key={i} className="relative pl-6">
-                  <div className="absolute -left-[11px] top-1 w-2 h-2 rounded-full bg-zinc-200 border-2 border-white shadow-sm" />
+                  <div className="absolute -left-2.75 top-1 w-2 h-2 rounded-full bg-zinc-200 border-2 border-white shadow-sm" />
                   <p className="text-[11px] font-bold text-zinc-600 leading-tight mb-1">{ev.content}</p>
                   <p className="text-[9px] font-black text-zinc-300 uppercase">{formatDateTime(ev.createdAt)}</p>
                 </div>
               ))}
               <div className="relative pl-6">
-                <div className="absolute -left-[11px] top-1 w-2 h-2 rounded-full bg-blue-500 border-2 border-white shadow-sm" />
+                <div className="absolute -left-2.75 top-1 w-2 h-2 rounded-full bg-blue-500 border-2 border-white shadow-sm" />
                 <p className="text-[11px] font-black text-blue-600 leading-tight mb-1 uppercase tracking-tighter">Chamado aberto com sucesso</p>
                 <p className="text-[9px] font-black text-zinc-300 uppercase">{formatDateTime(ticket.openedAt)}</p>
               </div>
@@ -262,7 +262,7 @@ export default function TicketDetailUserPage() {
                   <textarea value={chatText} onChange={e => setChatText(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (chatText.trim() && connected) { stompSend(chatText.trim()); setChatText('') } } }}
                     placeholder="Escrever para o suporte..."
-                    className="w-full min-h-[100px] p-6 pr-16 bg-zinc-50 border-2 border-zinc-100 rounded-[32px] focus:bg-white focus:border-brand/30 outline-none transition-all resize-none text-sm"
+                    className="w-full min-h-25 p-6 pr-16 bg-zinc-50 border-2 border-zinc-100 rounded-[32px] focus:bg-white focus:border-brand/30 outline-none transition-all resize-none text-sm"
                   />
                   <button disabled={!chatText.trim() || !connected} onClick={() => { stompSend(chatText.trim()); setChatText('') }}
                     className="absolute right-6 bottom-6 p-1 text-zinc-400 hover:text-brand disabled:opacity-20 transition-colors active:scale-90">

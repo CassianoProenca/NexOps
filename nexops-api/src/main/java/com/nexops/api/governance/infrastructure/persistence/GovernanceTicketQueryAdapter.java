@@ -1,12 +1,12 @@
 package com.nexops.api.governance.infrastructure.persistence;
 
 import com.nexops.api.governance.domain.ports.out.GovernanceTicketQueryPort;
+import com.nexops.api.helpdesk.domain.model.TicketStatus;
 import com.nexops.api.helpdesk.infrastructure.persistence.TicketJpaRepository;
-import com.nexops.api.helpdesk.infrastructure.persistence.entity.TicketJpaEntity;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Component;
 
-import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
@@ -20,81 +20,134 @@ public class GovernanceTicketQueryAdapter implements GovernanceTicketQueryPort {
     private final TicketJpaRepository ticketJpaRepository;
 
     @Override
-    public int countBetween(OffsetDateTime from, OffsetDateTime to) {
-        return (int) ticketJpaRepository.findAll().stream()
-                .filter(t -> t.getCreatedAt().isAfter(from) && t.getCreatedAt().isBefore(to))
-                .count();
+    public int countBetween(UUID tenantId, OffsetDateTime from, OffsetDateTime to) {
+        return ticketJpaRepository.countBetween(tenantId, from, to);
     }
 
     @Override
-    public int countByStatusBetween(String status, OffsetDateTime from, OffsetDateTime to) {
-        return (int) ticketJpaRepository.findAll().stream()
-                .filter(t -> t.getStatus().name().equals(status) && t.getCreatedAt().isAfter(from) && t.getCreatedAt().isBefore(to))
-                .count();
+    public int countByStatusBetween(UUID tenantId, String status, OffsetDateTime from, OffsetDateTime to) {
+        return ticketJpaRepository.countByStatusBetween(tenantId, TicketStatus.valueOf(status), from, to);
     }
 
     @Override
-    public int countByAssigneeBetween(UUID assigneeId, OffsetDateTime from, OffsetDateTime to) {
-        return (int) ticketJpaRepository.findAll().stream()
-                .filter(t -> assigneeId.equals(t.getAssigneeId()) && t.getCreatedAt().isAfter(from) && t.getCreatedAt().isBefore(to))
-                .count();
+    public int countByAssigneeBetween(UUID tenantId, UUID assigneeId, OffsetDateTime from, OffsetDateTime to) {
+        return ticketJpaRepository.countByAssigneeBetween(tenantId, assigneeId, from, to);
     }
 
     @Override
-    public double avgResolutionMinutesBetween(OffsetDateTime from, OffsetDateTime to) {
-        return ticketJpaRepository.findAll().stream()
-                .filter(t -> t.getClosedAt() != null && t.getCreatedAt().isAfter(from) && t.getCreatedAt().isBefore(to))
-                .mapToLong(t -> Duration.between(t.getOpenedAt(), t.getClosedAt()).toMinutes())
-                .average()
-                .orElse(0.0);
+    public int countByStatusAndAssigneeBetween(UUID tenantId, UUID assigneeId, String status, OffsetDateTime from, OffsetDateTime to) {
+        return ticketJpaRepository.countByStatusAndAssigneeBetween(tenantId, assigneeId, TicketStatus.valueOf(status), from, to);
     }
 
     @Override
-    public double avgResolutionMinutesByAssigneeBetween(UUID assigneeId, OffsetDateTime from, OffsetDateTime to) {
-        return ticketJpaRepository.findAll().stream()
-                .filter(t -> assigneeId.equals(t.getAssigneeId()) && t.getClosedAt() != null && t.getCreatedAt().isAfter(from) && t.getCreatedAt().isBefore(to))
-                .mapToLong(t -> Duration.between(t.getOpenedAt(), t.getClosedAt()).toMinutes())
-                .average()
-                .orElse(0.0);
+    public double avgResolutionMinutesBetween(UUID tenantId, OffsetDateTime from, OffsetDateTime to) {
+        Double result = ticketJpaRepository.avgResolutionMinutesBetween(tenantId, from, to);
+        return result != null ? result : 0.0;
     }
 
     @Override
-    public Map<String, Integer> countGroupedByProblemTypeBetween(OffsetDateTime from, OffsetDateTime to) {
-        // This is a placeholder since we don't have problem type names in TicketJpaEntity directly
-        // In a real scenario, we'd join with ProblemType table
-        return ticketJpaRepository.findAll().stream()
-                .filter(t -> t.getCreatedAt().isAfter(from) && t.getCreatedAt().isBefore(to))
-                .collect(Collectors.groupingBy(t -> t.getProblemTypeId().toString(), Collectors.collectingAndThen(Collectors.counting(), Long::intValue)));
+    public double avgResolutionMinutesByAssigneeBetween(UUID tenantId, UUID assigneeId, OffsetDateTime from, OffsetDateTime to) {
+        Double result = ticketJpaRepository.avgResolutionMinutesByAssigneeBetween(tenantId, assigneeId, from, to);
+        return result != null ? result : 0.0;
     }
 
     @Override
-    public Map<String, Integer> countGroupedByAssigneeBetween(OffsetDateTime from, OffsetDateTime to) {
-        return ticketJpaRepository.findAll().stream()
-                .filter(t -> t.getAssigneeId() != null && t.getCreatedAt().isAfter(from) && t.getCreatedAt().isBefore(to))
-                .collect(Collectors.groupingBy(t -> t.getAssigneeId().toString(), Collectors.collectingAndThen(Collectors.counting(), Long::intValue)));
+    public Map<String, Integer> countByDateBetween(UUID tenantId, OffsetDateTime from, OffsetDateTime to) {
+        return ticketJpaRepository.countByDateBetween(tenantId, from, to).stream()
+                .collect(Collectors.toMap(
+                    row -> row[0].toString(),
+                    row -> ((Long) row[1]).intValue()
+                ));
     }
 
     @Override
-    public List<UUID> findTicketsNearingSlaDeadline(int withinMinutes) {
+    public Map<String, Integer> countGroupedByProblemTypeBetween(UUID tenantId, OffsetDateTime from, OffsetDateTime to) {
+        return ticketJpaRepository.countGroupedByProblemTypeBetween(tenantId, from, to).stream()
+                .collect(Collectors.toMap(
+                    row -> row[0].toString(),
+                    row -> ((Long) row[1]).intValue()
+                ));
+    }
+
+    @Override
+    public Map<String, Integer> countGroupedByAssigneeBetween(UUID tenantId, OffsetDateTime from, OffsetDateTime to) {
+        return ticketJpaRepository.countGroupedByAssigneeBetween(tenantId, from, to).stream()
+                .collect(Collectors.toMap(
+                    row -> row[0].toString(),
+                    row -> ((Long) row[1]).intValue()
+                ));
+    }
+
+    @Override
+    public Map<String, Integer> countGroupedBySlaLevelBetween(UUID tenantId, OffsetDateTime from, OffsetDateTime to) {
+        return ticketJpaRepository.countGroupedBySlaLevelBetween(tenantId, from, to).stream()
+                .collect(Collectors.toMap(
+                    row -> row[0].toString(),
+                    row -> ((Long) row[1]).intValue()
+                ));
+    }
+
+    @Override
+    public Map<String, Integer> countByDateByAssigneeBetween(UUID tenantId, UUID assigneeId, OffsetDateTime from, OffsetDateTime to) {
+        return ticketJpaRepository.countByDateByAssigneeBetween(tenantId, assigneeId, from, to).stream()
+                .collect(Collectors.toMap(
+                    row -> row[0].toString(),
+                    row -> ((Long) row[1]).intValue()
+                ));
+    }
+
+    @Override
+    public Map<String, Integer> countGroupedBySlaLevelByAssigneeBetween(UUID tenantId, UUID assigneeId, OffsetDateTime from, OffsetDateTime to) {
+        return ticketJpaRepository.countGroupedBySlaLevelByAssigneeBetween(tenantId, assigneeId, from, to).stream()
+                .collect(Collectors.toMap(
+                    row -> row[0].toString(),
+                    row -> ((Long) row[1]).intValue()
+                ));
+    }
+
+    @Override
+    public Map<String, Integer> countGroupedByProblemTypeByAssigneeBetween(UUID tenantId, UUID assigneeId, OffsetDateTime from, OffsetDateTime to) {
+        return ticketJpaRepository.countGroupedByProblemTypeByAssigneeBetween(tenantId, assigneeId, from, to).stream()
+                .collect(Collectors.toMap(
+                    row -> row[0].toString(),
+                    row -> ((Long) row[1]).intValue()
+                ));
+    }
+
+    @Override
+    public Map<String, String> findTechnicianIdsByAssigneeBetween(UUID tenantId, OffsetDateTime from, OffsetDateTime to) {
+        return ticketJpaRepository.findTechniciansByAssigneeBetween(tenantId, from, to).stream()
+                .collect(Collectors.toMap(
+                    row -> row[0].toString(),
+                    row -> row[1].toString()
+                ));
+    }
+
+    @Override
+    public List<TicketSummary> findClosedTicketsByAssigneeBetween(UUID tenantId, UUID assigneeId, OffsetDateTime from, OffsetDateTime to, int page, int size) {
+        return ticketJpaRepository.findClosedByAssigneeBetween(tenantId, assigneeId, from, to, PageRequest.of(page, size))
+                .stream()
+                .map(row -> new TicketSummary(
+                    (UUID) row[0],
+                    (String) row[1],
+                    (String) row[2],
+                    row[3].toString(),
+                    (OffsetDateTime) row[4],
+                    (OffsetDateTime) row[5],
+                    (OffsetDateTime) row[6]
+                ))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<UUID> findTicketsNearingSlaDeadline(UUID tenantId, int withinMinutes) {
         OffsetDateTime now = OffsetDateTime.now();
         OffsetDateTime threshold = now.plusMinutes(withinMinutes);
-        return ticketJpaRepository.findAll().stream()
-                .filter(t -> t.getSlaDeadline() != null
-                        && t.getSlaDeadline().isAfter(now)
-                        && t.getSlaDeadline().isBefore(threshold)
-                        && !t.getStatus().name().equals("CLOSED"))
-                .map(TicketJpaEntity::getId)
-                .toList();
+        return ticketJpaRepository.findTicketsNearingSlaDeadline(tenantId, now, threshold);
     }
 
     @Override
-    public List<UUID> findBreachedTickets() {
-        OffsetDateTime now = OffsetDateTime.now();
-        return ticketJpaRepository.findAll().stream()
-                .filter(t -> t.getSlaDeadline() != null
-                        && t.getSlaDeadline().isBefore(now)
-                        && !t.getStatus().name().equals("CLOSED"))
-                .map(TicketJpaEntity::getId)
-                .toList();
+    public List<UUID> findBreachedTickets(UUID tenantId) {
+        return ticketJpaRepository.findBreachedTickets(tenantId, OffsetDateTime.now());
     }
 }

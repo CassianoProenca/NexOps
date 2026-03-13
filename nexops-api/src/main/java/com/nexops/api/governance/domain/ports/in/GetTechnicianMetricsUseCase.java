@@ -5,5 +5,5 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public interface GetTechnicianMetricsUseCase {
-    GovernanceMetrics execute(UUID technicianId, OffsetDateTime from, OffsetDateTime to);
+    GovernanceMetrics execute(UUID tenantId, UUID technicianId, OffsetDateTime from, OffsetDateTime to);
 }

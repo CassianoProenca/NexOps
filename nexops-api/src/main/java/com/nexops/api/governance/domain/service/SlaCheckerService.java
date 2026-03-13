@@ -35,11 +35,11 @@ public class SlaCheckerService {
 
     @Transactional
     public void processSlaForCurrentTenant(UUID tenantId) {
-        // 1. findBreachedTickets() — tickets past slaDeadline, not closed
-        var breachedIds = ticketQueryPort.findBreachedTickets();
+        // Bug #2 fix: pass tenantId to findBreachedTickets
+        var breachedIds = ticketQueryPort.findBreachedTickets(tenantId);
 
         for (UUID ticketId : breachedIds) {
-            var existingBreaches = breachEventRepository.findByTicketId(ticketId);
+            var existingBreaches = breachEventRepository.findByTicketId(tenantId, ticketId);
             boolean alreadyRecorded = existingBreaches.stream()
                     .anyMatch(b -> b.getBreachType() == SlaBreachEvent.BreachType.RESOLUTION_BREACH);
 
@@ -51,10 +51,10 @@ public class SlaCheckerService {
             }
         }
 
-        // SLA warning — tickets with less than 60 min to deadline
-        var nearingIds = ticketQueryPort.findTicketsNearingSlaDeadline(60);
+        // Bug #2 fix: pass tenantId to findTicketsNearingSlaDeadline
+        var nearingIds = ticketQueryPort.findTicketsNearingSlaDeadline(tenantId, 60);
         for (UUID ticketId : nearingIds) {
-            boolean alreadyWarned = breachEventRepository.findByTicketId(ticketId).stream()
+            boolean alreadyWarned = breachEventRepository.findByTicketId(tenantId, ticketId).stream()
                     .anyMatch(b -> b.getBreachType() == SlaBreachEvent.BreachType.SLA_WARNING);
             if (!alreadyWarned) {
                 ticketRepository.findById(ticketId).ifPresent(ticket -> {
@@ -83,9 +83,10 @@ public class SlaCheckerService {
 
                 var from = OffsetDateTime.now().minusDays(7);
                 var to   = OffsetDateTime.now();
-                int total    = ticketQueryPort.countBetween(from, to);
-                int closed   = ticketQueryPort.countByStatusBetween("CLOSED", from, to);
-                int breached = ticketQueryPort.findBreachedTickets().size();
+                int total    = ticketQueryPort.countBetween(tenant.getId(), from, to);
+                int closed   = ticketQueryPort.countByStatusBetween(tenant.getId(), "CLOSED", from, to);
+                // Bug #4 fix: use countBreachesBetween instead of findBreachedTickets().size()
+                int breached = breachEventRepository.countBreachesBetween(tenant.getId(), from, to);
 
                 for (var gestor : gestores) {
                     try {

@@ -135,7 +135,7 @@ function AiChatSheet({ metrics, period }: { metrics: any, period: string }) {
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage() } }}
             placeholder="Dúvidas sobre o SLA ou performance?"
-            className="w-full min-h-[80px] p-4 pr-12 bg-zinc-50 border-2 border-zinc-100 rounded-2xl focus:bg-white focus:border-brand/30 outline-none transition-all resize-none text-sm"
+            className="w-full min-h-20 p-4 pr-12 bg-zinc-50 border-2 border-zinc-100 rounded-2xl focus:bg-white focus:border-brand/30 outline-none transition-all resize-none text-sm"
           />
           <button 
             disabled={!input.trim() || isLoading}
@@ -153,37 +153,61 @@ function AiChatSheet({ metrics, period }: { metrics: any, period: string }) {
 // ── Main Page ────────────────────────────────────────────────────────────────
 
 export default function GovernanceDashboardPage() {
-  const [dateFrom, setDateFrom] = useState(new Date(new Date().setDate(1)).toISOString().slice(0, 10))
+  const navigate = useNavigate()
+  const [dateFrom, setDateFrom] = useState(new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().slice(0, 10))
   const [dateTo, setDateTo] = useState(new Date().toISOString().slice(0, 10))
   
   const { data: metrics } = useGovernanceDashboard(dateFrom, dateTo)
 
   const kpis = useMemo(() => {
-    if (!metrics) return { sla: 92, total: 145, tmr: '2h 15m', breach: 3 }
+    if (!metrics) return { sla: 0, total: 0, tmr: '0h 0m', breach: 0 }
     const tmr = metrics.avgResolutionMinutes ?? 0
     return {
       sla: Math.round(metrics.slaCompliancePercent),
       total: metrics.totalTickets,
-      tmr: `${Math.floor(tmr / 60)}h ${tmr % 60}m`,
+      tmr: `${Math.floor(tmr / 60)}h ${Math.round(tmr % 60)}m`,
       breach: metrics.slaBreachCount
     }
   }, [metrics])
 
   const statusData = useMemo(() => [
-    { name: 'Abertos', value: metrics?.openTickets || 12, color: '#4f6ef7' },
-    { name: 'Em Curso', value: metrics?.inProgressTickets || 25, color: '#f59e0b' },
-    { name: 'Finalizados', value: metrics?.closedTickets || 108, color: '#22c55e' },
+    { name: 'Abertos', value: metrics?.openTickets || 0, color: '#4f6ef7' },
+    { name: 'Em Curso', value: metrics?.inProgressTickets || 0, color: '#f59e0b' },
+    { name: 'Finalizados', value: metrics?.closedTickets || 0, color: '#22c55e' },
   ], [metrics])
 
-  const chartData = [
-    { name: 'Seg', tickets: 45, sla: 92 },
-    { name: 'Ter', tickets: 52, sla: 88 },
-    { name: 'Qua', tickets: 38, sla: 95 },
-    { name: 'Qui', tickets: 65, sla: 82 },
-    { name: 'Sex', tickets: 48, sla: 90 },
-    { name: 'Sab', tickets: 12, sla: 98 },
-    { name: 'Dom', tickets: 8, sla: 99 },
-  ]
+  const chartData = useMemo(() => {
+    if (!metrics?.timeSeries) return []
+    return metrics.timeSeries.map(p => ({
+      name: new Date(p.date).toLocaleDateString('pt-BR', { weekday: 'short' }).replace('.', ''),
+      tickets: p.tickets,
+      sla: Math.round(p.slaCompliance)
+    }))
+  }, [metrics])
+
+  const categoryRanking = useMemo(() => {
+    if (!metrics?.slaComplianceByProblemType) return []
+    return Object.entries(metrics.slaComplianceByProblemType)
+      .map(([name, sla]) => ({
+        label: name,
+        val: Math.round(sla),
+        count: metrics.ticketsByProblemType[name] || 0
+      }))
+      .sort((a, b) => b.val - a.val)
+  }, [metrics])
+
+  const techRanking = useMemo(() => {
+    if (!metrics?.slaComplianceByTechnician) return []
+    return Object.entries(metrics.slaComplianceByTechnician)
+      .map(([name, sla]) => ({
+        name,
+        sla: Math.round(sla),
+        res: metrics.ticketsByTechnician[name] || 0,
+        img: name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2),
+        id: metrics.technicianIds?.[name] ?? null,
+      }))
+      .sort((a, b) => b.sla - a.sla)
+  }, [metrics])
 
   return (
     <div className="flex flex-col h-[calc(100vh-64px)] bg-[#f5f5f5] overflow-hidden font-sans">
@@ -252,7 +276,7 @@ export default function GovernanceDashboardPage() {
         {/* ROW 2: MAIN CHARTS */}
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-          <div className="lg:col-span-2 bg-white border border-zinc-200 rounded-xl p-6 shadow-sm flex flex-col h-[420px]">
+          <div className="lg:col-span-2 bg-white border border-zinc-200 rounded-xl p-6 shadow-sm flex flex-col h-105">
             <div className="flex items-center justify-between mb-8 shrink-0">
               <h3 className="text-[11px] font-black text-zinc-900 uppercase tracking-widest">Histórico de Eficiência</h3>
               <div className="flex items-center gap-4">
@@ -282,11 +306,11 @@ export default function GovernanceDashboardPage() {
           </div>
 
           {/* Status Donut Fixed */}
-          <div className="bg-white border border-zinc-200 rounded-xl p-6 shadow-sm flex flex-col h-[420px]">
+          <div className="bg-white border border-zinc-200 rounded-xl p-6 shadow-sm flex flex-col h-105">
             <h3 className="text-[11px] font-black text-zinc-900 uppercase tracking-widest mb-4 shrink-0">Distribuição de Status</h3>
             
             <div className="flex-1 flex flex-col items-center justify-center min-h-0 pt-2">
-              <div className="relative w-full h-[180px] flex items-center justify-center shrink-0">
+              <div className="relative w-full h-45 flex items-center justify-center shrink-0">
                 <div className="absolute flex flex-col items-center justify-center pointer-events-none text-center z-10">
                   <span className="text-[9px] font-black text-zinc-300 uppercase tracking-widest">Total</span>
                   <span className="text-3xl font-black text-zinc-900 tracking-tighter leading-none">{kpis.total}</span>
@@ -331,12 +355,7 @@ export default function GovernanceDashboardPage() {
               <BarChart3 className="w-4 h-4 text-zinc-400" /> Conformidade por Categoria
             </h3>
             <div className="space-y-6">
-              {[
-                { label: 'Software', val: 95, count: 34 },
-                { label: 'Hardware', val: 82, count: 24 },
-                { label: 'Acessos', val: 76, count: 16 },
-                { label: 'Rede', val: 68, count: 12 },
-              ].map((item, i) => (
+              {categoryRanking.length > 0 ? categoryRanking.map((item, i) => (
                 <div key={i} className="space-y-2">
                   <div className="flex justify-between items-end">
                     <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{item.label}</span>
@@ -346,7 +365,12 @@ export default function GovernanceDashboardPage() {
                     <div className={cn("h-full rounded-full transition-all duration-1000", item.val > 90 ? "bg-brand" : item.val > 80 ? "bg-amber-500" : "bg-red-500")} style={{ width: `${item.val}%` }} />
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="flex flex-col items-center justify-center py-10 text-zinc-400">
+                  <Activity className="w-8 h-8 mb-2 opacity-20" />
+                  <p className="text-[10px] font-bold uppercase tracking-widest">Sem dados no período</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -356,13 +380,8 @@ export default function GovernanceDashboardPage() {
               <ChevronRight className="w-4 h-4 text-zinc-300" />
             </h3>
             <div className="space-y-1">
-              {[
-                { name: 'Lucas Ferreira', sla: 98, res: 45, img: 'LF' },
-                { name: 'Ana Beatriz Lima', sla: 95, res: 38, img: 'AB' },
-                { name: 'Rafael Souza', sla: 92, res: 31, img: 'RS' },
-                { name: 'Mariana Costa', sla: 89, res: 27, img: 'MC' },
-              ].map((t, idx) => (
-                <div key={idx} className="flex items-center gap-4 py-3 px-3 rounded-lg hover:bg-zinc-50 transition-colors">
+              {techRanking.length > 0 ? techRanking.map((t, idx) => (
+                <div key={idx} className="flex items-center gap-4 py-3 px-3 rounded-lg hover:bg-zinc-50 transition-colors" style={t.id ? { cursor: 'pointer' } : undefined} onClick={() => t.id && navigate(`/app/governance/technicians/${t.id}`, { state: { name: t.name } })}>
                   <span className={cn("text-[10px] font-black w-4", idx === 0 ? "text-amber-500" : "text-zinc-300")}>{idx + 1}</span>
                   <div className="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center text-[10px] font-black text-zinc-500 border border-zinc-200 uppercase">{t.img}</div>
                   <div className="flex-1 min-w-0">
@@ -374,7 +393,12 @@ export default function GovernanceDashboardPage() {
                     <p className="text-[8px] font-black text-zinc-300 uppercase">SLA</p>
                   </div>
                 </div>
-              ))}
+              )) : (
+                <div className="flex flex-col items-center justify-center py-10 text-zinc-400">
+                  <Trophy className="w-8 h-8 mb-2 opacity-20" />
+                  <p className="text-[10px] font-bold uppercase tracking-widest">Sem performance registrada</p>
+                </div>
+              )}
             </div>
           </div>
         </section>
