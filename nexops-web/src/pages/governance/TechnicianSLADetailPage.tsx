@@ -85,10 +85,13 @@ export default function TechnicianSLADetailPage() {
     return { dateFrom: firstDayOfMonth(), dateTo: today }
   })()
 
-  const { data: metrics, isLoading } = useTechnicianMetrics(id, dateFrom, dateTo)
+  const apiFrom = dateFrom ? `${dateFrom}T00:00:00Z` : undefined
+  const apiTo   = dateTo   ? `${dateTo}T23:59:59Z`   : undefined
 
-  // Bug #6 fix: use real ticket data from API
-  const { data: tickets = [], isLoading: ticketsLoading } = useTechnicianTickets(id, dateFrom, dateTo, page)
+  const { data: metrics, isLoading } = useTechnicianMetrics(id, apiFrom, apiTo)
+
+  // real ticket data from API
+  const { data: tickets = [], isLoading: ticketsLoading } = useTechnicianTickets(id, apiFrom, apiTo, page)
 
   const levelDistData = useMemo(() => {
     if (!metrics?.ticketsBySlaLevel) return []

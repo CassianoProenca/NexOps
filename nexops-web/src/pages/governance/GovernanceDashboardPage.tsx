@@ -157,7 +157,10 @@ export default function GovernanceDashboardPage() {
   const [dateFrom, setDateFrom] = useState(new Date(new Date().setDate(new Date().getDate() - 30)).toISOString().slice(0, 10))
   const [dateTo, setDateTo] = useState(new Date().toISOString().slice(0, 10))
   
-  const { data: metrics } = useGovernanceDashboard(dateFrom, dateTo)
+  const { data: metrics } = useGovernanceDashboard(
+    dateFrom ? `${dateFrom}T00:00:00Z` : undefined,
+    dateTo   ? `${dateTo}T23:59:59Z`   : undefined,
+  )
 
   const kpis = useMemo(() => {
     if (!metrics) return { sla: 0, total: 0, tmr: '0h 0m', breach: 0 }

@@ -94,7 +94,7 @@ public interface TicketJpaRepository extends JpaRepository<TicketJpaEntity, UUID
            "FROM TicketJpaEntity t " +
            "JOIN ProblemTypeJpaEntity pt ON pt.id = t.problemTypeId " +
            "WHERE t.tenantId = :tenantId AND t.assigneeId = :assigneeId " +
-           "AND t.status = 'CLOSED' AND t.createdAt BETWEEN :from AND :to " +
+           "AND t.status = 'CLOSED' AND t.closedAt BETWEEN :from AND :to " +
            "ORDER BY t.closedAt DESC")
     List<Object[]> findClosedByAssigneeBetween(@Param("tenantId") UUID tenantId,
                                                @Param("assigneeId") UUID assigneeId,
