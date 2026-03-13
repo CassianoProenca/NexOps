@@ -50,6 +50,27 @@ public class DepartmentController {
         return toResponse(departmentRepository.save(newDept));
     }
 
+    @Operation(summary = "Update department", description = "Update name and description of an existing department (DEPT_MANAGE only)")
+    @PutMapping("/{id}")
+    public DepartmentResponse update(@PathVariable UUID id, @RequestBody @Valid DepartmentRequest request) {
+        AuthenticatedUser user = SecurityContext.get();
+        if (user == null) throw new BusinessException("Não autenticado");
+
+        if (!user.hasPermission("DEPT_MANAGE")) {
+            throw new AccessDeniedException("Sem permissão para gerenciar departamentos");
+        }
+
+        Department dept = departmentRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("Departamento não encontrado"));
+
+        if (!dept.getTenantId().equals(user.tenantId())) {
+            throw new BusinessException("Acesso negado");
+        }
+
+        dept.update(request.name(), request.description());
+        return toResponse(departmentRepository.save(dept));
+    }
+
     @Operation(summary = "Deactivate department", description = "Deactivate an existing department by ID (DEPT_MANAGE only)")
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)

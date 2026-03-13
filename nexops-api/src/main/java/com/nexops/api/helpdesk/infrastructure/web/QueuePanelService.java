@@ -4,7 +4,9 @@ import com.nexops.api.helpdesk.domain.model.Ticket;
 import com.nexops.api.helpdesk.domain.model.TicketStatus;
 import com.nexops.api.helpdesk.domain.ports.out.DepartmentRepository;
 import com.nexops.api.helpdesk.domain.ports.out.ProblemTypeRepository;
+import com.nexops.api.helpdesk.domain.ports.out.QueueNotifier;
 import com.nexops.api.helpdesk.domain.ports.out.TicketRepository;
+import com.nexops.api.shared.security.SecurityContext;
 import com.nexops.api.helpdesk.infrastructure.web.dto.QueuePanelPayload;
 import com.nexops.api.helpdesk.infrastructure.web.dto.TicketQueueItem;
 import com.nexops.api.shared.iam.domain.ports.out.UserRepository;
@@ -21,7 +23,7 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class QueuePanelService {
+public class QueuePanelService implements QueueNotifier {
 
     private final TicketRepository ticketRepository;
     private final ProblemTypeRepository problemTypeRepository;
@@ -43,8 +45,11 @@ public class QueuePanelService {
         messagingTemplate.convertAndSend("/topic/" + tenantId + "/queue-panel", payload);
     }
 
-    public void pushQueueUpdate() {
-        // No-op: tenant context no longer uses TenantContext slug
+    @Override
+    public void notifyQueueUpdate() {
+        var caller = SecurityContext.get();
+        if (caller == null) return;
+        pushQueueUpdateForTenant(caller.tenantId().toString());
     }
 
     public QueuePanelPayload getQueuePanelState() {

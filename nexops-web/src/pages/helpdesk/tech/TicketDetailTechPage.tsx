@@ -259,17 +259,15 @@ export default function TicketDetailTechPage() {
 
   function sendMessage() {
     if (!chatText.trim()) return
-    const type = chatMode === 'internal' ? 'TECHNICIAN_MESSAGE' : 'USER_MESSAGE'
     addComment.mutate({ ticketId: id, data: { content: chatText.trim() } }, {
       onSuccess: () => setChatText(''),
     })
-    void type
   }
 
   // ── derived data ──
 
-  const chatMessages  = comments.filter((c) => c.type === 'USER_MESSAGE' || c.type === 'TECHNICIAN_MESSAGE')
-  const timelineEvents = comments.filter((c) => c.type === 'SYSTEM_EVENT')
+  const chatMessages   = comments.filter((c) => c.type === 'MESSAGE')
+  const timelineEvents = comments.filter((c) => c.type !== 'MESSAGE')
 
   const isDone = ticket?.status === 'CLOSED'
 
@@ -479,7 +477,7 @@ export default function TicketDetailTechPage() {
           style={{ scrollbarWidth: 'thin', scrollbarColor: '#e4e4e7 transparent' }}
         >
           {chatMessages.map((msg) => {
-            const isUserMsg = msg.type === 'USER_MESSAGE'
+            const isUserMsg = msg.authorId === ticket.requesterId
             const initials  = msg.authorId.slice(0, 2).toUpperCase()
             const time      = new Date(msg.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 

@@ -29,7 +29,7 @@ public class HelpdeskMapper {
 
     public static Ticket toDomain(TicketJpaEntity e) {
         return new Ticket(
-                e.getId(), e.getTitle(), e.getDescription(), e.getStatus(),
+                e.getId(), e.getTenantId(), e.getTitle(), e.getDescription(), e.getStatus(),
                 e.getInternalPriority(), e.getSlaLevel(), e.getDepartmentId(),
                 e.getProblemTypeId(), e.getRequesterId(), e.getAssigneeId(),
                 e.getParentTicketId(), e.getPauseReason(), e.getOpenedAt(),
@@ -40,7 +40,7 @@ public class HelpdeskMapper {
 
     public static TicketJpaEntity toEntity(Ticket t) {
         return TicketJpaEntity.builder()
-                .id(t.getId()).title(t.getTitle()).description(t.getDescription())
+                .id(t.getId()).tenantId(t.getTenantId()).title(t.getTitle()).description(t.getDescription())
                 .status(t.getStatus()).internalPriority(t.getInternalPriority())
                 .slaLevel(t.getSlaLevel()).departmentId(t.getDepartmentId())
                 .problemTypeId(t.getProblemTypeId()).requesterId(t.getRequesterId())

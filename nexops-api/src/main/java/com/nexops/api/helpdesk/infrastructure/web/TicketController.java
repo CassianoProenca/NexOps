@@ -209,7 +209,7 @@ public class TicketController {
                 t.getProblemTypeId(), t.getRequesterId(), t.getAssigneeId(),
                 t.getParentTicketId(), t.getPauseReason(), t.getOpenedAt(),
                 t.getAssignedAt(), t.getPausedAt(), t.getClosedAt(),
-                t.getSlaDeadline(), t.getCreatedAt(), t.getUpdatedAt()
+                t.getSlaDeadline(), t.isSlaBreached(), t.getCreatedAt(), t.getUpdatedAt()
         );
     }
 

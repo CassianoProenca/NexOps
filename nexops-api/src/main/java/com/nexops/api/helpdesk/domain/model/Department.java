@@ -6,8 +6,8 @@ import java.util.UUID;
 public class Department {
     private final UUID id;
     private final UUID tenantId;
-    private final String name;
-    private final String description;
+    private String name;
+    private String description;
     private boolean active;
     private final OffsetDateTime createdAt;
 
@@ -29,6 +29,11 @@ public class Department {
             true,
             OffsetDateTime.now()
         );
+    }
+
+    public void update(String name, String description) {
+        this.name = name;
+        this.description = description;
     }
 
     public void deactivate() {

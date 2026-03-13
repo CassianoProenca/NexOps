@@ -3,7 +3,7 @@
 export type TicketStatus    = 'OPEN' | 'IN_PROGRESS' | 'PAUSED' | 'CLOSED'
 export type SlaLevel        = 'N1' | 'N2' | 'N3'
 export type InternalPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
-export type CommentType     = 'USER_MESSAGE' | 'TECHNICIAN_MESSAGE' | 'SYSTEM_EVENT'
+export type CommentType     = 'MESSAGE' | 'STATUS_CHANGE' | 'ASSIGNMENT' | 'PAUSE' | 'SYSTEM'
 
 // ─── Department ──────────────────────────────────────────────────────────────
 // GET    /v1/departments      → Department[]

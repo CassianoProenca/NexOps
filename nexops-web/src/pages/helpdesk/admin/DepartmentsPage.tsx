@@ -143,7 +143,7 @@ type DialogState = { mode: 'new' } | { mode: 'edit'; dept: Department } | null
 type ConfirmState = { action: 'deactivate' | 'reactivate'; dept: Department } | null
 
 export default function DepartmentsPage() {
-  const { departments, isLoading, create, delete: deleteDept, reactivate, isSaving, isDeleting, isReactivating } = useDepartments()
+  const { departments, isLoading, create, update, delete: deleteDept, reactivate, isSaving, isDeleting, isReactivating } = useDepartments()
 
   const [dialog,  setDialog]  = useState<DialogState>(null)
   const [confirm, setConfirm] = useState<ConfirmState>(null)
@@ -161,8 +161,9 @@ export default function DepartmentsPage() {
       if (dialog?.mode === 'new') {
         await create({ name, description })
         showToast('Departamento criado com sucesso.')
-      } else {
-        showToast('Edição em desenvolvimento.')
+      } else if (dialog?.mode === 'edit') {
+        await update({ id: dialog.dept.id, data: { name, description } })
+        showToast('Departamento atualizado com sucesso.')
       }
       setDialog(null)
     } catch (e) {

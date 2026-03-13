@@ -57,7 +57,7 @@ export default function TicketDetailUserPage() {
   }
 
   // Public comments only — no internal notes shown to end user
-  const publicComments  = comments.filter((c) => c.type === 'USER_MESSAGE' || c.type === 'TECHNICIAN_MESSAGE')
+  const publicComments  = comments.filter((c) => c.type === 'MESSAGE')
 
   if (loadingTicket) {
     return (
@@ -162,7 +162,7 @@ export default function TicketDetailUserPage() {
             </div>
           ) : (
             publicComments.map((msg) => {
-              const isMe = msg.authorId === user?.userId || msg.type === 'USER_MESSAGE'
+              const isMe = msg.authorId === user?.userId
               const time = new Date(msg.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 
               if (isMe) return (

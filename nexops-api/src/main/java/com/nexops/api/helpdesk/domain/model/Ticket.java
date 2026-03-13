@@ -6,6 +6,7 @@ import java.util.UUID;
 
 public class Ticket {
     private final UUID id;
+    private final UUID tenantId;
     private final String title;
     private final String description;
     private TicketStatus status;
@@ -25,8 +26,9 @@ public class Ticket {
     private final OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 
-    public Ticket(UUID id, String title, String description, TicketStatus status, TicketPriority internalPriority, SlaLevel slaLevel, UUID departmentId, UUID problemTypeId, UUID requesterId, UUID assigneeId, UUID parentTicketId, String pauseReason, OffsetDateTime openedAt, OffsetDateTime assignedAt, OffsetDateTime pausedAt, OffsetDateTime closedAt, OffsetDateTime slaDeadline, OffsetDateTime createdAt, OffsetDateTime updatedAt) {
+    public Ticket(UUID id, UUID tenantId, String title, String description, TicketStatus status, TicketPriority internalPriority, SlaLevel slaLevel, UUID departmentId, UUID problemTypeId, UUID requesterId, UUID assigneeId, UUID parentTicketId, String pauseReason, OffsetDateTime openedAt, OffsetDateTime assignedAt, OffsetDateTime pausedAt, OffsetDateTime closedAt, OffsetDateTime slaDeadline, OffsetDateTime createdAt, OffsetDateTime updatedAt) {
         this.id = id;
+        this.tenantId = tenantId;
         this.title = title;
         this.description = description;
         this.status = status;
@@ -47,10 +49,11 @@ public class Ticket {
         this.updatedAt = updatedAt;
     }
 
-    public static Ticket open(String title, String description, UUID departmentId, UUID problemTypeId, UUID requesterId, SlaLevel slaLevel) {
+    public static Ticket open(String title, String description, UUID departmentId, UUID problemTypeId, UUID requesterId, SlaLevel slaLevel, UUID tenantId) {
         OffsetDateTime now = OffsetDateTime.now();
         return new Ticket(
             UUID.randomUUID(),
+            tenantId,
             title,
             description,
             TicketStatus.OPEN,
@@ -72,10 +75,11 @@ public class Ticket {
         );
     }
 
-    public static Ticket child(UUID parentTicketId, String title, String description, UUID departmentId, UUID problemTypeId, UUID requesterId, SlaLevel slaLevel) {
+    public static Ticket child(UUID parentTicketId, String title, String description, UUID departmentId, UUID problemTypeId, UUID requesterId, SlaLevel slaLevel, UUID tenantId) {
         OffsetDateTime now = OffsetDateTime.now();
         return new Ticket(
             UUID.randomUUID(),
+            tenantId,
             title,
             description,
             TicketStatus.OPEN,
@@ -152,6 +156,7 @@ public class Ticket {
     }
 
     public UUID getId() { return id; }
+    public UUID getTenantId() { return tenantId; }
     public String getTitle() { return title; }
     public String getDescription() { return description; }
     public TicketStatus getStatus() { return status; }

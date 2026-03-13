@@ -41,7 +41,9 @@ public class ProblemTypeRepositoryAdapter implements ProblemTypeRepository {
 
     @Override
     public List<ProblemType> findAll() {
-        return jpa.findAll().stream()
+        var caller = SecurityContext.get();
+        if (caller == null) throw new RuntimeException("Não autenticado");
+        return jpa.findAllByTenantId(caller.tenantId()).stream()
                 .map(HelpdeskMapper::toDomain)
                 .collect(Collectors.toList());
     }

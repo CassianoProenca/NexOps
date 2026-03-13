@@ -41,7 +41,9 @@ public class DepartmentRepositoryAdapter implements DepartmentRepository {
 
     @Override
     public List<Department> findAll() {
-        return jpa.findAll().stream()
+        var caller = SecurityContext.get();
+        if (caller == null) throw new RuntimeException("Não autenticado");
+        return jpa.findAllByTenantId(caller.tenantId()).stream()
                 .map(HelpdeskMapper::toDomain)
                 .collect(Collectors.toList());
     }

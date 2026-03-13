@@ -284,8 +284,8 @@ export default function TicketDetailManagerPage() {
 
   // ── derived ──
 
-  const chatMessages   = comments.filter((c) => c.type === 'USER_MESSAGE' || c.type === 'TECHNICIAN_MESSAGE')
-  const timelineEvents = comments.filter((c) => c.type === 'SYSTEM_EVENT')
+  const chatMessages   = comments.filter((c) => c.type === 'MESSAGE')
+  const timelineEvents = comments.filter((c) => c.type !== 'MESSAGE')
 
   const isClosed = cancelled || ticket?.status === 'CLOSED'
 
@@ -538,7 +538,7 @@ export default function TicketDetailManagerPage() {
           style={{ scrollbarWidth: 'thin', scrollbarColor: '#e4e4e7 transparent' }}
         >
           {chatMessages.map((msg) => {
-            const isUserMsg = msg.type === 'USER_MESSAGE'
+            const isUserMsg = msg.authorId === ticket.requesterId
             const initials  = msg.authorId.slice(0, 2).toUpperCase()
             const time      = new Date(msg.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 
@@ -559,7 +559,7 @@ export default function TicketDetailManagerPage() {
               </div>
             )
 
-            if (msg.type === 'TECHNICIAN_MESSAGE') return (
+            if (!isUserMsg) return (
               <div key={msg.id} className="flex flex-col items-end">
                 <div className="flex items-center gap-2 mb-1">
                   <span className="text-xs text-zinc-400">{time}</span>
@@ -574,7 +574,7 @@ export default function TicketDetailManagerPage() {
               </div>
             )
 
-            // SYSTEM_EVENT shown as internal note in manager view
+            // System events (STATUS_CHANGE, ASSIGNMENT, PAUSE, SYSTEM) shown as internal notes in manager view
             return (
               <div key={msg.id} className="flex flex-col items-end">
                 <div className="max-w-[78%]">

@@ -6,9 +6,9 @@ import java.util.UUID;
 public class ProblemType {
     private final UUID id;
     private final UUID tenantId;
-    private final String name;
-    private final String description;
-    private final SlaLevel slaLevel;
+    private String name;
+    private String description;
+    private SlaLevel slaLevel;
     private boolean active;
     private final OffsetDateTime createdAt;
 
@@ -32,6 +32,12 @@ public class ProblemType {
             true,
             OffsetDateTime.now()
         );
+    }
+
+    public void update(String name, String description, SlaLevel slaLevel) {
+        this.name = name;
+        this.description = description;
+        this.slaLevel = slaLevel;
     }
 
     public void deactivate() {

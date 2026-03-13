@@ -8,4 +8,5 @@ import java.util.UUID;
 
 public interface DepartmentJpaRepository extends JpaRepository<DepartmentJpaEntity, UUID> {
     List<DepartmentJpaEntity> findAllByTenantIdAndActiveTrue(UUID tenantId);
+    List<DepartmentJpaEntity> findAllByTenantId(UUID tenantId);
 }

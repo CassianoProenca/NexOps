@@ -21,6 +21,7 @@ public record TicketResponse(
     OffsetDateTime pausedAt,
     OffsetDateTime closedAt,
     OffsetDateTime slaDeadline,
+    boolean isSlaBreached,
     OffsetDateTime createdAt,
     OffsetDateTime updatedAt
 ) {}

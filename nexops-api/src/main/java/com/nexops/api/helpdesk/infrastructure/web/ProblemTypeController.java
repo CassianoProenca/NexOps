@@ -55,6 +55,27 @@ public class ProblemTypeController {
         return toResponse(problemTypeRepository.save(newType));
     }
 
+    @Operation(summary = "Update problem type", description = "Update name, description and SLA level of an existing problem type (DEPT_MANAGE only)")
+    @PutMapping("/{id}")
+    public ProblemTypeResponse update(@PathVariable UUID id, @RequestBody @Valid ProblemTypeRequest request) {
+        AuthenticatedUser user = SecurityContext.get();
+        if (user == null) throw new BusinessException("Não autenticado");
+
+        if (!user.hasPermission("DEPT_MANAGE")) {
+            throw new AccessDeniedException("Sem permissão para gerenciar tipos de problema");
+        }
+
+        ProblemType pt = problemTypeRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("Tipo de problema não encontrado"));
+
+        if (!pt.getTenantId().equals(user.tenantId())) {
+            throw new BusinessException("Acesso negado");
+        }
+
+        pt.update(request.name(), request.description(), request.slaLevel());
+        return toResponse(problemTypeRepository.save(pt));
+    }
+
     @Operation(summary = "Deactivate problem type", description = "Deactivate an existing problem type by ID (DEPT_MANAGE only)")
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)

@@ -53,7 +53,7 @@ export const helpdeskService = {
     api.post('/v1/tickets', data).then(r => r.data),
 
   createChildTicket: (parentId: string, data: CreateTicketRequest): Promise<TicketResponse> =>
-    api.post(`/v1/tickets/${parentId}/children`, data).then(r => r.data),
+    api.post(`/v1/tickets/${parentId}/child`, data).then(r => r.data),
 
   assignTicket: (id: string, data: AssignTicketRequest): Promise<TicketResponse> =>
     api.post(`/v1/tickets/${id}/assign`, data).then(r => r.data),
@@ -84,6 +84,9 @@ export const helpdeskService = {
   createDepartment: (data: Partial<Department>): Promise<Department> =>
     api.post('/v1/departments', data).then((r) => r.data),
 
+  updateDepartment: (id: string, data: Partial<Department>): Promise<Department> =>
+    api.put(`/v1/departments/${id}`, data).then((r) => r.data),
+
   deleteDepartment: (id: string): Promise<void> =>
     api.delete(`/v1/departments/${id}`).then(() => undefined),
 
@@ -97,6 +100,9 @@ export const helpdeskService = {
 
   createProblemType: (data: Partial<ProblemType>): Promise<ProblemType> =>
     api.post('/v1/problem-types', data).then((r) => r.data),
+
+  updateProblemType: (id: string, data: Partial<ProblemType>): Promise<ProblemType> =>
+    api.put(`/v1/problem-types/${id}`, data).then((r) => r.data),
 
   deleteProblemType: (id: string): Promise<void> =>
     api.delete(`/v1/problem-types/${id}`).then(() => undefined),

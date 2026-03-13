@@ -8,4 +8,5 @@ import java.util.UUID;
 
 public interface ProblemTypeJpaRepository extends JpaRepository<ProblemTypeJpaEntity, UUID> {
     List<ProblemTypeJpaEntity> findAllByTenantIdAndActiveTrue(UUID tenantId);
+    List<ProblemTypeJpaEntity> findAllByTenantId(UUID tenantId);
 }

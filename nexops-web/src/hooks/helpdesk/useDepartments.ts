@@ -17,6 +17,14 @@ export function useDepartments() {
     },
   })
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<Department> }) =>
+      helpdeskService.updateDepartment(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['departments'] })
+    },
+  })
+
   const deleteMutation = useMutation({
     mutationFn: (id: string) => helpdeskService.deleteDepartment(id),
     onSuccess: () => {
@@ -36,9 +44,10 @@ export function useDepartments() {
     isLoading,
     error,
     create: createMutation.mutateAsync,
+    update: updateMutation.mutateAsync,
     delete: deleteMutation.mutateAsync,
     reactivate: reactivateMutation.mutateAsync,
-    isSaving: createMutation.isPending,
+    isSaving: createMutation.isPending || updateMutation.isPending,
     isDeleting: deleteMutation.isPending,
     isReactivating: reactivateMutation.isPending,
   }

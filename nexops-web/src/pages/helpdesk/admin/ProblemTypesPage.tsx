@@ -183,7 +183,7 @@ type DialogState = { mode: 'new' } | { mode: 'edit'; pt: ProblemType } | null
 type ConfirmState = { action: 'deactivate' | 'reactivate'; pt: ProblemType } | null
 
 export default function ProblemTypesPage() {
-  const { problemTypes, isLoading, create, delete: deletePT, reactivate, isSaving, isDeleting, isReactivating } = useProblemTypes()
+  const { problemTypes, isLoading, create, update, delete: deletePT, reactivate, isSaving, isDeleting, isReactivating } = useProblemTypes()
 
   const [dialog,  setDialog]  = useState<DialogState>(null)
   const [confirm, setConfirm] = useState<ConfirmState>(null)
@@ -201,8 +201,9 @@ export default function ProblemTypesPage() {
       if (dialog?.mode === 'new') {
         await create({ name, description, slaLevel })
         showToast('Tipo de problema criado com sucesso.')
-      } else {
-        showToast('Edição em desenvolvimento.')
+      } else if (dialog?.mode === 'edit') {
+        await update({ id: dialog.pt.id, data: { name, description, slaLevel } })
+        showToast('Tipo de problema atualizado com sucesso.')
       }
       setDialog(null)
     } catch (e) {

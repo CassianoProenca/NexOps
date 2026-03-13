@@ -16,6 +16,8 @@ import java.util.UUID;
 public class TicketJpaEntity {
     @Id
     private UUID id;
+    @Column(name = "tenant_id")
+    private UUID tenantId;
     private String title;
     private String description;
     @Enumerated(EnumType.STRING)

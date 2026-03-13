@@ -4,6 +4,7 @@ import com.nexops.api.helpdesk.domain.model.Ticket;
 import com.nexops.api.helpdesk.domain.model.TicketStatus;
 import com.nexops.api.helpdesk.domain.ports.out.TicketRepository;
 import com.nexops.api.helpdesk.infrastructure.persistence.mapper.HelpdeskMapper;
+import com.nexops.api.shared.security.SecurityContext;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -67,7 +68,9 @@ public class TicketRepositoryAdapter implements TicketRepository {
 
     @Override
     public List<Ticket> findAll() {
-        return jpaRepository.findAll().stream()
+        var caller = SecurityContext.get();
+        if (caller == null) throw new RuntimeException("Não autenticado");
+        return jpaRepository.findAllByTenantId(caller.tenantId()).stream()
                 .map(HelpdeskMapper::toDomain)
                 .collect(Collectors.toList());
     }
