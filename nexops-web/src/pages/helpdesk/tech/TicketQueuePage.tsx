@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Zap, Search, Inbox, ChevronLeft, ChevronRight } from 'lucide-react'
-import { useAllTickets } from '@/hooks/helpdesk/useTickets'
+import { Zap, Search, Inbox, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { useAllTickets, useAttendNext } from '@/hooks/helpdesk/useTickets'
 import { useDepartments } from '@/hooks/helpdesk/useDepartments'
 import { useProblemTypes } from '@/hooks/helpdesk/useProblemTypes'
 
@@ -33,11 +33,12 @@ const TIER_STYLE: Record<string, string> = {
 const TYPE_STYLE = 'bg-zinc-100 text-zinc-600'
 
 export default function TicketQueuePage() {
-  const navigate = useNavigate()
+  const navigate    = useNavigate()
+  const attendNext  = useAttendNext()
 
   const { data: allTickets = [] } = useAllTickets()
-  const { data: departments = [] } = useDepartments()
-  const { data: problemTypes = [] } = useProblemTypes()
+  const { departments } = useDepartments()
+  const { problemTypes } = useProblemTypes()
 
   const deptMap = useMemo(() => Object.fromEntries(departments.map((d) => [d.id, d.name])), [departments])
   const ptMap   = useMemo(() => Object.fromEntries(problemTypes.map((p) => [p.id, p.name])), [problemTypes])
@@ -81,8 +82,9 @@ export default function TicketQueuePage() {
     if (typeFilter) result = result.filter((t) => t.typeName === typeFilter)
 
     result.sort((a, b) => {
-      if (sortBy === 'time')  return b.minutes - a.minutes
-      if (sortBy === 'tier')  return TIER_ORDER[a.slaLevel] - TIER_ORDER[b.slaLevel]
+      if (sortBy === 'time') return b.minutes - a.minutes   // mais antigo primeiro
+      if (sortBy === 'tier') return TIER_ORDER[a.slaLevel] - TIER_ORDER[b.slaLevel]
+      // default 'priority': nível desc, depois mais antigo primeiro
       const tierDiff = TIER_ORDER[a.slaLevel] - TIER_ORDER[b.slaLevel]
       return tierDiff !== 0 ? tierDiff : b.minutes - a.minutes
     })
@@ -120,11 +122,26 @@ export default function TicketQueuePage() {
         </div>
 
         <button
-          onClick={() => filtered[0] && navigate(`/app/helpdesk/chamado/${filtered[0].id}`)}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white hover:opacity-90 transition-opacity shrink-0"
+          onClick={() => {
+            if (!filtered[0] || attendNext.isPending) return
+            attendNext.mutate(
+              { problemTypeId: filtered[0].problemTypeId },
+              {
+                onSuccess: (ticket) => {
+                  // Primeiro vai para a tela do chamado, a invalidação do hook useAttendNext cuidará do resto
+                  navigate(`/app/helpdesk/chamado/${ticket.id}`)
+                }
+              },
+            )
+          }}
+          disabled={filtered.length === 0 || attendNext.isPending}
+          className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white hover:opacity-90 transition-opacity shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
           style={{ background: ACCENT }}
         >
-          <Zap className="w-4 h-4" />
+          {attendNext.isPending
+            ? <Loader2 className="w-4 h-4 animate-spin" />
+            : <Zap className="w-4 h-4" />
+          }
           Atender Próximo
         </button>
       </div>

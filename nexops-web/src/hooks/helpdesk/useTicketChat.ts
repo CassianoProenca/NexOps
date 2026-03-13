@@ -1,68 +1,45 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { Client } from '@stomp/stompjs'
-import SockJS from 'sockjs-client'
-import { useAppStore } from '@/store/appStore'
+import { useState, useEffect, useCallback } from 'react'
+import { useSocket } from '@/components/shared/SocketProvider'
 import type { ChatMessageResponse, ChatMessageRequest } from '@/types/helpdesk.types'
 
 /**
- * Hook STOMP para o chat em tempo real de um ticket.
- *
- * Assina /topic/ticket/{ticketId}/chat e publica em /app/ticket/{ticketId}/chat.
+ * Hook que utiliza a conexão global STOMP para o chat.
  */
 export function useTicketChat(ticketId: string) {
   const [messages, setMessages] = useState<ChatMessageResponse[]>([])
-  const [connected, setConnected] = useState(false)
-  const clientRef = useRef<Client | null>(null)
-
-  const accessToken = useAppStore((s) => s.accessToken)
-  const tenant = useAppStore((s) => s.tenant)
+  const { client, isConnected } = useSocket()
 
   useEffect(() => {
-    if (!ticketId) return
+    if (!ticketId || !client || !isConnected) return
 
-    const wsUrl = `${import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api'}/ws`
-
-    const client = new Client({
-      webSocketFactory: () => new SockJS(wsUrl),
-      connectHeaders: {
-        Authorization: `Bearer ${accessToken ?? ''}`,
-      },
-      reconnectDelay: 5_000,
-      heartbeatIncoming: 4_000,
-      heartbeatOutgoing: 4_000,
-      onConnect: () => {
-        setConnected(true)
-        client.subscribe(`/topic/ticket/${ticketId}/chat`, (message) => {
-          try {
-            const msg = JSON.parse(message.body) as ChatMessageResponse
-            setMessages((prev) => [...prev, msg])
-          } catch {
-            // ignora payload malformado
-          }
-        })
-      },
-      onDisconnect: () => setConnected(false),
+    console.log('STOMP: Subscribing to ticket chat:', ticketId)
+    
+    const subscription = client.subscribe(`/topic/ticket/${ticketId}/chat`, (message) => {
+      try {
+        const msg = JSON.parse(message.body) as ChatMessageResponse
+        setMessages((prev) => [...prev, msg])
+      } catch (err) {
+        console.error('STOMP: Chat parse error:', err)
+      }
     })
 
-    client.activate()
-    clientRef.current = client
-
     return () => {
-      client.deactivate()
+      console.log('STOMP: Unsubscribing from ticket chat:', ticketId)
+      subscription.unsubscribe()
     }
-  }, [ticketId, accessToken, tenant])
+  }, [ticketId, client, isConnected])
 
-  /** Publica mensagem no destino STOMP /app/ticket/{ticketId}/chat */
   const sendMessage = useCallback(
     (content: string) => {
+      if (!client || !isConnected) return
       const payload: ChatMessageRequest = { content }
-      clientRef.current?.publish({
+      client.publish({
         destination: `/app/ticket/${ticketId}/chat`,
         body: JSON.stringify(payload),
       })
     },
-    [ticketId],
+    [ticketId, client, isConnected],
   )
 
-  return { messages, connected, sendMessage }
+  return { messages, connected: isConnected, sendMessage }
 }

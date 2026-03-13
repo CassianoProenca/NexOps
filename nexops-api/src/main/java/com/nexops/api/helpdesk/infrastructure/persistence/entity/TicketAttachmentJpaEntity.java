@@ -18,6 +18,8 @@ public class TicketAttachmentJpaEntity {
     private UUID id;
     @Column(name = "ticket_id")
     private UUID ticketId;
+    @Column(name = "tenant_id")
+    private UUID tenantId;
     @Column(name = "uploader_id")
     private UUID uploaderId;
     private String filename;

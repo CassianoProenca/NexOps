@@ -37,6 +37,14 @@ function processQueue(error: unknown, token: string | null = null) {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
+    console.error('API Error:', {
+      url: error.config?.url,
+      method: error.config?.method,
+      status: error.response?.status,
+      data: error.response?.data,
+      payload: error.config?.data ? JSON.parse(error.config.data) : null,
+    })
+
     const originalRequest = error.config as typeof error.config & { _retry?: boolean }
 
     const isAuthEndpoint = originalRequest.url?.includes('/v1/auth/') || originalRequest.url?.includes('/v1/register') || originalRequest.url?.includes('/v1/users/first-access')

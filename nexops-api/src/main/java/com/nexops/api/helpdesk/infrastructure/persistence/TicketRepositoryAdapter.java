@@ -32,36 +32,36 @@ public class TicketRepositoryAdapter implements TicketRepository {
     }
 
     @Override
-    public List<Ticket> findByStatus(TicketStatus status) {
-        return jpaRepository.findByStatus(status).stream()
+    public List<Ticket> findByStatus(UUID tenantId, TicketStatus status) {
+        return jpaRepository.findByTenantIdAndStatus(tenantId, status).stream()
                 .map(HelpdeskMapper::toDomain)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public List<Ticket> findByAssigneeId(UUID assigneeId) {
-        return jpaRepository.findByAssigneeId(assigneeId).stream()
+    public List<Ticket> findByAssigneeId(UUID tenantId, UUID assigneeId) {
+        return jpaRepository.findByTenantIdAndAssigneeId(tenantId, assigneeId).stream()
                 .map(HelpdeskMapper::toDomain)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public List<Ticket> findByRequesterId(UUID requesterId) {
-        return jpaRepository.findByRequesterId(requesterId).stream()
+    public List<Ticket> findByRequesterId(UUID tenantId, UUID requesterId) {
+        return jpaRepository.findByTenantIdAndRequesterId(tenantId, requesterId).stream()
                 .map(HelpdeskMapper::toDomain)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public List<Ticket> findByProblemTypeIdAndStatus(UUID problemTypeId, TicketStatus status) {
-        return jpaRepository.findByProblemTypeIdAndStatus(problemTypeId, status).stream()
+    public List<Ticket> findByProblemTypeIdAndStatus(UUID tenantId, UUID problemTypeId, TicketStatus status) {
+        return jpaRepository.findByTenantIdAndProblemTypeIdAndStatus(tenantId, problemTypeId, status).stream()
                 .map(HelpdeskMapper::toDomain)
                 .collect(Collectors.toList());
     }
 
     @Override
-    public List<Ticket> findOpenByProblemTypeOrderByPriorityAndAge(UUID problemTypeId) {
-        return jpaRepository.findOpenByProblemTypeOrderByPriorityAndAge(problemTypeId).stream()
+    public List<Ticket> findOpenByProblemTypeOrderByPriorityAndAge(UUID tenantId, UUID problemTypeId) {
+        return jpaRepository.findOpenByProblemTypeOrderByPriorityAndAge(tenantId, problemTypeId).stream()
                 .map(HelpdeskMapper::toDomain)
                 .collect(Collectors.toList());
     }

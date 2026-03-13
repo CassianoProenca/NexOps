@@ -4,11 +4,12 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { useState } from 'react'
-import { Lightbulb, Upload } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { Lightbulb, Upload, X, FileText } from 'lucide-react'
 import { useCreateTicket } from '@/hooks/helpdesk/useTickets'
 import { useDepartments } from '@/hooks/helpdesk/useDepartments'
 import { useProblemTypes } from '@/hooks/helpdesk/useProblemTypes'
+import { helpdeskService } from '@/services/helpdesk.service'
 
 /* ── Schema ── */
 const schema = z.object({
@@ -83,7 +84,22 @@ export default function NewCasePage() {
   const { problemTypes = [] } = useProblemTypes()
   const createTicket = useCreateTicket()
 
-  const [dragActive, setDragActive] = useState(false)
+  const [dragActive,    setDragActive]    = useState(false)
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [uploading,     setUploading]     = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  function addFiles(incoming: FileList | null) {
+    if (!incoming) return
+    setSelectedFiles((prev) => {
+      const existing = new Set(prev.map((f) => f.name + f.size))
+      return [...prev, ...Array.from(incoming).filter((f) => !existing.has(f.name + f.size))]
+    })
+  }
+
+  function removeFile(index: number) {
+    setSelectedFiles((prev) => prev.filter((_, i) => i !== index))
+  }
 
   const {
     register,
@@ -102,9 +118,9 @@ export default function NewCasePage() {
 
   const descriptionValue = watch('description', prefillDescription)
   const MAX_DESC = 2000
-  const isLoading = createTicket.isPending
+  const isLoading = createTicket.isPending || uploading
 
-  function onSubmit(data: FormData) {
+  async function onSubmit(data: FormData) {
     createTicket.mutate(
       {
         title: data.title,
@@ -112,7 +128,19 @@ export default function NewCasePage() {
         departmentId: data.departmentId,
         problemTypeId: data.problemTypeId,
       },
-      { onSuccess: () => navigate('/app/helpdesk/meus-chamados') }
+      {
+        onSuccess: async (ticket) => {
+          if (selectedFiles.length > 0) {
+            setUploading(true)
+            try {
+              await Promise.all(selectedFiles.map((f) => helpdeskService.uploadAttachment(ticket.id, f)))
+            } finally {
+              setUploading(false)
+            }
+          }
+          navigate('/app/helpdesk/meus-chamados')
+        },
+      }
     )
   }
 
@@ -197,11 +225,19 @@ export default function NewCasePage() {
               {/* Anexos */}
               <div>
                 <FieldLabel>Anexos</FieldLabel>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => addFiles(e.target.files)}
+                />
                 <div
+                  onClick={() => fileInputRef.current?.click()}
                   onDragEnter={() => setDragActive(true)}
                   onDragLeave={() => setDragActive(false)}
                   onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => { e.preventDefault(); setDragActive(false) }}
+                  onDrop={(e) => { e.preventDefault(); setDragActive(false); addFiles(e.dataTransfer.files) }}
                   className="flex flex-col items-center justify-center gap-2 p-8 rounded-lg border-2 border-dashed transition-colors cursor-pointer"
                   style={{
                     borderColor: dragActive ? '#4f6ef7' : '#e4e4e7',
@@ -217,6 +253,24 @@ export default function NewCasePage() {
                   </p>
                   <p className="text-xs text-text-muted">PNG, JPG, PDF até 10MB</p>
                 </div>
+                {selectedFiles.length > 0 && (
+                  <div className="mt-2 space-y-1.5">
+                    {selectedFiles.map((f, i) => (
+                      <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50">
+                        <FileText className="w-4 h-4 text-zinc-400 shrink-0" />
+                        <span className="flex-1 text-sm text-zinc-700 truncate">{f.name}</span>
+                        <span className="text-xs text-zinc-400 shrink-0">{(f.size / 1024).toFixed(0)} KB</span>
+                        <button
+                          type="button"
+                          onClick={() => removeFile(i)}
+                          className="text-zinc-400 hover:text-zinc-600 transition-colors"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Botões */}
@@ -388,7 +442,7 @@ function PrimaryButton({ isLoading }: { isLoading: boolean }) {
             className="animate-spin rounded-full border-2 border-white/40 border-t-white"
             style={{ width: '14px', height: '14px', flexShrink: 0 }}
           />
-          Abrindo...
+          {isLoading ? 'Enviando...' : 'Abrindo...'}
         </>
       ) : (
         'Abrir Chamado'

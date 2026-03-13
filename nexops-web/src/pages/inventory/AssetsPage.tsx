@@ -214,7 +214,7 @@ export default function AssetsPage() {
   const navigate = useNavigate()
 
   const { data: assets = [], isLoading } = useAssets()
-  const { data: departments = [] } = useDepartments()
+  const { departments } = useDepartments()
 
   const deptMap = useMemo(
     () => Object.fromEntries(departments.map((d) => [d.id, d.name])),

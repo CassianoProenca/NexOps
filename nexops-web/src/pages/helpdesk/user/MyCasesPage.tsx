@@ -45,8 +45,8 @@ export default function MyCasesPage() {
   const [periodFilter, setPeriodFilter] = useState('Este mês')
 
   const { data: tickets = [], isLoading } = useMyTickets()
-  const { data: departments = [] } = useDepartments()
-  const { data: problemTypes = [] } = useProblemTypes()
+  const { departments } = useDepartments()
+  const { problemTypes } = useProblemTypes()
 
   // Build lookup maps
   const deptMap = useMemo(

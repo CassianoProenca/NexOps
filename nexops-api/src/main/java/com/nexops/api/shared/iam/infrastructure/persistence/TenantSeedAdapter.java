@@ -59,7 +59,7 @@ public class TenantSeedAdapter implements TenantSeedPort {
             "INSERT INTO role_permissions (role_id, permission_id) " +
             "SELECT ?, id FROM permissions WHERE code IN (" +
             "'TICKET_CREATE', 'TICKET_VIEW_OWN', 'TICKET_VIEW_ALL', 'TICKET_MANAGE', " +
-            "'TICKET_ASSIGN', 'TICKET_RESOLVE', " +
+            "'TICKET_ASSIGN', 'TICKET_RESOLVE', 'TICKET_ATTEND', 'TICKET_PAUSE', 'TICKET_CLOSE', " +
             "'ASSET_VIEW', 'ASSET_CREATE', 'ASSET_EDIT', 'ASSET_MOVE')",
             techRoleId
         );
@@ -69,7 +69,7 @@ public class TenantSeedAdapter implements TenantSeedPort {
             "INSERT INTO role_permissions (role_id, permission_id) " +
             "SELECT ?, id FROM permissions WHERE code IN (" +
             "'TICKET_CREATE', 'TICKET_VIEW_OWN', 'TICKET_VIEW_ALL', 'TICKET_MANAGE', " +
-            "'TICKET_ASSIGN', 'TICKET_RESOLVE', 'TICKET_DELETE', " +
+            "'TICKET_ASSIGN', 'TICKET_RESOLVE', 'TICKET_ATTEND', 'TICKET_PAUSE', 'TICKET_CLOSE', 'TICKET_DELETE', " +
             "'ASSET_VIEW', 'ASSET_CREATE', 'ASSET_EDIT', 'ASSET_MOVE', " +
             "'REPORT_VIEW_ALL', 'SLA_CONFIG', 'INVITE_CREATE')",
             gestorRoleId

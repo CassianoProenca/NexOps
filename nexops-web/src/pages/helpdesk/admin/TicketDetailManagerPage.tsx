@@ -1,22 +1,20 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
-  CheckCircle, Download, MessageCircle, Lock, Send, Paperclip, X, AlertCircle,
-  FileText, Upload, RefreshCw, XCircle, UserPlus,
+  CheckCircle, Download, Send, X, AlertCircle,
+  FileText, Upload, RefreshCw, XCircle, UserPlus, Loader2,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { useTicket, useTicketComments, useAddComment, useAssignTicket, useCloseTicket } from '@/hooks/helpdesk/useTickets'
+import { useTicket, useTicketComments, useAssignTicket, useCloseTicket, useTicketAttachments, useUploadAttachment } from '@/hooks/helpdesk/useTickets'
+import { useTicketChat } from '@/hooks/helpdesk/useTicketChat'
+import { useUsers } from '@/hooks/useUsers'
 import { useAppStore } from '@/store/appStore'
+import { helpdeskService } from '@/services/helpdesk.service'
 import { formatDateTime } from '@/lib/utils'
 
 // ── constants ─────────────────────────────────────────────────────────────────
 
 const ACCENT  = '#4f6ef7'
 const SUCCESS = '#16a34a'
-
-// ── types ─────────────────────────────────────────────────────────────────────
-
-type ChatMode = 'message' | 'internal'
 
 // ── style maps ────────────────────────────────────────────────────────────────
 
@@ -52,23 +50,18 @@ function SectionTitle({ label, action }: { label: string; action?: React.ReactNo
 
 // ── modals ────────────────────────────────────────────────────────────────────
 
-// UUID v4 pattern: 8-4-4-4-12
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
 function AssignModal({
-  currentTechId, selectedTechId, onSelectTech, reason, onChangeReason, onConfirm, onClose, isPending,
+  currentTechId, selectedTechId, onSelectTech, onConfirm, onClose, isPending, users,
 }: {
   currentTechId:  string | null
   selectedTechId: string
   onSelectTech:   (id: string) => void
-  reason:         string
-  onChangeReason: (v: string) => void
   onConfirm:      () => void
   onClose:        () => void
   isPending:      boolean
+  users:          { id: string; name: string; email: string }[]
 }) {
-  const isReassign  = currentTechId !== null
-  const isValidUuid = UUID_RE.test(selectedTechId.trim())
+  const isReassign = currentTechId !== null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
@@ -86,51 +79,32 @@ function AssignModal({
         {isReassign && (
           <div className="flex items-center gap-2.5 bg-zinc-50 border border-zinc-200 rounded-lg px-3 py-2.5">
             <p className="text-xs text-zinc-600">
-              Técnico atual: <span className="font-mono font-semibold">{currentTechId!.slice(0, 8)}…</span> será substituído.
+              Técnico atual será substituído.
             </p>
           </div>
         )}
 
         <div className="space-y-1.5">
           <label className="text-xs font-medium text-zinc-600">
-            ID do técnico <span className="text-red-400">*</span>
+            Técnico <span className="text-red-400">*</span>
           </label>
-          <input
-            type="text"
+          <select
             value={selectedTechId}
             onChange={(e) => onSelectTech(e.target.value)}
-            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-            className={cn(
-              'w-full rounded-lg border px-3 py-2.5 text-sm font-mono text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-offset-1',
-              selectedTechId && !isValidUuid
-                ? 'border-red-300 focus:ring-red-300'
-                : 'border-zinc-200 focus:ring-[#4f6ef7]'
-            )}
-          />
-          {selectedTechId && !isValidUuid && (
-            <p className="text-xs text-red-500">UUID inválido — formato esperado: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</p>
-          )}
-          <p className="text-xs text-zinc-400">
-            Cole o UUID do técnico (disponível na página de Usuários).
-          </p>
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-xs font-medium text-zinc-600">
-            Motivo da {isReassign ? 'reatribuição' : 'atribuição'}{' '}
-            <span className="text-zinc-400 font-normal">(opcional)</span>
-          </label>
-          <textarea
-            value={reason} onChange={(e) => onChangeReason(e.target.value)}
-            placeholder="Ex: Técnico especializado no problema"
-            className="w-full resize-none rounded-lg border border-zinc-200 p-3 text-sm text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#4f6ef7] focus:ring-offset-1"
-            style={{ minHeight: 72 }}
-          />
+            className="w-full rounded-lg border border-zinc-200 px-3 py-2.5 text-sm text-zinc-700 focus:outline-none focus:ring-2 focus:ring-[#4f6ef7] focus:ring-offset-1 bg-white"
+          >
+            <option value="">Selecionar técnico...</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name} — {u.email}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="flex gap-2 justify-end">
           <button onClick={onClose} disabled={isPending} className="px-4 py-2 text-sm text-zinc-500 hover:text-zinc-700 disabled:opacity-50">Cancelar</button>
-          <button onClick={onConfirm} disabled={!isValidUuid || isPending}
+          <button onClick={onConfirm} disabled={!selectedTechId || isPending}
             className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-40 hover:opacity-90"
             style={{ background: ACCENT }}>
             {isPending ? 'Atribuindo…' : 'Confirmar Atribuição'}
@@ -208,56 +182,60 @@ function FinalizeModal({ ticketShortId, resolution, onChangeResolution, onConfir
 
 // ── page ──────────────────────────────────────────────────────────────────────
 
-const ATTACHMENTS = [
-  { name: 'foto-impressora.jpg', size: '1.4 MB' },
-  { name: 'config-porta.pdf',   size: '280 KB' },
-]
-
 export default function TicketDetailManagerPage() {
   const navigate    = useNavigate()
   const { id = '' } = useParams<{ id: string }>()
   const user        = useAppStore((s) => s.user)
-  const senderName  = user?.nome ?? user?.email ?? 'Gestor'
 
-  const { data: ticket, isLoading } = useTicket(id)
-  const { data: comments = []      } = useTicketComments(id)
+  const { data: ticket, isLoading }            = useTicket(id)
+  const { data: httpComments = [] }            = useTicketComments(id)
+  const { data: attachments = [] }             = useTicketAttachments(id)
+  const { data: users = [] }                   = useUsers()
+  const { messages: stompMessages, connected, sendMessage: stompSend } = useTicketChat(id)
 
-  const assignTicket = useAssignTicket()
-  const closeTicket  = useCloseTicket()
-  const addComment   = useAddComment()
+  const assignTicket   = useAssignTicket()
+  const closeTicket    = useCloseTicket()
+  const uploadAttachment = useUploadAttachment()
+
+  const fileInputRef   = useRef<HTMLInputElement>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // modal states
   const [showAssign,   setShowAssign]   = useState(false)
   const [assignTechId, setAssignTechId] = useState('')
-  const [assignReason, setAssignReason] = useState('')
   const [showCancel,   setShowCancel]   = useState(false)
   const [cancelReason, setCancelReason] = useState('')
-  // local cancelled state (no cancel endpoint)
   const [cancelled,    setCancelled]    = useState(false)
   const [showFinalize, setShowFinalize] = useState(false)
   const [finalizeRes,  setFinalizeRes]  = useState('')
 
   // chat state
   const [chatText, setChatText] = useState('')
-  const [chatMode, setChatMode] = useState<ChatMode>('message')
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Merge HTTP initial comments + STOMP real-time messages, dedup by id
+  const httpIds = new Set(httpComments.map((c) => c.id))
+  const allMessages = [
+    ...httpComments.filter((c) => c.type === 'MESSAGE'),
+    ...stompMessages.filter((m) => !httpIds.has(m.id) && m.type === 'MESSAGE'),
+  ].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+
+  const timelineEvents = httpComments.filter((c) => c.type !== 'MESSAGE')
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [comments])
+  }, [allMessages.length])
 
   // ── actions ──
 
   function openAssignModal() {
     setAssignTechId(ticket?.assigneeId ?? '')
-    setAssignReason('')
     setShowAssign(true)
   }
 
   function confirmAssign() {
     if (!assignTechId) return
     assignTicket.mutate({ id, data: { technicianId: assignTechId } }, {
-      onSuccess: () => { setShowAssign(false); setAssignReason('') },
+      onSuccess: () => setShowAssign(false),
     })
   }
 
@@ -276,16 +254,29 @@ export default function TicketDetailManagerPage() {
   }
 
   function sendMessage() {
-    if (!chatText.trim()) return
-    addComment.mutate({ ticketId: id, data: { content: chatText.trim() } }, {
-      onSuccess: () => setChatText(''),
-    })
+    if (!chatText.trim() || !id) return
+    stompSend(chatText.trim())
+    setChatText('')
+  }
+
+  async function downloadAttachment(attachmentId: string, filename: string) {
+    const blob = await helpdeskService.downloadAttachment(attachmentId)
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href     = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !id) return
+    uploadAttachment.mutate({ ticketId: id, file })
+    e.target.value = ''
   }
 
   // ── derived ──
-
-  const chatMessages   = comments.filter((c) => c.type === 'MESSAGE')
-  const timelineEvents = comments.filter((c) => c.type !== 'MESSAGE')
 
   const isClosed = cancelled || ticket?.status === 'CLOSED'
 
@@ -298,6 +289,9 @@ export default function TicketDetailManagerPage() {
   }
 
   const shortId = ticket.id.slice(0, 8)
+
+  // Find assignee name from users list
+  const assigneeName = users.find((u) => u.id === ticket.assigneeId)?.name
 
   return (
     <div className="flex overflow-hidden" style={{ height: 'calc(100vh - 104px)' }}>
@@ -320,13 +314,6 @@ export default function TicketDetailManagerPage() {
             <span className={`inline-flex text-xs font-semibold px-2.5 py-1 rounded-full ${cancelled ? 'bg-red-50 text-red-600' : STATUS_BADGE[ticket.status]}`}>
               {cancelled ? 'Cancelado' : STATUS_LABEL[ticket.status]}
             </span>
-            {/* Técnico responsável */}
-            <div className="flex items-center gap-2 pt-0.5">
-              <span className="text-xs text-zinc-400">Técnico responsável:</span>
-              <span className="text-xs text-zinc-400 italic font-mono">
-                {ticket.assigneeId ? `${ticket.assigneeId.slice(0, 8)}…` : '— Não atribuído'}
-              </span>
-            </div>
           </div>
 
           <div className="border-t border-zinc-100" />
@@ -354,10 +341,10 @@ export default function TicketDetailManagerPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-full bg-zinc-200 flex items-center justify-center text-xs font-bold text-zinc-600 shrink-0">
-                    {ticket.assigneeId.slice(0, 2).toUpperCase()}
+                    {(assigneeName ?? ticket.assigneeId).slice(0, 2).toUpperCase()}
                   </div>
-                  <span className="text-sm font-mono text-zinc-600">
-                    {ticket.assigneeId.slice(0, 8)}…
+                  <span className="text-sm text-zinc-700">
+                    {assigneeName ?? <span className="font-mono text-zinc-400">{ticket.assigneeId.slice(0, 8)}…</span>}
                   </span>
                 </div>
                 {!isClosed && (
@@ -433,21 +420,45 @@ export default function TicketDetailManagerPage() {
           <div>
             <SectionTitle label="Anexos" />
             <div className="space-y-2 mb-3">
-              {ATTACHMENTS.map((a) => (
-                <div key={a.name} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50">
-                  <FileText className="w-4 h-4 text-zinc-400 shrink-0" />
-                  <span className="flex-1 text-sm text-zinc-700 truncate">{a.name}</span>
-                  <span className="text-xs text-zinc-400 shrink-0">{a.size}</span>
-                  <button className="text-zinc-400 hover:text-zinc-600 transition-colors">
-                    <Download className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ))}
+              {attachments.length === 0 ? (
+                <p className="text-sm text-zinc-400">Nenhum anexo.</p>
+              ) : (
+                attachments.map((a) => (
+                  <div key={a.id} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50">
+                    <FileText className="w-4 h-4 text-zinc-400 shrink-0" />
+                    <span className="flex-1 text-sm text-zinc-700 truncate">{a.filename}</span>
+                    <span className="text-xs text-zinc-400 shrink-0">{(a.sizeBytes / 1024).toFixed(0)} KB</span>
+                    <button
+                      onClick={() => downloadAttachment(a.id, a.filename)}
+                      className="text-zinc-400 hover:text-zinc-600 transition-colors"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))
+              )}
             </div>
-            <div className="border-2 border-dashed border-zinc-200 rounded-lg p-5 flex flex-col items-center gap-1.5 text-zinc-400 cursor-pointer hover:border-zinc-300 hover:bg-zinc-50 transition-colors">
-              <Upload className="w-5 h-5" />
-              <p className="text-sm">Arraste arquivos ou clique para anexar</p>
-            </div>
+            {!isClosed && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={handleFileChange}
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadAttachment.isPending}
+                  className="w-full border-2 border-dashed border-zinc-200 rounded-lg p-5 flex flex-col items-center gap-1.5 text-zinc-400 hover:border-zinc-300 hover:bg-zinc-50 transition-colors disabled:opacity-50"
+                >
+                  {uploadAttachment.isPending
+                    ? <Loader2 className="w-5 h-5 animate-spin" />
+                    : <Upload className="w-5 h-5" />
+                  }
+                  <p className="text-sm">{uploadAttachment.isPending ? 'Enviando...' : 'Clique para anexar'}</p>
+                </button>
+              </>
+            )}
           </div>
 
           <div className="border-t border-zinc-100" />
@@ -527,8 +538,8 @@ export default function TicketDetailManagerPage() {
         <div className="shrink-0 px-6 py-4 bg-white border-b border-zinc-200 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-zinc-700">Chat do Chamado</h2>
           <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-xs text-zinc-400">Conectado</span>
+            <span className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500 animate-pulse' : 'bg-zinc-300'}`} />
+            <span className="text-xs text-zinc-400">{connected ? 'Tempo real' : 'Conectando...'}</span>
           </div>
         </div>
 
@@ -537,113 +548,72 @@ export default function TicketDetailManagerPage() {
           className="flex-1 overflow-y-auto px-6 py-5 space-y-5"
           style={{ scrollbarWidth: 'thin', scrollbarColor: '#e4e4e7 transparent' }}
         >
-          {chatMessages.map((msg) => {
-            const isUserMsg = msg.authorId === ticket.requesterId
-            const initials  = msg.authorId.slice(0, 2).toUpperCase()
-            const time      = new Date(msg.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+          {allMessages.length === 0 ? (
+            <div className="flex items-center justify-center py-10">
+              <p className="text-sm text-zinc-400">Nenhuma mensagem ainda.</p>
+            </div>
+          ) : (
+            allMessages.map((msg) => {
+              const isUserMsg = msg.authorId === ticket.requesterId
+              const isMe      = msg.authorId === user?.userId
+              const initials  = msg.authorId.slice(0, 2).toUpperCase()
+              const time      = new Date(msg.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+              const senderLabel = users.find((u) => u.id === msg.authorId)?.name ?? (isUserMsg ? 'Solicitante' : 'Técnico')
 
-            if (isUserMsg) return (
-              <div key={msg.id} className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-zinc-200 flex items-center justify-center text-xs font-bold text-zinc-600 shrink-0">
-                  {initials}
+              if (isUserMsg) return (
+                <div key={msg.id} className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-full bg-zinc-200 flex items-center justify-center text-xs font-bold text-zinc-600 shrink-0">
+                    {initials}
+                  </div>
+                  <div className="max-w-[78%]">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-medium text-zinc-600">{senderLabel}</span>
+                      <span className="text-xs text-zinc-400">{time}</span>
+                    </div>
+                    <div className="bg-zinc-100 text-zinc-800 rounded-xl rounded-bl-none px-4 py-2.5 text-sm leading-relaxed">
+                      {msg.content}
+                    </div>
+                  </div>
                 </div>
-                <div className="max-w-[78%]">
+              )
+
+              return (
+                <div key={msg.id} className="flex flex-col items-end">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-medium text-zinc-600 font-mono">{msg.authorId.slice(0, 8)}</span>
                     <span className="text-xs text-zinc-400">{time}</span>
+                    <span className="text-xs font-medium text-zinc-600">{isMe ? 'Você' : senderLabel}</span>
                   </div>
-                  <div className="bg-zinc-100 text-zinc-800 rounded-xl rounded-bl-none px-4 py-2.5 text-sm leading-relaxed">
+                  <div
+                    className="max-w-[78%] text-white rounded-xl rounded-br-none px-4 py-2.5 text-sm leading-relaxed"
+                    style={{ background: ACCENT }}
+                  >
                     {msg.content}
                   </div>
                 </div>
-              </div>
-            )
-
-            if (!isUserMsg) return (
-              <div key={msg.id} className="flex flex-col items-end">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs text-zinc-400">{time}</span>
-                  <span className="text-xs font-medium text-zinc-600">{senderName}</span>
-                </div>
-                <div
-                  className="max-w-[78%] text-white rounded-xl rounded-br-none px-4 py-2.5 text-sm leading-relaxed"
-                  style={{ background: ACCENT }}
-                >
-                  {msg.content}
-                </div>
-              </div>
-            )
-
-            // System events (STATUS_CHANGE, ASSIGNMENT, PAUSE, SYSTEM) shown as internal notes in manager view
-            return (
-              <div key={msg.id} className="flex flex-col items-end">
-                <div className="max-w-[78%]">
-                  <div className="flex items-center gap-1.5 mb-1 justify-end">
-                    <Lock className="w-3 h-3 text-amber-500" />
-                    <span className="text-xs text-amber-600 font-medium">Nota interna — visível para técnicos e gestores</span>
-                  </div>
-                  <div className="bg-amber-50 text-amber-900 rounded-xl px-4 py-2.5 text-sm leading-relaxed"
-                    style={{ borderLeft: '3px solid #fbbf24' }}>
-                    {msg.content}
-                  </div>
-                  <div className="flex items-center gap-2 mt-1 justify-end">
-                    <span className="text-xs text-zinc-400">{time}</span>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
+              )
+            })
+          )}
           <div ref={messagesEndRef} />
         </div>
 
         {/* Input footer */}
         <div className="shrink-0 bg-white border-t border-zinc-200 px-6 py-4">
-          <div className="flex gap-1 mb-3">
-            <button
-              onClick={() => setChatMode('message')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
-              style={{ background: chatMode === 'message' ? '#eef1ff' : 'transparent', color: chatMode === 'message' ? ACCENT : '#71717a' }}
-            >
-              <MessageCircle className="w-3.5 h-3.5" />
-              Mensagem
-            </button>
-            <button
-              onClick={() => setChatMode('internal')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
-              style={{ background: chatMode === 'internal' ? '#fffbeb' : 'transparent', color: chatMode === 'internal' ? '#d97706' : '#71717a' }}
-            >
-              <Lock className="w-3.5 h-3.5" />
-              Nota Interna
-            </button>
-          </div>
-
           <textarea
             value={chatText}
             onChange={(e) => setChatText(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
             maxLength={1000}
-            placeholder={chatMode === 'message' ? 'Escreva uma mensagem...' : 'Escreva uma nota interna — não será visível ao solicitante...'}
-            className="w-full resize-none rounded-lg p-3 text-sm text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-offset-1"
-            style={{
-              minHeight:  80,
-              maxHeight:  160,
-              border:     chatMode === 'internal' ? '1px solid #fbbf24' : '1px solid #e4e4e7',
-              background: chatMode === 'internal' ? 'rgba(255,251,235,0.5)' : '#fff',
-            } as React.CSSProperties}
+            placeholder="Escreva uma mensagem..."
+            className="w-full resize-none rounded-lg border border-zinc-200 p-3 text-sm text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-1"
+            style={{ minHeight: 80, maxHeight: 160 }}
           />
-
           <div className="flex items-center justify-between mt-2">
-            <div className="flex items-center gap-3">
-              <button className="text-zinc-400 hover:text-zinc-600 transition-colors">
-                <Paperclip className="w-4 h-4" />
-              </button>
-              <span className="text-xs text-zinc-400">{chatText.length}/1000</span>
-            </div>
+            <span className="text-xs text-zinc-400">{chatText.length}/1000</span>
             <button
               onClick={sendMessage}
-              disabled={!chatText.trim() || addComment.isPending}
+              disabled={!chatText.trim() || !connected}
               className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
-              style={{ background: chatMode === 'internal' ? '#d97706' : ACCENT }}
+              style={{ background: ACCENT }}
             >
               <Send className="w-4 h-4" />
               Enviar
@@ -658,11 +628,10 @@ export default function TicketDetailManagerPage() {
           currentTechId={ticket.assigneeId}
           selectedTechId={assignTechId}
           onSelectTech={setAssignTechId}
-          reason={assignReason}
-          onChangeReason={setAssignReason}
           onConfirm={confirmAssign}
           onClose={() => setShowAssign(false)}
           isPending={assignTicket.isPending}
+          users={users}
         />
       )}
       {showCancel && (

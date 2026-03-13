@@ -14,5 +14,6 @@ public record TicketSummaryResponse(
     UUID assigneeId,
     OffsetDateTime openedAt,
     OffsetDateTime slaDeadline,
-    boolean isSlaBreached
+    boolean isSlaBreached,
+    String pauseReason
 ) {}

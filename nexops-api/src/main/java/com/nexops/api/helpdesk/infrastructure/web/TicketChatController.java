@@ -2,9 +2,11 @@ package com.nexops.api.helpdesk.infrastructure.web;
 
 import com.nexops.api.helpdesk.domain.model.TicketComment;
 import com.nexops.api.helpdesk.domain.ports.in.AddCommentUseCase;
+import com.nexops.api.helpdesk.domain.ports.out.TicketRepository;
 import com.nexops.api.helpdesk.infrastructure.web.dto.ChatMessageRequest;
 import com.nexops.api.helpdesk.infrastructure.web.dto.ChatMessageResponse;
 import com.nexops.api.shared.iam.domain.ports.out.UserRepository;
+import com.nexops.api.shared.exception.BusinessException;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
@@ -23,6 +25,7 @@ public class TicketChatController {
 
     private final AddCommentUseCase addCommentUseCase;
     private final UserRepository userRepository;
+    private final TicketRepository ticketRepository;
 
     @MessageMapping("/ticket/{ticketId}/chat")
     @SendTo("/topic/ticket/{ticketId}/chat")
@@ -32,7 +35,12 @@ public class TicketChatController {
             Principal principal
     ) {
         UUID authorId = UUID.fromString(principal.getName());
-        TicketComment comment = addCommentUseCase.addComment(ticketId, authorId, request.content());
+        
+        UUID tenantId = ticketRepository.findById(ticketId)
+                .map(t -> t.getTenantId())
+                .orElseThrow(() -> new BusinessException("Chamado não encontrado"));
+
+        TicketComment comment = addCommentUseCase.addComment(tenantId, ticketId, authorId, request.content());
         
         String authorName = userRepository.findById(authorId)
                 .map(user -> user.getName())

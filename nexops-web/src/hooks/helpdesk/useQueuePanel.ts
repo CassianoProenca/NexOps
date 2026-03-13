@@ -1,7 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
-import { Client } from '@stomp/stompjs'
-import SockJS from 'sockjs-client'
+import { useState, useEffect } from 'react'
+import { useSocket } from '@/components/shared/SocketProvider'
 import { useAppStore } from '@/store/appStore'
+import { helpdeskService } from '@/services/helpdesk.service'
 import type { QueuePanelPayload } from '@/types/helpdesk.types'
 
 const EMPTY: QueuePanelPayload = {
@@ -11,55 +11,53 @@ const EMPTY: QueuePanelPayload = {
 }
 
 /**
- * Hook STOMP para o painel de fila em tempo real.
- *
- * Substitui o hook legado que usava WebSocket nativo.
- * Conecta via SockJS + STOMP ao endpoint /ws do Spring Boot
- * e assina o tópico /topic/queue-panel (broadcast a cada 15 s).
- *
- * Cabeçalhos Authorization e X-Tenant-ID são enviados no frame CONNECT.
+ * Hook que utiliza a conexão global STOMP para o painel de fila.
  */
 export function useQueuePanel() {
   const [data, setData] = useState<QueuePanelPayload>(EMPTY)
-  const [connected, setConnected] = useState(false)
-  const clientRef = useRef<Client | null>(null)
-
-  const accessToken = useAppStore((s) => s.accessToken)
+  const [isLoading, setIsLoading] = useState(true)
+  const { client, isConnected } = useSocket()
   const tenant = useAppStore((s) => s.tenant)
 
+  // 1. Busca inicial imediata via HTTP
   useEffect(() => {
-    const wsUrl = `${import.meta.env.VITE_API_URL ?? 'http://localhost:8080/api'}/ws`
+    let mounted = true
+    
+    helpdeskService.getQueuePanel()
+      .then(res => {
+        if (mounted) {
+          setData(res)
+          setIsLoading(false)
+        }
+      })
+      .catch(() => {
+        if (mounted) setIsLoading(false)
+      })
 
-    const client = new Client({
-      webSocketFactory: () => new SockJS(wsUrl),
-      connectHeaders: {
-        Authorization: `Bearer ${accessToken ?? ''}`,
-      },
-      reconnectDelay: 5_000,
-      heartbeatIncoming: 4_000,
-      heartbeatOutgoing: 4_000,
-      onConnect: () => {
-        setConnected(true)
-        const topic = `/topic/${tenant ?? 'public'}/queue-panel`
-        client.subscribe(topic, (message) => {
-          try {
-            setData(JSON.parse(message.body) as QueuePanelPayload)
-          } catch {
-            // ignora payload malformado
-          }
-        })
-      },
-      onDisconnect: () => setConnected(false),
-      onStompError: () => setConnected(false),
+    return () => { mounted = false }
+  }, [])
+
+  // 2. Subscrição em tempo real via Socket
+  useEffect(() => {
+    if (!client || !isConnected) return
+
+    const topic = `/topic/${tenant ?? 'public'}/queue-panel`
+    console.log('STOMP: Subscribing to queue panel:', topic)
+
+    const subscription = client.subscribe(topic, (message) => {
+      try {
+        const payload = JSON.parse(message.body) as QueuePanelPayload
+        setData(payload)
+      } catch (err) {
+        console.error('STOMP: Queue panel parse error:', err)
+      }
     })
 
-    client.activate()
-    clientRef.current = client
-
     return () => {
-      client.deactivate()
+      console.log('STOMP: Unsubscribing from queue panel')
+      subscription.unsubscribe()
     }
-  }, [accessToken, tenant])
+  }, [client, isConnected, tenant])
 
-  return { data, connected }
+  return { data, connected: isConnected, isLoading }
 }

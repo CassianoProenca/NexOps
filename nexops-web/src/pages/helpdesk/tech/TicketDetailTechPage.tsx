@@ -2,188 +2,92 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import {
   PauseCircle, CheckCircle, GitBranch, Upload, Download,
-  MessageCircle, Lock, Send, Paperclip, X, AlertCircle,
-  FileText, PlayCircle,
+  MessageCircle, Send, X, AlertCircle,
+  FileText, PlayCircle, Info, Loader2, ChevronLeft,
+  User, Clock, Calendar, Building2, Tag
 } from 'lucide-react'
-import { useTicket, useTicketComments, useAddComment, usePauseTicket, useResumeTicket, useCloseTicket, useCreateChildTicket } from '@/hooks/helpdesk/useTickets'
+import { 
+  useTicket, 
+  useTicketComments, 
+  usePauseTicket, 
+  useResumeTicket, 
+  useCloseTicket, 
+  useCreateChildTicket, 
+  useTicketAttachments, 
+  useUploadAttachment,
+  useAddComment
+} from '@/hooks/helpdesk/useTickets'
+import { useTicketChat } from '@/hooks/helpdesk/useTicketChat'
 import { useDepartments } from '@/hooks/helpdesk/useDepartments'
 import { useProblemTypes } from '@/hooks/helpdesk/useProblemTypes'
+import { useUsers } from '@/hooks/useUsers'
 import { useAppStore } from '@/store/appStore'
-import { formatDateTime } from '@/lib/utils'
+import { helpdeskService } from '@/services/helpdesk.service'
+import { formatDateTime, cn } from '@/lib/utils'
 
-// ── constants ─────────────────────────────────────────────────────────────────
+// ── components ────────────────────────────────────────────────────────────────
 
-const ACCENT  = '#4f6ef7'
-const SUCCESS = '#16a34a'
+function StatusBadge({ status }: { status: string }) {
+  const cfg = {
+    OPEN:        { bg: 'bg-blue-50',  txt: 'text-blue-700', border: 'border-blue-200', label: 'Aberto' },
+    IN_PROGRESS: { bg: 'bg-green-50', txt: 'text-green-700', border: 'border-green-200', label: 'Em Atendimento' },
+    PAUSED:      { bg: 'bg-amber-50', txt: 'text-amber-700', border: 'border-amber-200', label: 'Pausado' },
+    CLOSED:      { bg: 'bg-zinc-100', txt: 'text-zinc-600', border: 'border-zinc-200', label: 'Finalizado' },
+  }[status] || { bg: 'bg-zinc-50', txt: 'text-zinc-500', border: 'border-zinc-100', label: status }
 
-// ── types ─────────────────────────────────────────────────────────────────────
-
-type ChatMode = 'message' | 'internal'
-
-// ── helpers ───────────────────────────────────────────────────────────────────
-
-const TIER_BADGE: Record<string, string> = {
-  N1: 'bg-zinc-100 text-zinc-600',
-  N2: 'bg-amber-50 text-amber-600',
-  N3: 'bg-red-50 text-red-600',
-}
-
-const STATUS_BADGE: Record<string, string> = {
-  OPEN:        'bg-blue-50 text-blue-700',
-  IN_PROGRESS: 'bg-green-50 text-green-700',
-  PAUSED:      'bg-amber-50 text-amber-700',
-  CLOSED:      'bg-zinc-100 text-zinc-500',
-}
-const STATUS_LABEL: Record<string, string> = {
-  OPEN:        'Atribuído',
-  IN_PROGRESS: 'Em Andamento',
-  PAUSED:      'Pausado',
-  CLOSED:      'Finalizado',
-}
-
-// ── shared sub-components ─────────────────────────────────────────────────────
-
-function SectionTitle({ label, action }: { label: string; action?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between mb-3">
-      <h3 className="text-xs font-bold uppercase tracking-widest text-zinc-400">{label}</h3>
-      {action}
-    </div>
+    <span className={cn('inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border shadow-sm', cfg.bg, cfg.txt, cfg.border)}>
+      <span className={cn('w-1.5 h-1.5 rounded-full mr-2', cfg.txt.replace('text', 'bg'))} />
+      {cfg.label}
+    </span>
   )
 }
 
-// ── modals ────────────────────────────────────────────────────────────────────
+function PriorityBadge({ priority }: { priority: string }) {
+  const color = {
+    CRITICAL: 'text-red-600 bg-red-50 border-red-100',
+    HIGH:     'text-orange-600 bg-orange-50 border-orange-100',
+    MEDIUM:   'text-amber-600 bg-amber-50 border-amber-100',
+    LOW:      'text-blue-600 bg-blue-50 border-blue-100',
+  }[priority] || 'text-zinc-600 bg-zinc-50 border-zinc-100'
 
-function PauseModal({ ticketId, reason, onChangeReason, onConfirm, onClose, isPending }: {
-  ticketId: string; reason: string; onChangeReason: (v: string) => void
-  onConfirm: () => void; onClose: () => void; isPending: boolean
-}) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-zinc-900">Pausar Chamado <span className="font-mono text-zinc-400">#{ticketId.slice(0, 8)}</span></h3>
-          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600"><X className="w-4 h-4" /></button>
+    <span className={cn('px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider', color)}>
+      {priority}
+    </span>
+  )
+}
+
+// ── Modals ────────────────────────────────────────────────────────────────────
+
+function PauseModal({ isOpen, onClose, onConfirm, isPending }: { 
+  isOpen: boolean; onClose: () => void; onConfirm: (reason: string) => void; isPending: boolean 
+}) {
+  const [reason, setReason] = useState('')
+  if (!isOpen) return null
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
+          <h3 className="font-bold text-zinc-900">Pausar Atendimento</h3>
+          <button onClick={onClose} className="p-1 hover:bg-zinc-100 rounded-lg text-zinc-400 transition-colors"><X className="w-5 h-5" /></button>
         </div>
-        <div className="space-y-1.5">
-          <label className="text-xs font-medium text-zinc-600">Motivo da pausa</label>
-          <textarea
-            value={reason} onChange={(e) => onChangeReason(e.target.value)}
-            placeholder="Ex: aguardando peça de reposição..." autoFocus
-            className="w-full resize-none rounded-lg border border-zinc-200 p-3 text-sm text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#4f6ef7] focus:ring-offset-1"
-            style={{ minHeight: 88 }}
+        <div className="p-6 space-y-4">
+          <p className="text-sm text-zinc-500">Informe o motivo da interrupção do atendimento:</p>
+          <textarea 
+            autoFocus value={reason} onChange={e => setReason(e.target.value)}
+            className="w-full min-h-[100px] p-4 text-sm border border-zinc-200 rounded-xl focus:ring-2 focus:ring-brand/20 focus:border-brand outline-none resize-none transition-all"
+            placeholder="Ex: Aguardando peça de reposição..."
           />
         </div>
-        <div className="flex gap-2 justify-end">
-          <button onClick={onClose} disabled={isPending} className="px-4 py-2 text-sm text-zinc-500 hover:text-zinc-700 disabled:opacity-50">Cancelar</button>
-          <button onClick={onConfirm} disabled={!reason.trim() || isPending}
-            className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-40 hover:opacity-90"
-            style={{ background: ACCENT }}>{isPending ? 'Pausando…' : 'Confirmar'}</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function FinalizeModal({ ticketId, resolution, onChangeResolution, onConfirm, onClose, isPending }: {
-  ticketId: string; resolution: string; onChangeResolution: (v: string) => void
-  onConfirm: () => void; onClose: () => void; isPending: boolean
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-zinc-900">Finalizar Chamado <span className="font-mono text-zinc-400">#{ticketId.slice(0, 8)}</span></h3>
-          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600"><X className="w-4 h-4" /></button>
-        </div>
-        <div className="space-y-1.5">
-          <label className="text-xs font-medium text-zinc-600">Resolução aplicada <span className="text-red-400">*</span></label>
-          <textarea
-            value={resolution} onChange={(e) => onChangeResolution(e.target.value)}
-            placeholder="Descreva o que foi feito para resolver o chamado..." autoFocus
-            className="w-full resize-none rounded-lg border border-zinc-200 p-3 text-sm text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#4f6ef7] focus:ring-offset-1"
-            style={{ minHeight: 100 }}
-          />
-        </div>
-        <div className="flex gap-2 justify-end">
-          <button onClick={onClose} disabled={isPending} className="px-4 py-2 text-sm text-zinc-500 hover:text-zinc-700 disabled:opacity-50">Cancelar</button>
-          <button onClick={onConfirm} disabled={!resolution.trim() || isPending}
-            className="px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-40 hover:opacity-90"
-            style={{ background: SUCCESS }}>{isPending ? 'Finalizando…' : 'Confirmar Finalização'}</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function CreateChildModal({ parentId, depts, ptypes, onConfirm, onClose, isPending }: {
-  parentId: string
-  depts: { id: string; name: string }[]
-  ptypes: { id: string; name: string }[]
-  onConfirm: (departmentId: string, problemTypeId: string, title: string, description: string) => void
-  onClose: () => void
-  isPending: boolean
-}) {
-  const [form, setForm] = useState({ title: '', problemTypeId: '', departmentId: '', description: '' })
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-    setForm((p) => ({ ...p, [k]: e.target.value }))
-  const canSubmit = form.title.trim() && form.problemTypeId && form.departmentId
-
-  const inputCls = "w-full px-3 py-2 text-sm border border-zinc-200 rounded-lg text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#4f6ef7] focus:ring-offset-1 bg-white"
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-zinc-900">Criar Chamado Filho <span className="font-mono text-zinc-400 text-sm">de #{parentId.slice(0, 8)}</span></h3>
-          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-600"><X className="w-4 h-4" /></button>
-        </div>
-
-        <div className="space-y-3">
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-zinc-600">Título do problema <span className="text-red-400">*</span></label>
-            <input value={form.title} onChange={set('title')} placeholder="Ex: Verificar IP da impressora" className={inputCls} />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-600">Tipo de Problema <span className="text-red-400">*</span></label>
-              <select value={form.problemTypeId} onChange={set('problemTypeId')} className={inputCls}>
-                <option value="">Selecionar...</option>
-                {ptypes.map((pt) => <option key={pt.id} value={pt.id}>{pt.name}</option>)}
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-zinc-600">Departamento <span className="text-red-400">*</span></label>
-              <select value={form.departmentId} onChange={set('departmentId')} className={inputCls}>
-                <option value="">Selecionar...</option>
-                {depts.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-zinc-600">Descrição <span className="text-zinc-400 font-normal">(opcional)</span></label>
-            <textarea value={form.description} onChange={set('description')}
-              placeholder="Detalhes adicionais sobre o problema..."
-              className={`${inputCls} resize-none`} style={{ minHeight: 72 }} />
-          </div>
-        </div>
-
-        <div className="flex items-start gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2.5">
-          <AlertCircle className="w-3.5 h-3.5 text-blue-400 shrink-0 mt-0.5" />
-          <p className="text-xs text-blue-700">
-            O chamado filho será encaminhado para a fila do departamento selecionado.
-          </p>
-        </div>
-
-        <div className="flex gap-2 justify-end">
-          <button onClick={onClose} disabled={isPending} className="px-4 py-2 text-sm text-zinc-500 hover:text-zinc-700 disabled:opacity-50">Cancelar</button>
-          <button
-            onClick={() => canSubmit && onConfirm(form.departmentId, form.problemTypeId, form.title, form.description)}
-            disabled={!canSubmit || isPending}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-40 hover:opacity-90"
-            style={{ background: ACCENT }}>
-            <GitBranch className="w-4 h-4" />
-            {isPending ? 'Criando…' : 'Criar Chamado Filho'}
+        <div className="px-6 py-4 bg-zinc-50 border-t border-zinc-100 flex justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-zinc-600 hover:text-zinc-800">Cancelar</button>
+          <button 
+            disabled={!reason.trim() || isPending}
+            onClick={() => onConfirm(reason)}
+            className="px-6 py-2 bg-zinc-900 text-white text-sm font-bold rounded-xl hover:bg-zinc-800 disabled:opacity-40 transition-all"
+          >
+            {isPending ? 'Pausando...' : 'Confirmar Pausa'}
           </button>
         </div>
       </div>
@@ -191,432 +95,340 @@ function CreateChildModal({ parentId, depts, ptypes, onConfirm, onClose, isPendi
   )
 }
 
-// ── page ──────────────────────────────────────────────────────────────────────
+function FinalizeModal({ isOpen, onClose, onConfirm, isPending }: { 
+  isOpen: boolean; onClose: () => void; onConfirm: (res: string) => void; isPending: boolean 
+}) {
+  const [res, setRes] = useState('')
+  if (!isOpen) return null
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-950/40 backdrop-blur-sm p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
+          <h3 className="font-bold text-zinc-900">Finalizar Chamado</h3>
+          <button onClick={onClose} className="p-1 hover:bg-zinc-100 rounded-lg text-zinc-400 transition-colors"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="flex gap-3 p-4 bg-blue-50 border border-blue-100 rounded-xl text-blue-800">
+            <Info className="w-5 h-5 shrink-0" />
+            <div className="text-xs leading-relaxed">
+              <p className="font-bold mb-1 uppercase tracking-wider">Resolução Obrigatória</p>
+              Descreva detalhadamente a solução aplicada. Esta informação ficará disponível para o usuário e servirá de base de conhecimento.
+            </div>
+          </div>
+          <textarea 
+            autoFocus value={res} onChange={e => setRes(e.target.value)}
+            className="w-full min-h-[160px] p-4 text-sm border border-zinc-200 rounded-xl focus:ring-2 focus:ring-green-500/20 focus:border-green-600 outline-none resize-none transition-all"
+            placeholder="Ex: Realizada a troca do cabo de rede e configurado o IP estático conforme padrão da rede..."
+          />
+        </div>
+        <div className="px-6 py-4 bg-zinc-50 border-t border-zinc-100 flex justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 text-sm font-medium text-zinc-600 hover:text-zinc-800">Cancelar</button>
+          <button 
+            disabled={res.trim().length < 10 || isPending}
+            onClick={() => onConfirm(res)}
+            className="px-6 py-2 bg-green-600 text-white text-sm font-bold rounded-xl hover:bg-green-700 disabled:opacity-40 transition-all shadow-lg shadow-green-600/20"
+          >
+            {isPending ? 'Finalizando...' : 'Finalizar Chamado'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
 
-const ATTACHMENTS = [
-  { name: 'foto-erro.jpg',   size: '1.2 MB' },
-  { name: 'config-rede.pdf', size: '340 KB' },
-]
+// ── main page ─────────────────────────────────────────────────────────────────
 
 export default function TicketDetailTechPage() {
-  const navigate    = useNavigate()
-  const { id = '' } = useParams<{ id: string }>()
-  const user        = useAppStore((s) => s.user)
-  const senderName  = user?.nome ?? user?.email ?? 'Técnico'
-
+  const navigate = useNavigate()
+  const { id = '' } = useParams()
+  const user = useAppStore(s => s.user)
+  
+  // Data
   const { data: ticket, isLoading } = useTicket(id)
-  const { data: comments = []      } = useTicketComments(id)
-  const { data: departments = []   } = useDepartments()
-  const { data: problemTypes = []  } = useProblemTypes()
+  const { data: comments = [] } = useTicketComments(id)
+  const { data: attachments = [] } = useTicketAttachments(id)
+  const { departments } = useDepartments()
+  const { problemTypes } = useProblemTypes()
+  const { data: users = [] } = useUsers()
+  
+  // Actions
+  const addComment = useAddComment()
+  const pauseTicket = usePauseTicket()
+  const resumeTicket = useResumeTicket()
+  const closeTicket = useCloseTicket()
+  const uploadFile = useUploadAttachment()
+  const { messages: stompMsgs, connected, sendMessage: stompSend } = useTicketChat(id)
 
-  const pauseTicket   = usePauseTicket()
-  const resumeTicket  = useResumeTicket()
-  const closeTicket   = useCloseTicket()
-  const createChild   = useCreateChildTicket()
-  const addComment    = useAddComment()
-
-  // modal states
-  const [showPause,       setShowPause]       = useState(false)
-  const [pauseReason,     setPauseReason]     = useState('')
-  const [showFinalize,    setShowFinalize]    = useState(false)
-  const [finalizeRes,     setFinalizeRes]     = useState('')
-  const [showCreateChild, setShowCreateChild] = useState(false)
-
-  // chat state
+  // Local UI State
   const [chatText, setChatText] = useState('')
-  const [chatMode, setChatMode] = useState<ChatMode>('message')
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const [modalPause, setModalPause] = useState(false)
+  const [modalFinal, setModalFinal] = useState(false)
+  const chatEndRef = useRef<HTMLDivElement>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  // Mapping
+  const requester = users.find(u => u.id === ticket?.requesterId)
+  const requesterName = requester?.name ?? 'Solicitante'
+
+  // Message Merging & Deduplication
+  const allMessages = [
+    ...comments.filter(c => c.type === 'MESSAGE'),
+    ...stompMsgs.filter(sm => !comments.some(c => c.id === sm.id))
+  ].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+
+  const events = comments.filter(c => c.type !== 'MESSAGE').reverse()
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [comments])
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [allMessages.length])
 
-  // ── actions ──
+  // Handlers
+  const handleSendChat = () => {
+    if (!chatText.trim() || !connected) return
+    stompSend(chatText.trim())
+    setChatText('')
+  }
 
-  function confirmPause() {
-    if (!pauseReason.trim()) return
-    pauseTicket.mutate({ id, data: { reason: pauseReason } }, {
-      onSuccess: () => { setShowPause(false); setPauseReason('') },
+  const handlePause = (reason: string) => {
+    pauseTicket.mutate({ id, data: { reason } }, { onSuccess: () => setModalPause(false) })
+  }
+
+  const handleFinalize = (resolution: string) => {
+    closeTicket.mutate({ id, resolution }, { 
+      onSuccess: () => setModalFinal(false) 
     })
   }
 
-  function confirmFinalize() {
-    if (!finalizeRes.trim()) return
-    closeTicket.mutate(id, {
-      onSuccess: () => { setShowFinalize(false); setFinalizeRes('') },
-    })
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) uploadFile.mutate({ ticketId: id, file })
   }
-
-  function handleResume() {
-    resumeTicket.mutate(id)
-  }
-
-  function handleCreateChild(departmentId: string, problemTypeId: string, title: string, description: string) {
-    createChild.mutate({ parentId: id, data: { title, description: description || title, departmentId, problemTypeId } }, {
-      onSuccess: () => setShowCreateChild(false),
-    })
-  }
-
-  function sendMessage() {
-    if (!chatText.trim()) return
-    addComment.mutate({ ticketId: id, data: { content: chatText.trim() } }, {
-      onSuccess: () => setChatText(''),
-    })
-  }
-
-  // ── derived data ──
-
-  const chatMessages   = comments.filter((c) => c.type === 'MESSAGE')
-  const timelineEvents = comments.filter((c) => c.type !== 'MESSAGE')
-
-  const isDone = ticket?.status === 'CLOSED'
 
   if (isLoading || !ticket) {
     return (
-      <div className="p-8 space-y-3">
-        {[...Array(6)].map((_, i) => <div key={i} className="h-10 bg-zinc-100 rounded-lg animate-pulse" />)}
+      <div className="h-full flex items-center justify-center bg-zinc-50">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="w-8 h-8 text-brand animate-spin" />
+          <p className="text-sm font-medium text-zinc-500">Carregando detalhes...</p>
+        </div>
       </div>
     )
   }
 
+  const isClosed = ticket.status === 'CLOSED'
+  const isPaused = ticket.status === 'PAUSED'
+
   return (
-    <div
-      className="flex overflow-hidden"
-      style={{ height: 'calc(100vh - 104px)' }}
-    >
-
-      {/* ── Left column — 2fr ── */}
-      <div className="flex flex-col overflow-hidden bg-white" style={{ flex: 2, borderRight: '1px solid #e4e4e7' }}>
-
-        {/* Scrollable content */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6"
-          style={{ scrollbarWidth: 'thin', scrollbarColor: '#e4e4e7 transparent' }}>
-
-          {/* ── Ticket header ── */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-mono text-sm text-zinc-400">#{ticket.id.slice(0, 8)}</span>
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${TIER_BADGE[ticket.slaLevel]}`}>{ticket.slaLevel}</span>
+    <div className="flex flex-col h-[calc(100vh-64px)] bg-zinc-50 overflow-hidden">
+      
+      {/* HEADER */}
+      <header className="bg-white border-b border-zinc-200 px-6 py-4 flex items-center justify-between shrink-0 z-20 shadow-sm">
+        <div className="flex items-center gap-4 min-w-0">
+          <button onClick={() => navigate(-1)} className="p-2 hover:bg-zinc-100 rounded-full transition-colors text-zinc-400"><ChevronLeft className="w-5 h-5" /></button>
+          <div className="h-8 w-px bg-zinc-200 mx-1" />
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="font-mono text-[10px] font-bold text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded tracking-tighter uppercase">#{ticket.id.slice(0, 8)}</span>
+              <PriorityBadge priority={ticket.internalPriority} />
+              <StatusBadge status={ticket.status} />
             </div>
-            <h1 className="font-bold text-zinc-900 leading-snug" style={{ fontSize: 18 }}>{ticket.title}</h1>
-            <span className={`inline-flex text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_BADGE[ticket.status]}`}>
-              {STATUS_LABEL[ticket.status]}
-            </span>
+            <h1 className="text-base font-bold text-zinc-900 truncate tracking-tight">{ticket.title}</h1>
           </div>
+        </div>
 
-          <div className="border-t border-zinc-100" />
-
-          {/* ── Solicitante ── */}
-          <div>
-            <SectionTitle label="Solicitante" />
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-zinc-200 flex items-center justify-center text-xs font-bold text-zinc-600 shrink-0">
-                {ticket.requesterId.slice(0, 2).toUpperCase()}
-              </div>
-              <div>
-                <p className="text-sm font-medium text-zinc-900 font-mono">{ticket.requesterId.slice(0, 8)}…</p>
-                <p className="text-xs text-zinc-500">Aberto em {formatDateTime(ticket.openedAt)}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-zinc-100" />
-
-          {/* ── Descrição ── */}
-          <div>
-            <SectionTitle label="Descrição" />
-            <div className="bg-zinc-50 rounded-md px-4 py-3 text-sm text-zinc-600 leading-relaxed" style={{ borderRadius: 6 }}>
-              {ticket.description}
-            </div>
-          </div>
-
-          {ticket.pauseReason && (
+        <div className="flex items-center gap-3">
+          {!isClosed && (
             <>
-              <div className="border-t border-zinc-100" />
-              <div>
-                <SectionTitle label="Motivo da Pausa" />
-                <div className="bg-amber-50 border border-amber-100 rounded-md px-4 py-3 text-sm text-amber-800 leading-relaxed">
-                  {ticket.pauseReason}
-                </div>
-              </div>
+              {isPaused ? (
+                <button 
+                  onClick={() => resumeTicket.mutate(id)}
+                  disabled={resumeTicket.isPending}
+                  className="flex items-center gap-2 px-5 py-2 rounded-xl bg-brand text-white text-sm font-bold shadow-lg shadow-brand/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                >
+                  <PlayCircle className="w-4 h-4" /> Retomar Atendimento
+                </button>
+              ) : (
+                <>
+                  <button onClick={() => setModalPause(true)} className="flex items-center gap-2 px-4 py-2 bg-white border border-zinc-200 text-zinc-600 text-sm font-bold rounded-xl hover:bg-zinc-50 transition-all">
+                    <PauseCircle className="w-4 h-4" /> Pausar
+                  </button>
+                  <button onClick={() => setModalFinal(true)} className="flex items-center gap-2 px-5 py-2 bg-green-600 text-white text-sm font-bold rounded-xl shadow-lg shadow-green-600/20 hover:scale-[1.02] active:scale-[0.98] transition-all">
+                    <CheckCircle className="w-4 h-4" /> Finalizar
+                  </button>
+                </>
+              )}
             </>
           )}
+        </div>
+      </header>
 
-          <div className="border-t border-zinc-100" />
+      {/* CONTENT AREA */}
+      <div className="flex-1 flex overflow-hidden">
+        
+        {/* LEFT: MAIN INFO */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 lg:p-8 flex flex-col gap-8">
+          
+          {/* DESCRIPTION */}
+          <section className="bg-white rounded-2xl border border-zinc-200 shadow-sm overflow-hidden">
+            <div className="px-6 py-3 bg-zinc-50/50 border-b border-zinc-100 flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Descrição do Chamado</span>
+              <span className="text-[10px] font-bold text-zinc-400">{formatDateTime(ticket.openedAt)}</span>
+            </div>
+            <div className="p-6">
+              <p className="text-zinc-700 text-sm leading-relaxed whitespace-pre-wrap">{ticket.description}</p>
+              
+              {ticket.pauseReason && (
+                <div className="mt-6 flex gap-3 p-4 bg-amber-50 border border-amber-100 rounded-xl text-amber-800 italic text-sm">
+                  <AlertCircle className="w-5 h-5 shrink-0 text-amber-500" />
+                  <span><strong>Pausado por:</strong> {ticket.pauseReason}</span>
+                </div>
+              )}
+            </div>
+          </section>
 
-          {/* ── Chamados Filho ── */}
-          <div>
-            <SectionTitle
-              label="Chamados Filho"
-              action={
-                <button
-                  onClick={() => setShowCreateChild(true)}
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium text-zinc-600 border border-zinc-200 hover:bg-zinc-50 transition-colors"
+          {/* ATTACHMENTS */}
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-black uppercase tracking-widest text-zinc-500 flex items-center gap-2">
+                <FileText className="w-4 h-4" /> Documentos e Anexos
+              </h3>
+              <span className="text-[10px] font-bold text-zinc-400 bg-zinc-200 px-2 py-0.5 rounded-full uppercase">{attachments.length} arquivos</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {attachments.map(a => (
+                <div key={a.id} className="group p-3 bg-white border border-zinc-200 rounded-xl flex items-center gap-3 hover:border-brand/40 transition-all shadow-sm">
+                  <div className="w-10 h-10 rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-400 group-hover:bg-brand/10 group-hover:text-brand transition-colors"><FileText className="w-5 h-5" /></div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-zinc-700 truncate uppercase tracking-tight">{a.filename}</p>
+                    <p className="text-[9px] text-zinc-400">{(a.sizeBytes / 1024).toFixed(0)} KB</p>
+                  </div>
+                  <button className="p-2 text-zinc-300 hover:text-brand transition-colors"><Download className="w-4 h-4" /></button>
+                </div>
+              ))}
+              {!isClosed && (
+                <button 
+                  onClick={() => fileRef.current?.click()}
+                  className="p-4 border-2 border-dashed border-zinc-200 rounded-xl flex flex-col items-center justify-center gap-2 text-zinc-400 hover:bg-zinc-100/50 hover:border-zinc-300 transition-all"
                 >
-                  <GitBranch className="w-3.5 h-3.5" />
-                  + Criar Filho
+                  {uploadFile.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Upload className="w-5 h-5" />}
+                  <span className="text-[10px] font-black uppercase tracking-tighter">Anexar Arquivo</span>
                 </button>
-              }
-            />
-            {ticket.parentTicketId ? (
-              <p className="text-xs text-zinc-500">
-                Este é um chamado filho de{' '}
-                <button onClick={() => navigate(`/app/helpdesk/chamado/${ticket.parentTicketId}`)}
-                  className="text-[#4f6ef7] underline font-mono">
-                  #{ticket.parentTicketId.slice(0, 8)}
-                </button>
-              </p>
-            ) : (
-              <p className="text-sm text-zinc-400">Nenhum chamado filho criado.</p>
-            )}
+              )}
+              <input type="file" ref={fileRef} className="hidden" onChange={handleFile} />
+            </div>
+          </section>
+
+          {/* TIMELINE / EVENTS */}
+          <section className="space-y-6">
+            <h3 className="text-xs font-black uppercase tracking-widest text-zinc-500">Histórico de Atividades</h3>
+            <div className="relative pl-8 space-y-8 before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-0.5 before:bg-zinc-200">
+              {events.map((ev, i) => (
+                <div key={ev.id || i} className="relative">
+                  <div className="absolute -left-8 top-1 w-6 h-6 rounded-full border-4 border-zinc-50 bg-zinc-300 z-10" />
+                  <div>
+                    <p className="text-sm font-bold text-zinc-700 mb-1">{ev.content}</p>
+                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{formatDateTime(ev.createdAt)}</p>
+                  </div>
+                </div>
+              ))}
+              <div className="relative">
+                <div className="absolute -left-8 top-1 w-6 h-6 rounded-full border-4 border-zinc-50 bg-green-500 z-10" />
+                <div>
+                  <p className="text-sm font-bold text-zinc-700 mb-1">Chamado aberto pelo solicitante</p>
+                  <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{formatDateTime(ticket.openedAt)}</p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        {/* RIGHT: PERSISTENT SIDEBAR & CHAT */}
+        <aside className="w-full max-w-[400px] border-l border-zinc-200 bg-white flex flex-col shrink-0">
+          
+          {/* TICKET STATS */}
+          <div className="p-6 border-b border-zinc-100 grid grid-cols-2 gap-4 bg-zinc-50/30">
+            <div className="space-y-1">
+              <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-1.5"><User className="w-3 h-3" /> Solicitante</span>
+              <p className="text-xs font-bold text-zinc-700 truncate">{requesterName}</p>
+            </div>
+            <div className="space-y-1">
+              <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-1.5"><Building2 className="w-3 h-3" /> Departamento</span>
+              <p className="text-xs font-bold text-zinc-700 truncate">{departments.find(d => d.id === ticket.departmentId)?.name || '—'}</p>
+            </div>
+            <div className="space-y-1">
+              <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-1.5"><Tag className="w-3 h-3" /> Tipo de Problema</span>
+              <p className="text-xs font-bold text-zinc-700 truncate">{problemTypes.find(p => p.id === ticket.problemTypeId)?.name || '—'}</p>
+            </div>
+            <div className="space-y-1">
+              <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest flex items-center gap-1.5"><Clock className="w-3 h-3" /> SLA</span>
+              <p className="text-xs font-bold text-zinc-700 truncate">{ticket.slaLevel} (Até {formatDateTime(ticket.slaDeadline)})</p>
+            </div>
           </div>
 
-          <div className="border-t border-zinc-100" />
+          {/* CHAT INTERFACE */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <div className="px-6 py-3 border-b border-zinc-100 flex items-center justify-between">
+              <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Conversa</span>
+              <div className="flex items-center gap-1.5">
+                <span className={cn("w-1.5 h-1.5 rounded-full", connected ? "bg-green-500" : "bg-zinc-300")} />
+                <span className="text-[9px] font-bold text-zinc-400 uppercase">{connected ? "Online" : "Offline"}</span>
+              </div>
+            </div>
 
-          {/* ── Anexos ── */}
-          <div>
-            <SectionTitle label="Anexos" />
-            <div className="space-y-2 mb-3">
-              {ATTACHMENTS.map((a) => (
-                <div key={a.name} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-zinc-200 bg-zinc-50">
-                  <FileText className="w-4 h-4 text-zinc-400 shrink-0" />
-                  <span className="flex-1 text-sm text-zinc-700 truncate">{a.name}</span>
-                  <span className="text-xs text-zinc-400 shrink-0">{a.size}</span>
-                  <button className="text-zinc-400 hover:text-zinc-600 transition-colors">
-                    <Download className="w-3.5 h-3.5" />
+            {/* CHAT MESSAGES */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-zinc-50/20 custom-scrollbar">
+              {allMessages.length === 0 && (
+                <div className="h-full flex flex-col items-center justify-center text-zinc-300 opacity-60">
+                  <MessageCircle className="w-10 h-10 mb-2" />
+                  <p className="text-[10px] font-black uppercase tracking-widest">Nenhuma mensagem enviada</p>
+                </div>
+              )}
+              {allMessages.map((msg, i) => {
+                const isMe = msg.authorId === user?.userId
+                return (
+                  <div key={msg.id || i} className={cn("flex flex-col max-w-[85%]", isMe ? "ml-auto items-end" : "items-start")}>
+                    <div className={cn(
+                      "px-4 py-2.5 rounded-2xl text-sm shadow-sm border",
+                      isMe ? "bg-brand text-white border-brand/10 rounded-br-none" : "bg-white text-zinc-700 border-zinc-100 rounded-bl-none"
+                    )}>
+                      {msg.content}
+                    </div>
+                    <span className="text-[9px] font-bold text-zinc-400 mt-1 uppercase">
+                      {new Date(msg.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                )
+              })}
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* CHAT INPUT */}
+            {!isClosed && (
+              <div className="p-4 bg-white border-t border-zinc-100">
+                <div className="relative">
+                  <textarea 
+                    value={chatText} onChange={e => setChatText(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendChat() } }}
+                    placeholder="Digite sua mensagem..."
+                    className="w-full min-h-[80px] p-4 pr-12 text-sm border-2 border-zinc-100 rounded-2xl focus:border-brand/30 outline-none resize-none transition-all"
+                  />
+                  <button 
+                    onClick={handleSendChat}
+                    disabled={!chatText.trim() || !connected}
+                    className="absolute right-4 bottom-4 p-1 text-zinc-400 hover:text-brand disabled:opacity-20 transition-colors active:scale-90"
+                  >
+                    <Send className={cn("w-5 h-5", chatText.trim() && "text-brand")} />
                   </button>
                 </div>
-              ))}
-            </div>
-            <div className="border-2 border-dashed border-zinc-200 rounded-lg p-5 flex flex-col items-center gap-1.5 text-zinc-400 cursor-pointer hover:border-zinc-300 hover:bg-zinc-50 transition-colors">
-              <Upload className="w-5 h-5" />
-              <p className="text-sm">Arraste arquivos ou clique para anexar</p>
-            </div>
+              </div>
+            )}
           </div>
-
-          <div className="border-t border-zinc-100" />
-
-          {/* ── Timeline ── */}
-          <div>
-            <SectionTitle label="Histórico" />
-            <div>
-              {/* Always show ticket open event first */}
-              {[
-                { dot: 'bg-green-500', text: 'Chamado aberto', time: formatDateTime(ticket.openedAt) },
-                ...(ticket.assignedAt ? [{ dot: 'bg-blue-500', text: 'Chamado atribuído', time: formatDateTime(ticket.assignedAt) }] : []),
-                ...(ticket.pausedAt   ? [{ dot: 'bg-amber-400', text: `Pausado — ${ticket.pauseReason ?? ''}`, time: formatDateTime(ticket.pausedAt) }] : []),
-                ...timelineEvents.map((e) => ({ dot: 'bg-zinc-400', text: e.content, time: formatDateTime(e.createdAt) })),
-              ].reverse().map((event, i, arr) => (
-                <div key={i} className="relative flex gap-4">
-                  <div className="flex flex-col items-center">
-                    <div className={`w-2.5 h-2.5 rounded-full shrink-0 mt-1.5 ${event.dot}`} />
-                    {i < arr.length - 1 && <div className="w-px flex-1 bg-zinc-200 my-1" />}
-                  </div>
-                  <div className="pb-4 flex-1">
-                    <p className="text-sm text-zinc-600">{event.text}</p>
-                    <p className="text-xs text-zinc-400 mt-0.5">{event.time}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-        </div>
-
-        {/* Fixed footer — actions */}
-        {!isDone && (
-          <div className="shrink-0 bg-white border-t border-zinc-200 px-6 py-4 flex items-center gap-2">
-            <button
-              onClick={() => { setPauseReason(''); setShowPause(true) }}
-              disabled={ticket.status === 'PAUSED'}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-zinc-600 border border-zinc-200 hover:bg-zinc-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              <PauseCircle className="w-4 h-4" />
-              Pausar
-            </button>
-            <button
-              onClick={() => setShowCreateChild(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-zinc-600 border border-zinc-200 hover:bg-zinc-50 transition-colors"
-            >
-              <GitBranch className="w-4 h-4" />
-              Criar Filho
-            </button>
-            <button
-              onClick={() => { setFinalizeRes(''); setShowFinalize(true) }}
-              className="ml-auto flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white hover:opacity-90 transition-opacity"
-              style={{ background: SUCCESS }}
-            >
-              <CheckCircle className="w-4 h-4" />
-              Finalizar Chamado
-            </button>
-          </div>
-        )}
-        {isDone && (
-          <div className="shrink-0 bg-green-50 border-t border-green-100 px-6 py-3 flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-green-600" />
-            <span className="text-sm font-medium text-green-700">Chamado finalizado com sucesso.</span>
-          </div>
-        )}
+        </aside>
       </div>
 
-      {/* ── Right column — 3fr ── */}
-      <div className="flex flex-col overflow-hidden bg-zinc-50" style={{ flex: 3 }}>
-
-        {/* Chat header */}
-        <div className="shrink-0 px-6 py-4 bg-white border-b border-zinc-200 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-zinc-700">Chat do Chamado</h2>
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-            <span className="text-xs text-zinc-400">Conectado</span>
-          </div>
-        </div>
-
-        {/* Messages */}
-        <div
-          className="flex-1 overflow-y-auto px-6 py-5 space-y-5"
-          style={{ scrollbarWidth: 'thin', scrollbarColor: '#e4e4e7 transparent' }}
-        >
-          {chatMessages.map((msg) => {
-            const isUserMsg = msg.authorId === ticket.requesterId
-            const initials  = msg.authorId.slice(0, 2).toUpperCase()
-            const time      = new Date(msg.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-
-            if (isUserMsg) return (
-              <div key={msg.id} className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-zinc-200 flex items-center justify-center text-xs font-bold text-zinc-600 shrink-0">
-                  {initials}
-                </div>
-                <div className="max-w-[78%]">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-medium text-zinc-600 font-mono">{msg.authorId.slice(0, 8)}</span>
-                    <span className="text-xs text-zinc-400">{time}</span>
-                  </div>
-                  <div className="bg-zinc-100 text-zinc-800 rounded-xl rounded-bl-none px-4 py-2.5 text-sm leading-relaxed">
-                    {msg.content}
-                  </div>
-                </div>
-              </div>
-            )
-
-            return (
-              <div key={msg.id} className="flex flex-col items-end">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs text-zinc-400">{time}</span>
-                  <span className="text-xs font-medium text-zinc-600">{senderName}</span>
-                </div>
-                <div
-                  className="max-w-[78%] text-white rounded-xl rounded-br-none px-4 py-2.5 text-sm leading-relaxed"
-                  style={{ background: ACCENT }}
-                >
-                  {msg.content}
-                </div>
-              </div>
-            )
-          })}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Input footer */}
-        <div className="shrink-0 bg-white border-t border-zinc-200 px-6 py-4">
-          {/* Mode tabs */}
-          <div className="flex gap-1 mb-3">
-            <button
-              onClick={() => setChatMode('message')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
-              style={{
-                background: chatMode === 'message' ? '#eef1ff' : 'transparent',
-                color:      chatMode === 'message' ? ACCENT    : '#71717a',
-              }}
-            >
-              <MessageCircle className="w-3.5 h-3.5" />
-              Mensagem
-            </button>
-            <button
-              onClick={() => setChatMode('internal')}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
-              style={{
-                background: chatMode === 'internal' ? '#fffbeb' : 'transparent',
-                color:      chatMode === 'internal' ? '#d97706' : '#71717a',
-              }}
-            >
-              <Lock className="w-3.5 h-3.5" />
-              Nota Interna
-            </button>
-          </div>
-
-          {/* Textarea */}
-          <textarea
-            value={chatText}
-            onChange={(e) => setChatText(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
-            maxLength={1000}
-            placeholder={chatMode === 'message'
-              ? 'Escreva uma mensagem...'
-              : 'Escreva uma nota interna — não será visível ao solicitante...'}
-            className="w-full resize-none rounded-lg p-3 text-sm text-zinc-700 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-offset-1"
-            style={{
-              minHeight:   80,
-              maxHeight:   160,
-              border:      chatMode === 'internal' ? '1px solid #fbbf24' : '1px solid #e4e4e7',
-              background:  chatMode === 'internal' ? 'rgba(255,251,235,0.5)' : '#fff',
-            } as React.CSSProperties}
-          />
-
-          {/* Controls row */}
-          <div className="flex items-center justify-between mt-2">
-            <div className="flex items-center gap-3">
-              <button className="text-zinc-400 hover:text-zinc-600 transition-colors">
-                <Paperclip className="w-4 h-4" />
-              </button>
-              <span className="text-xs text-zinc-400">{chatText.length}/1000</span>
-            </div>
-            <button
-              onClick={sendMessage}
-              disabled={!chatText.trim() || addComment.isPending}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white disabled:opacity-40 hover:opacity-90 transition-opacity"
-              style={{ background: chatMode === 'internal' ? '#d97706' : ACCENT }}
-            >
-              <Send className="w-4 h-4" />
-              Enviar
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Modals */}
-      {showPause && (
-        <PauseModal ticketId={id} reason={pauseReason} onChangeReason={setPauseReason}
-          onConfirm={confirmPause} onClose={() => setShowPause(false)} isPending={pauseTicket.isPending} />
-      )}
-      {showFinalize && (
-        <FinalizeModal ticketId={id} resolution={finalizeRes} onChangeResolution={setFinalizeRes}
-          onConfirm={confirmFinalize} onClose={() => setShowFinalize(false)} isPending={closeTicket.isPending} />
-      )}
-      {showCreateChild && (
-        <CreateChildModal
-          parentId={id}
-          depts={departments.filter((d) => d.active)}
-          ptypes={problemTypes.filter((p) => p.active)}
-          onConfirm={handleCreateChild}
-          onClose={() => setShowCreateChild(false)}
-          isPending={createChild.isPending}
-        />
-      )}
-
-      {/* Resume button overlay when paused */}
-      {ticket.status === 'PAUSED' && (
-        <div className="fixed bottom-14 left-1/2 -translate-x-1/2 z-40">
-          <button
-            onClick={handleResume}
-            disabled={resumeTicket.isPending}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-white shadow-lg hover:opacity-90 transition-opacity disabled:opacity-50"
-            style={{ background: ACCENT }}
-          >
-            <PlayCircle className="w-4 h-4" />
-            {resumeTicket.isPending ? 'Retomando…' : 'Retomar Atendimento'}
-          </button>
-        </div>
-      )}
+      {/* MODALS */}
+      <PauseModal isOpen={modalPause} onClose={() => setModalPause(false)} onConfirm={handlePause} isPending={pauseTicket.isPending} />
+      <FinalizeModal isOpen={modalFinal} onClose={() => setModalFinal(false)} onConfirm={handleFinalize} isPending={closeTicket.isPending} />
 
     </div>
   )

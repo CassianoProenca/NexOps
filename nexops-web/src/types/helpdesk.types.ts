@@ -67,6 +67,7 @@ export interface TicketResponse {
   assigneeId: string | null
   parentTicketId: string | null
   pauseReason: string | null
+  resolution: string | null
   openedAt: string
   assignedAt: string | null
   pausedAt: string | null
@@ -90,6 +91,19 @@ export interface TicketSummaryResponse {
   openedAt: string
   slaDeadline: string | null
   isSlaBreached: boolean
+  pauseReason: string | null
+}
+
+// ─── Attachments ─────────────────────────────────────────────────────────────
+
+/** GET /v1/tickets/:id/attachments → AttachmentResponse[] */
+export interface AttachmentResponse {
+  id: string
+  ticketId: string
+  filename: string
+  contentType: string | null
+  sizeBytes: number
+  createdAt: string
 }
 
 /** POST /v1/tickets/:id/assign */

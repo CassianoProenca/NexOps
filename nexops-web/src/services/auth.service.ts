@@ -1,5 +1,6 @@
 import { api } from '@/lib/api'
 import type {
+  Role,
   LoginRequest,
   RegisterRequest,
   InviteRequest,

@@ -5,14 +5,16 @@ import java.util.UUID;
 
 public class TicketComment {
     private final UUID id;
+    private final UUID tenantId;
     private final UUID ticketId;
     private final UUID authorId;
     private final String content;
     private final CommentType type;
     private final OffsetDateTime createdAt;
 
-    public TicketComment(UUID id, UUID ticketId, UUID authorId, String content, CommentType type, OffsetDateTime createdAt) {
+    public TicketComment(UUID id, UUID tenantId, UUID ticketId, UUID authorId, String content, CommentType type, OffsetDateTime createdAt) {
         this.id = id;
+        this.tenantId = tenantId;
         this.ticketId = ticketId;
         this.authorId = authorId;
         this.content = content;
@@ -20,9 +22,10 @@ public class TicketComment {
         this.createdAt = createdAt;
     }
 
-    public static TicketComment message(UUID ticketId, UUID authorId, String content) {
+    public static TicketComment message(UUID tenantId, UUID ticketId, UUID authorId, String content) {
         return new TicketComment(
             UUID.randomUUID(),
+            tenantId,
             ticketId,
             authorId,
             content,
@@ -31,9 +34,10 @@ public class TicketComment {
         );
     }
 
-    public static TicketComment systemEvent(UUID ticketId, UUID authorId, String content, CommentType type) {
+    public static TicketComment systemEvent(UUID tenantId, UUID ticketId, UUID authorId, String content, CommentType type) {
         return new TicketComment(
             UUID.randomUUID(),
+            tenantId,
             ticketId,
             authorId,
             content,
@@ -43,6 +47,7 @@ public class TicketComment {
     }
 
     public UUID getId() { return id; }
+    public UUID getTenantId() { return tenantId; }
     public UUID getTicketId() { return ticketId; }
     public UUID getAuthorId() { return authorId; }
     public String getContent() { return content; }

@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { tenantService } from '@/services/tenant.service'
-import type { ExtraSettings } from '@/services/tenant.service'
+
 
 export function useTenantSettings() {
   const queryClient = useQueryClient()

@@ -14,12 +14,23 @@ import java.util.UUID;
 public class TicketCommentJpaEntity {
     @Id
     private UUID id;
-    @Column(name = "ticket_id")
+
+    @Column(name = "tenant_id", nullable = false)
+    private UUID tenantId;
+
+    @Column(name = "ticket_id", nullable = false)
     private UUID ticketId;
-    @Column(name = "author_id")
+
+    @Column(name = "author_id", nullable = true)
     private UUID authorId;
+
+    @Column(nullable = false)
     private String content;
+
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private CommentType type;
+
+    @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 }

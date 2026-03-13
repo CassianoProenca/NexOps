@@ -8,6 +8,10 @@ import type {
   AddCommentRequest,
 } from '@/types/helpdesk.types'
 
+export const attachmentKeys = {
+  list: (ticketId: string) => ['attachments', ticketId] as const,
+}
+
 // ── Query keys ────────────────────────────────────────────────────────────────
 export const ticketKeys = {
   all:      ['tickets'] as const,
@@ -93,8 +97,8 @@ export function useCreateTicket() {
 export function useAttendNext() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ ticketId, data }: { ticketId: string; data: AttendNextRequest }) =>
-      helpdeskService.attendNext(ticketId, data),
+    mutationFn: (data: AttendNextRequest) =>
+      helpdeskService.attendNext(data),
     onSuccess: (ticket) => {
       qc.invalidateQueries({ queryKey: ticketKeys.assigned() })
       qc.invalidateQueries({ queryKey: ticketKeys.detail(ticket.id) })
@@ -140,7 +144,8 @@ export function useResumeTicket() {
 export function useCloseTicket() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => helpdeskService.closeTicket(id),
+    mutationFn: ({ id, resolution }: { id: string; resolution: string }) => 
+      helpdeskService.closeTicket(id, resolution),
     onSuccess: (ticket) => {
       qc.invalidateQueries({ queryKey: ticketKeys.detail(ticket.id) })
       qc.invalidateQueries({ queryKey: ticketKeys.assigned() })
@@ -167,6 +172,25 @@ export function useAddComment() {
       helpdeskService.addComment(ticketId, data),
     onSuccess: (comment) => {
       qc.invalidateQueries({ queryKey: ticketKeys.comments(comment.ticketId) })
+    },
+  })
+}
+
+export function useTicketAttachments(ticketId: string) {
+  return useQuery({
+    queryKey: attachmentKeys.list(ticketId),
+    queryFn: () => helpdeskService.listAttachments(ticketId),
+    enabled: !!ticketId,
+  })
+}
+
+export function useUploadAttachment() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ ticketId, file }: { ticketId: string; file: File }) =>
+      helpdeskService.uploadAttachment(ticketId, file),
+    onSuccess: (attachment) => {
+      qc.invalidateQueries({ queryKey: attachmentKeys.list(attachment.ticketId) })
     },
   })
 }

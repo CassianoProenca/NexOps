@@ -111,7 +111,7 @@ export default function AllTicketsPage() {
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const { data: tickets = [], isLoading } = useAllTickets()
-  const { data: departments = [] } = useDepartments()
+  const { departments } = useDepartments()
 
   const deptMap = useMemo(() => Object.fromEntries(departments.map((d) => [d.id, d.name])), [departments])
 

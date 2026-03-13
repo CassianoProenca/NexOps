@@ -37,6 +37,7 @@ public class TicketJpaEntity {
     @Column(name = "parent_ticket_id")
     private UUID parentTicketId;
     private String pauseReason;
+    private String resolution;
     private OffsetDateTime openedAt;
     private OffsetDateTime assignedAt;
     private OffsetDateTime pausedAt;

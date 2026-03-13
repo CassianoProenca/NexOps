@@ -18,6 +18,7 @@ public class Ticket {
     private UUID assigneeId;
     private final UUID parentTicketId;
     private String pauseReason;
+    private String resolution;
     private final OffsetDateTime openedAt;
     private OffsetDateTime assignedAt;
     private OffsetDateTime pausedAt;
@@ -26,7 +27,7 @@ public class Ticket {
     private final OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 
-    public Ticket(UUID id, UUID tenantId, String title, String description, TicketStatus status, TicketPriority internalPriority, SlaLevel slaLevel, UUID departmentId, UUID problemTypeId, UUID requesterId, UUID assigneeId, UUID parentTicketId, String pauseReason, OffsetDateTime openedAt, OffsetDateTime assignedAt, OffsetDateTime pausedAt, OffsetDateTime closedAt, OffsetDateTime slaDeadline, OffsetDateTime createdAt, OffsetDateTime updatedAt) {
+    public Ticket(UUID id, UUID tenantId, String title, String description, TicketStatus status, TicketPriority internalPriority, SlaLevel slaLevel, UUID departmentId, UUID problemTypeId, UUID requesterId, UUID assigneeId, UUID parentTicketId, String pauseReason, String resolution, OffsetDateTime openedAt, OffsetDateTime assignedAt, OffsetDateTime pausedAt, OffsetDateTime closedAt, OffsetDateTime slaDeadline, OffsetDateTime createdAt, OffsetDateTime updatedAt) {
         this.id = id;
         this.tenantId = tenantId;
         this.title = title;
@@ -40,6 +41,7 @@ public class Ticket {
         this.assigneeId = assigneeId;
         this.parentTicketId = parentTicketId;
         this.pauseReason = pauseReason;
+        this.resolution = resolution;
         this.openedAt = openedAt;
         this.assignedAt = assignedAt;
         this.pausedAt = pausedAt;
@@ -65,11 +67,12 @@ public class Ticket {
             null,
             null,
             null,
+            null,
             now,
             null,
             null,
             null,
-            null,
+            now.plusHours(slaLevel.getHours()),
             now,
             now
         );
@@ -91,11 +94,12 @@ public class Ticket {
             null,
             parentTicketId,
             null,
+            null,
             now,
             null,
             null,
             null,
-            null,
+            now.plusHours(slaLevel.getHours()),
             now,
             now
         );
@@ -131,11 +135,15 @@ public class Ticket {
         this.updatedAt = OffsetDateTime.now();
     }
 
-    public void close() {
+    public void close(String resolution) {
         if (this.status != TicketStatus.IN_PROGRESS) {
             throw new BusinessException("Ticket can only be closed if it is IN_PROGRESS. Current status: " + this.status);
         }
+        if (resolution == null || resolution.trim().isEmpty()) {
+            throw new BusinessException("Resolution is required to close a ticket");
+        }
         this.status = TicketStatus.CLOSED;
+        this.resolution = resolution;
         this.closedAt = OffsetDateTime.now();
         this.updatedAt = OffsetDateTime.now();
     }
@@ -168,6 +176,7 @@ public class Ticket {
     public UUID getAssigneeId() { return assigneeId; }
     public UUID getParentTicketId() { return parentTicketId; }
     public String getPauseReason() { return pauseReason; }
+    public String getResolution() { return resolution; }
     public OffsetDateTime getOpenedAt() { return openedAt; }
     public OffsetDateTime getAssignedAt() { return assignedAt; }
     public OffsetDateTime getPausedAt() { return pausedAt; }

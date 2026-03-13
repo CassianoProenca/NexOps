@@ -16,6 +16,7 @@ public record TicketResponse(
     UUID assigneeId,
     UUID parentTicketId,
     String pauseReason,
+    String resolution,
     OffsetDateTime openedAt,
     OffsetDateTime assignedAt,
     OffsetDateTime pausedAt,

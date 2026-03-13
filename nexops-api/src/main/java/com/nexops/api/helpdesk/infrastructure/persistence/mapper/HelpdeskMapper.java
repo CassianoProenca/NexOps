@@ -32,7 +32,7 @@ public class HelpdeskMapper {
                 e.getId(), e.getTenantId(), e.getTitle(), e.getDescription(), e.getStatus(),
                 e.getInternalPriority(), e.getSlaLevel(), e.getDepartmentId(),
                 e.getProblemTypeId(), e.getRequesterId(), e.getAssigneeId(),
-                e.getParentTicketId(), e.getPauseReason(), e.getOpenedAt(),
+                e.getParentTicketId(), e.getPauseReason(), e.getResolution(), e.getOpenedAt(),
                 e.getAssignedAt(), e.getPausedAt(), e.getClosedAt(),
                 e.getSlaDeadline(), e.getCreatedAt(), e.getUpdatedAt()
         );
@@ -45,20 +45,21 @@ public class HelpdeskMapper {
                 .slaLevel(t.getSlaLevel()).departmentId(t.getDepartmentId())
                 .problemTypeId(t.getProblemTypeId()).requesterId(t.getRequesterId())
                 .assigneeId(t.getAssigneeId()).parentTicketId(t.getParentTicketId())
-                .pauseReason(t.getPauseReason()).openedAt(t.getOpenedAt())
-                .assignedAt(t.getAssignedAt()).pausedAt(t.getPausedAt())
-                .closedAt(t.getClosedAt()).slaDeadline(t.getSlaDeadline())
-                .createdAt(t.getCreatedAt()).updatedAt(t.getUpdatedAt())
+                .pauseReason(t.getPauseReason()).resolution(t.getResolution())
+                .openedAt(t.getOpenedAt()).assignedAt(t.getAssignedAt())
+                .pausedAt(t.getPausedAt()).closedAt(t.getClosedAt())
+                .slaDeadline(t.getSlaDeadline()).createdAt(t.getCreatedAt())
+                .updatedAt(t.getUpdatedAt())
                 .build();
     }
 
     public static TicketComment toDomain(TicketCommentJpaEntity e) {
-        return new TicketComment(e.getId(), e.getTicketId(), e.getAuthorId(), e.getContent(), e.getType(), e.getCreatedAt());
+        return new TicketComment(e.getId(), e.getTenantId(), e.getTicketId(), e.getAuthorId(), e.getContent(), e.getType(), e.getCreatedAt());
     }
 
     public static TicketCommentJpaEntity toEntity(TicketComment c) {
         return TicketCommentJpaEntity.builder()
-                .id(c.getId()).ticketId(c.getTicketId()).authorId(c.getAuthorId())
+                .id(c.getId()).tenantId(c.getTenantId()).ticketId(c.getTicketId()).authorId(c.getAuthorId())
                 .content(c.getContent()).type(c.getType())
                 .createdAt(c.getCreatedAt()).build();
     }

@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -41,7 +42,7 @@ public class QueuePanelService implements QueueNotifier {
 
     @Transactional(readOnly = true)
     public void pushQueueUpdateForTenant(String tenantId) {
-        QueuePanelPayload payload = getQueuePanelState();
+        QueuePanelPayload payload = getQueuePanelState(UUID.fromString(tenantId));
         messagingTemplate.convertAndSend("/topic/" + tenantId + "/queue-panel", payload);
     }
 
@@ -53,8 +54,15 @@ public class QueuePanelService implements QueueNotifier {
     }
 
     public QueuePanelPayload getQueuePanelState() {
-        List<Ticket> openTickets = ticketRepository.findByStatus(TicketStatus.OPEN);
-        List<Ticket> inProgressTickets = ticketRepository.findByStatus(TicketStatus.IN_PROGRESS);
+        var caller = SecurityContext.get();
+        UUID tenantId = caller != null ? caller.tenantId() : null;
+        return getQueuePanelState(tenantId);
+    }
+
+    private QueuePanelPayload getQueuePanelState(UUID tenantId) {
+        if (tenantId == null) return new QueuePanelPayload(List.of(), List.of(), OffsetDateTime.now());
+        List<Ticket> openTickets = ticketRepository.findByStatus(tenantId, TicketStatus.OPEN);
+        List<Ticket> inProgressTickets = ticketRepository.findByStatus(tenantId, TicketStatus.IN_PROGRESS);
 
         return new QueuePanelPayload(
                 openTickets.stream().map(this::toQueueItem).toList(),

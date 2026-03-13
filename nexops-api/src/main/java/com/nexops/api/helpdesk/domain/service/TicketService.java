@@ -56,7 +56,8 @@ public class TicketService implements
 
     @Override
     public Optional<Ticket> attendNext(UUID technicianId, UUID problemTypeId) {
-        var openTickets = ticketRepository.findOpenByProblemTypeOrderByPriorityAndAge(problemTypeId);
+        UUID tenantId = SecurityContext.get().tenantId();
+        var openTickets = ticketRepository.findOpenByProblemTypeOrderByPriorityAndAge(tenantId, problemTypeId);
         if (openTickets.isEmpty()) {
             return Optional.empty();
         }
@@ -64,7 +65,7 @@ public class TicketService implements
         Ticket ticket = openTickets.get(0);
         ticket.assignTo(technicianId);
 
-        TicketComment comment = TicketComment.systemEvent(ticket.getId(), technicianId, "Chamado assumido via Atender Próximo", CommentType.ASSIGNMENT);
+        TicketComment comment = TicketComment.systemEvent(ticket.getTenantId(), ticket.getId(), technicianId, "Chamado assumido via Atender Próximo", CommentType.ASSIGNMENT);
 
         Ticket savedAttend = ticketRepository.save(ticket);
         commentRepository.save(comment);
@@ -81,7 +82,7 @@ public class TicketService implements
                 .orElseThrow(() -> new BusinessException("Chamado não encontrado"));
 
         ticket.assignTo(technicianId);
-        TicketComment comment = TicketComment.systemEvent(ticketId, technicianId, "Chamado atribuído", CommentType.ASSIGNMENT);
+        TicketComment comment = TicketComment.systemEvent(ticket.getTenantId(), ticketId, technicianId, "Chamado atribuído", CommentType.ASSIGNMENT);
 
         commentRepository.save(comment);
         Ticket saved = ticketRepository.save(ticket);
@@ -91,12 +92,12 @@ public class TicketService implements
     }
 
     @Override
-    public Ticket pauseTicket(UUID ticketId, String reason) {
+    public Ticket pauseTicket(UUID ticketId, UUID operatorId, String reason) {
         Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new BusinessException("Chamado não encontrado"));
 
         ticket.pause(reason);
-        TicketComment comment = TicketComment.systemEvent(ticketId, SYSTEM_USER_ID, "Chamado pausado: " + reason, CommentType.PAUSE);
+        TicketComment comment = TicketComment.systemEvent(ticket.getTenantId(), ticketId, operatorId, "Chamado pausado: " + reason, CommentType.PAUSE);
 
         commentRepository.save(comment);
         Ticket saved = ticketRepository.save(ticket);
@@ -105,12 +106,12 @@ public class TicketService implements
     }
 
     @Override
-    public Ticket resumeTicket(UUID ticketId) {
+    public Ticket resumeTicket(UUID ticketId, UUID operatorId) {
         Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new BusinessException("Chamado não encontrado"));
 
         ticket.resume();
-        TicketComment comment = TicketComment.systemEvent(ticketId, SYSTEM_USER_ID, "Chamado retomado", CommentType.STATUS_CHANGE);
+        TicketComment comment = TicketComment.systemEvent(ticket.getTenantId(), ticketId, operatorId, "Chamado retomado", CommentType.STATUS_CHANGE);
 
         commentRepository.save(comment);
         Ticket saved = ticketRepository.save(ticket);
@@ -119,7 +120,7 @@ public class TicketService implements
     }
 
     @Override
-    public Ticket closeTicket(UUID ticketId) {
+    public Ticket closeTicket(UUID ticketId, UUID operatorId, String resolution) {
         Ticket ticket = ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new BusinessException("Chamado não encontrado"));
 
@@ -129,8 +130,8 @@ public class TicketService implements
             throw new BusinessException("Todos os chamados filhos devem ser finalizados primeiro");
         }
 
-        ticket.close();
-        TicketComment comment = TicketComment.systemEvent(ticketId, SYSTEM_USER_ID, "Chamado finalizado", CommentType.STATUS_CHANGE);
+        ticket.close(resolution);
+        TicketComment comment = TicketComment.systemEvent(ticket.getTenantId(), ticketId, operatorId, "Chamado finalizado. Resolução: " + resolution, CommentType.STATUS_CHANGE);
 
         commentRepository.save(comment);
         Ticket saved = ticketRepository.save(ticket);
@@ -149,7 +150,7 @@ public class TicketService implements
         Ticket child = Ticket.child(parentTicketId, title, description, parent.getDepartmentId(), problemTypeId, requesterId, problemType.getSlaLevel(), parent.getTenantId());
         Ticket savedChild = ticketRepository.save(child);
 
-        TicketComment comment = TicketComment.systemEvent(parentTicketId, requesterId, "Chamado filho criado: " + savedChild.getId(), CommentType.SYSTEM);
+        TicketComment comment = TicketComment.systemEvent(parent.getTenantId(), parentTicketId, requesterId, "Chamado filho criado: " + savedChild.getId(), CommentType.SYSTEM);
         commentRepository.save(comment);
 
         queueNotifier.notifyQueueUpdate();
@@ -158,11 +159,11 @@ public class TicketService implements
     }
 
     @Override
-    public TicketComment addComment(UUID ticketId, UUID authorId, String content) {
+    public TicketComment addComment(UUID tenantId, UUID ticketId, UUID authorId, String content) {
         ticketRepository.findById(ticketId)
                 .orElseThrow(() -> new BusinessException("Chamado não encontrado"));
 
-        TicketComment comment = TicketComment.message(ticketId, authorId, content);
+        TicketComment comment = TicketComment.message(tenantId, ticketId, authorId, content);
         return commentRepository.save(comment);
     }
 

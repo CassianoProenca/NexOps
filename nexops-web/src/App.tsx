@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import { Layout } from '@/components/shared/Layout'
 import { ProtectedRoute } from '@/components/shared/ProtectedRoute'
+import { SocketProvider } from '@/components/shared/SocketProvider'
 import { useAppStore } from '@/store/appStore'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { useDevPermissions } from '@/hooks/useDevPermissions'
@@ -52,14 +53,23 @@ import TenantSettingsPage   from '@/pages/admin/TenantSettingsPage'
 import SmtpPage             from '@/pages/admin/SmtpPage'
 import AISettingsPage       from '@/pages/admin/AISettingsPage'
 
-/* ── AppShell: injeta o Layout nas rotas autenticadas ── */
-function AppShell() {
+/* ── SocketShell: provê o socket para rotas que NÃO usam o Layout padrão (ex: Painel TV) ── */
+function SocketShell() {
   return (
     <ProtectedRoute>
-      <Layout>
+      <SocketProvider>
         <Outlet />
-      </Layout>
+      </SocketProvider>
     </ProtectedRoute>
+  )
+}
+
+/* ── AppShell: injeta o Layout nas rotas autenticadas padrão ── */
+function AppShell() {
+  return (
+    <Layout>
+      <Outlet />
+    </Layout>
   )
 }
 
@@ -105,169 +115,168 @@ export default function App() {
           <Route path="/forgot-password"  element={<ForgotPasswordPage />} />
           <Route path="/invite-expired"   element={<ExpiredInvitePage />} />
 
-          {/* Painel TV — sem layout base */}
-          <Route path="/app/helpdesk/painel" element={<QueuePanelPage />} />
+          {/* Grupo com Socket mas sem Layout necessário (ex: Painel TV) */}
+          <Route path="/app" element={<SocketShell />}>
+            
+            {/* Painel TV — agora dentro do SocketProvider */}
+            <Route path="helpdesk/painel" element={<QueuePanelPage />} />
 
-          {/* Rotas autenticadas — dentro do AppShell (Layout) */}
-          <Route path="/app" element={<AppShell />}>
+            {/* Sub-grupo com o Layout padrão (Sidebar/Header) */}
+            <Route element={<AppShell />}>
+              
+              {/* Redirect inteligente baseado em permissões */}
+              <Route index element={<AppIndex />} />
 
-            {/* Redirect inteligente baseado em permissões */}
-            <Route index element={<AppIndex />} />
+              {/* [ROLE: ALL] — Notificações */}
+              <Route path="notificacoes"   element={<NotificationsPage />} />
 
-            {/* [ROLE: ALL] — Notificações */}
-            <Route path="notificacoes"   element={<NotificationsPage />} />
+              {/* ── Helpdesk ── */}
 
-            {/* ── Helpdesk ── */}
+              {/* [ROLE: END_USER] */}
+              <Route path="helpdesk/meus-chamados"   element={<MyCasesPage />} />
+              <Route path="helpdesk/novo"             element={<NewCasePage />} />
+              <Route path="helpdesk/chamado-usuario/:id"  element={<TicketDetailUserPage />} />
 
-            {/* [ROLE: END_USER] */}
-            <Route path="helpdesk/meus-chamados"   element={<MyCasesPage />} />
-            <Route path="helpdesk/novo"             element={<NewCasePage />} />
-            <Route path="helpdesk/meu-chamado/:id"  element={<TicketDetailUserPage />} />
+              {/* [ROLE: TECHNICIAN] — detail view */}
+              <Route path="helpdesk/chamado/:id"      element={<TicketDetailTechPage />} />
 
-            {/* [ROLE: TECHNICIAN] — detail view */}
-            <Route path="helpdesk/chamado/:id"      element={<TicketDetailTechPage />} />
+              {/* [ROLE: TECHNICIAN] */}
+              <Route path="helpdesk/tecnico"        element={<TechnicianHomePage />} />
+              <Route path="helpdesk/meus-trabalhos" element={<MyTicketsPage />} />
+              <Route path="helpdesk/fila"           element={<TicketQueuePage />} />
 
-            {/* [ROLE: TECHNICIAN] */}
-            <Route path="helpdesk/tecnico"        element={<TechnicianHomePage />} />
-            <Route path="helpdesk/meus-trabalhos" element={<MyTicketsPage />} />
-            <Route path="helpdesk/fila"           element={<TicketQueuePage />} />
+              {/* [ROLE: MANAGER, ADMIN] */}
+              <Route
+                path="helpdesk/todos"
+                element={
+                  <ProtectedRoute permission="TICKET_VIEW_ALL">
+                    <AllTicketsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="helpdesk/chamado-gestor/:id"
+                element={
+                  <ProtectedRoute permission="TICKET_VIEW_ALL">
+                    <TicketDetailManagerPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="helpdesk/departamentos"
+                element={
+                  <ProtectedRoute permission="DEPT_MANAGE">
+                    <DepartmentsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="helpdesk/tipos-de-problema"
+                element={
+                  <ProtectedRoute permission="DEPT_MANAGE">
+                    <ProblemTypesPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* [ROLE: MANAGER, ADMIN] */}
-            <Route
-              path="helpdesk/todos"
-              element={
-                <ProtectedRoute permission="TICKET_VIEW_ALL">
-                  <AllTicketsPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="helpdesk/chamado-gestor/:id"
-              element={
-                <ProtectedRoute permission="TICKET_VIEW_ALL">
-                  <TicketDetailManagerPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="helpdesk/departamentos"
-              element={
-                <ProtectedRoute permission="DEPT_MANAGE">
-                  <DepartmentsPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="helpdesk/tipos-de-problema"
-              element={
-                <ProtectedRoute permission="DEPT_MANAGE">
-                  <ProblemTypesPage />
-                </ProtectedRoute>
-              }
-            />
+              {/* ── Inventário ── */}
+              <Route path="inventory"               element={<Navigate to="inventory/assets" replace />} />
+              <Route
+                path="inventory/assets"
+                element={
+                  <ProtectedRoute permission="ASSET_VIEW">
+                    <AssetsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="inventory/stock"
+                element={
+                  <ProtectedRoute permission="ASSET_VIEW">
+                    <StockPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* ── Inventário ── */}
-            {/* [ROLE: MANAGER, ADMIN] */}
-            <Route path="inventory"               element={<Navigate to="inventory/assets" replace />} />
-            <Route
-              path="inventory/assets"
-              element={
-                <ProtectedRoute permission="ASSET_VIEW">
-                  <AssetsPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="inventory/stock"
-              element={
-                <ProtectedRoute permission="ASSET_VIEW">
-                  <StockPage />
-                </ProtectedRoute>
-              }
-            />
+              {/* ── Governança ── */}
+              <Route
+                path="governance"
+                element={
+                  <ProtectedRoute permission="REPORT_VIEW_ALL">
+                    <GovernanceDashboardPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="governance/tecnico/:id"
+                element={
+                  <ProtectedRoute permission="REPORT_VIEW_ALL">
+                    <TechnicianSLADetailPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="governance/notificacoes"
+                element={
+                  <ProtectedRoute permission="REPORT_VIEW_ALL">
+                    <SLANotificationsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="governance/configuracao"
+                element={
+                  <ProtectedRoute permission="SLA_CONFIG">
+                    <SLAConfigPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* ── Governança ── */}
-            {/* [ROLE: MANAGER, ADMIN] */}
-            <Route
-              path="governance"
-              element={
-                <ProtectedRoute permission="REPORT_VIEW_ALL">
-                  <GovernanceDashboardPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="governance/tecnico/:id"
-              element={
-                <ProtectedRoute permission="REPORT_VIEW_ALL">
-                  <TechnicianSLADetailPage />
-                </ProtectedRoute>
-              }
-            />
-            {/* [ROLE: MANAGER, ADMIN] */}
-            <Route
-              path="governance/notificacoes"
-              element={
-                <ProtectedRoute permission="REPORT_VIEW_ALL">
-                  <SLANotificationsPage />
-                </ProtectedRoute>
-              }
-            />
-            {/* [ROLE: ADMIN] */}
-            <Route
-              path="governance/configuracao"
-              element={
-                <ProtectedRoute permission="SLA_CONFIG">
-                  <SLAConfigPage />
-                </ProtectedRoute>
-              }
-            />
+              {/* ── Administração ── */}
+              <Route
+                path="admin/usuarios"
+                element={
+                  <ProtectedRoute permission="USER_MANAGE">
+                    <UsersPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="admin/perfis"
+                element={
+                  <ProtectedRoute permission="ROLE_MANAGE">
+                    <ProfilesPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="admin/configuracoes"
+                element={
+                  <ProtectedRoute permission="SETTINGS_EDIT">
+                    <TenantSettingsPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="admin/smtp"
+                element={
+                  <ProtectedRoute permission="SETTINGS_EDIT">
+                    <SmtpPage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="admin/ia"
+                element={
+                  <ProtectedRoute permission="AI_CONFIG">
+                    <AISettingsPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* ── Administração ── */}
-            {/* [ROLE: ADMIN] */}
-            <Route
-              path="admin/usuarios"
-              element={
-                <ProtectedRoute permission="USER_MANAGE">
-                  <UsersPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="admin/perfis"
-              element={
-                <ProtectedRoute permission="ROLE_MANAGE">
-                  <ProfilesPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="admin/configuracoes"
-              element={
-                <ProtectedRoute permission="SETTINGS_EDIT">
-                  <TenantSettingsPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="admin/smtp"
-              element={
-                <ProtectedRoute permission="SETTINGS_EDIT">
-                  <SmtpPage />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="admin/ia"
-              element={
-                <ProtectedRoute permission="AI_CONFIG">
-                  <AISettingsPage />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* Fallback interno */}
-            <Route path="*"                       element={<NotFound />} />
+              {/* Fallback interno */}
+              <Route path="*"                       element={<NotFound />} />
+            </Route>
           </Route>
 
           {/* Fallback global → login */}

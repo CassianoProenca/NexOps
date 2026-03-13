@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/v1/tickets")
 @RequiredArgsConstructor
 @Tag(name = "Tickets", description = "Ticket lifecycle management")
+@lombok.extern.slf4j.Slf4j
 public class TicketController {
 
     private final CreateTicketUseCase createTicketUseCase;
@@ -36,89 +37,80 @@ public class TicketController {
     private final CloseTicketUseCase closeTicketUseCase;
     private final CreateChildTicketUseCase createChildTicketUseCase;
     private final AddCommentUseCase addCommentUseCase;
+    private final QueuePanelService queuePanelService;
     private final TicketRepository ticketRepository;
     private final TicketCommentRepository commentRepository;
-    private final QueuePanelService queuePanelService;
 
-    @Operation(summary = "Get queue panel", description = "Retrieve current state of the ticket queue for TV panel")
+    @Operation(summary = "Get current queue panel state", description = "Retrieve open and in-progress tickets for the TV panel")
     @GetMapping("/queue-panel")
     public QueuePanelPayload getQueuePanel() {
         return queuePanelService.getQueuePanelState();
     }
 
-    @Operation(summary = "Create ticket", description = "Opens a new support ticket")
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public TicketResponse create(@RequestBody @Valid CreateTicketRequest request) {
-        AuthenticatedUser user = SecurityContext.get();
-        if (!user.hasPermission("TICKET_CREATE")) {
-            throw new AccessDeniedException("Sem permissão para criar chamados");
-        }
-        Ticket ticket = createTicketUseCase.createTicket(request.title(), request.description(), request.departmentId(), request.problemTypeId(), user.userId());
-        return toResponse(ticket);
-    }
-
-    @Operation(summary = "List all tickets", description = "Retrieve all tickets (Admin/Manager only)")
+    @Operation(summary = "List all tickets", description = "Admin/Manager only: List all tickets for the tenant")
     @GetMapping
     public List<TicketSummaryResponse> listAll() {
         AuthenticatedUser user = SecurityContext.get();
         if (!user.hasPermission("TICKET_VIEW_ALL")) {
-            throw new AccessDeniedException("Sem permissão para ver todos os chamados");
+            throw new AccessDeniedException("Sem permissão para visualizar todos os chamados");
         }
         return ticketRepository.findAll().stream()
                 .map(this::toSummaryResponse)
                 .collect(Collectors.toList());
     }
 
-    @Operation(summary = "List my tickets", description = "Retrieve tickets where the authenticated user is the requester")
+    @Operation(summary = "List my tickets", description = "List tickets where caller is the requester")
     @GetMapping("/my")
     public List<TicketSummaryResponse> listMy() {
         AuthenticatedUser user = SecurityContext.get();
-        return ticketRepository.findByRequesterId(user.userId()).stream()
+        return ticketRepository.findByRequesterId(user.tenantId(), user.userId()).stream()
                 .map(this::toSummaryResponse)
                 .collect(Collectors.toList());
     }
 
-    @Operation(summary = "List queue by problem type", description = "Retrieve OPEN tickets for a specific problem type")
-    @GetMapping("/queue/{problemTypeId}")
-    public List<TicketSummaryResponse> listQueue(@PathVariable UUID problemTypeId) {
-        AuthenticatedUser user = SecurityContext.get();
-        if (!user.hasPermission("TICKET_ATTEND")) {
-            throw new AccessDeniedException("Sem permissão para atender chamados");
-        }
-        return ticketRepository.findByProblemTypeIdAndStatus(problemTypeId, TicketStatus.OPEN).stream()
-                .map(this::toSummaryResponse)
-                .collect(Collectors.toList());
-    }
-
-    @Operation(summary = "List assigned tickets", description = "Retrieve tickets assigned to the authenticated technician")
+    @Operation(summary = "List assigned tickets", description = "List tickets assigned to the caller")
     @GetMapping("/assigned")
     public List<TicketSummaryResponse> listAssigned() {
         AuthenticatedUser user = SecurityContext.get();
-        if (!user.hasPermission("TICKET_ATTEND")) {
-            throw new AccessDeniedException("Sem permissão para atender chamados");
-        }
-        return ticketRepository.findByAssigneeId(user.userId()).stream()
+        return ticketRepository.findByAssigneeId(user.tenantId(), user.userId()).stream()
                 .map(this::toSummaryResponse)
                 .collect(Collectors.toList());
     }
 
-    @Operation(summary = "Get ticket details", description = "Retrieve full ticket details by ID")
+    @Operation(summary = "Get ticket details", description = "Retrieve a single ticket by ID")
     @GetMapping("/{id}")
     public TicketResponse getById(@PathVariable UUID id) {
-        AuthenticatedUser user = SecurityContext.get();
-        Ticket ticket = ticketRepository.findById(id)
+        return ticketRepository.findById(id)
+                .map(this::toResponse)
                 .orElseThrow(() -> new BusinessException("Chamado não encontrado"));
-        
-        if (!user.hasPermission("TICKET_VIEW_ALL") && !ticket.getRequesterId().equals(user.userId()) && !user.userId().equals(ticket.getAssigneeId())) {
-            throw new AccessDeniedException("Sem permissão para ver este chamado");
+    }
+
+    @Operation(summary = "Get tickets in queue by type", description = "List open tickets for a specific problem type")
+    @GetMapping("/queue/{problemTypeId}")
+    public List<TicketSummaryResponse> getQueue(@PathVariable UUID problemTypeId) {
+        AuthenticatedUser user = SecurityContext.get();
+        return ticketRepository.findByProblemTypeIdAndStatus(user.tenantId(), problemTypeId, TicketStatus.OPEN).stream()
+                .map(this::toSummaryResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Operation(summary = "Create new ticket", description = "Open a new support request")
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public TicketResponse create(@RequestBody @Valid CreateTicketRequest request) {
+        AuthenticatedUser user = SecurityContext.get();
+        if (!user.hasPermission("TICKET_CREATE")) {
+            throw new AccessDeniedException("Sem permissão para abrir chamados");
         }
-        
+        Ticket ticket = createTicketUseCase.createTicket(
+                request.title(), request.description(),
+                request.departmentId(), request.problemTypeId(), user.userId()
+        );
         return toResponse(ticket);
     }
 
     @Operation(summary = "Attend next ticket", description = "Automatically assign the highest priority/oldest ticket in the queue")
-    @PostMapping("/{id}/attend")
+    @PostMapping("/attend")
     public TicketResponse attendNext(@RequestBody @Valid AttendNextRequest request) {
         AuthenticatedUser user = SecurityContext.get();
         if (!user.hasPermission("TICKET_ATTEND")) {
@@ -143,34 +135,49 @@ public class TicketController {
     @Operation(summary = "Pause ticket", description = "Temporarily pause work on a ticket")
     @PostMapping("/{id}/pause")
     public TicketResponse pause(@PathVariable UUID id, @RequestBody @Valid PauseRequest request) {
-        AuthenticatedUser user = SecurityContext.get();
-        if (!user.hasPermission("TICKET_PAUSE")) {
-            throw new AccessDeniedException("Sem permissão para pausar chamados");
+        try {
+            AuthenticatedUser user = SecurityContext.get();
+            if (!user.hasPermission("TICKET_PAUSE")) {
+                throw new AccessDeniedException("Sem permissão para pausar chamados");
+            }
+            Ticket ticket = pauseTicketUseCase.pauseTicket(id, user.userId(), request.reason());
+            return toResponse(ticket);
+        } catch (Exception e) {
+            log.error("Error pausing ticket {}: {}", id, e.getMessage());
+            throw e;
         }
-        Ticket ticket = pauseTicketUseCase.pauseTicket(id, request.reason());
-        return toResponse(ticket);
     }
 
     @Operation(summary = "Resume ticket", description = "Resume work on a paused ticket")
     @PostMapping("/{id}/resume")
     public TicketResponse resume(@PathVariable UUID id) {
-        AuthenticatedUser user = SecurityContext.get();
-        if (!user.hasPermission("TICKET_PAUSE")) {
-            throw new AccessDeniedException("Sem permissão para retomar chamados");
+        try {
+            AuthenticatedUser user = SecurityContext.get();
+            if (!user.hasPermission("TICKET_PAUSE")) {
+                throw new AccessDeniedException("Sem permissão para retomar chamados");
+            }
+            Ticket ticket = resumeTicketUseCase.resumeTicket(id, user.userId());
+            return toResponse(ticket);
+        } catch (Exception e) {
+            log.error("Error resuming ticket {}: {}", id, e.getMessage());
+            throw e;
         }
-        Ticket ticket = resumeTicketUseCase.resumeTicket(id);
-        return toResponse(ticket);
     }
 
     @Operation(summary = "Close ticket", description = "Finalize a ticket")
     @PostMapping("/{id}/close")
-    public TicketResponse close(@PathVariable UUID id) {
-        AuthenticatedUser user = SecurityContext.get();
-        if (!user.hasPermission("TICKET_CLOSE")) {
-            throw new AccessDeniedException("Sem permissão para finalizar chamados");
+    public TicketResponse close(@PathVariable UUID id, @RequestBody @Valid CloseTicketRequest request) {
+        try {
+            AuthenticatedUser user = SecurityContext.get();
+            if (!user.hasPermission("TICKET_CLOSE")) {
+                throw new AccessDeniedException("Sem permissão para finalizar chamados");
+            }
+            Ticket ticket = closeTicketUseCase.closeTicket(id, user.userId(), request.resolution());
+            return toResponse(ticket);
+        } catch (Exception e) {
+            log.error("Error closing ticket {}: {}", id, e.getMessage());
+            throw e;
         }
-        Ticket ticket = closeTicketUseCase.closeTicket(id);
-        return toResponse(ticket);
     }
 
     @Operation(summary = "Create child ticket", description = "Create a new ticket related to a parent ticket")
@@ -178,9 +185,6 @@ public class TicketController {
     @ResponseStatus(HttpStatus.CREATED)
     public TicketResponse createChild(@PathVariable UUID id, @RequestBody @Valid CreateTicketRequest request) {
         AuthenticatedUser user = SecurityContext.get();
-        if (!user.hasPermission("TICKET_ATTEND")) {
-            throw new AccessDeniedException("Sem permissão para criar chamados filhos");
-        }
         Ticket ticket = createChildTicketUseCase.createChildTicket(id, request.title(), request.description(), request.problemTypeId(), user.userId());
         return toResponse(ticket);
     }
@@ -198,7 +202,7 @@ public class TicketController {
     @ResponseStatus(HttpStatus.CREATED)
     public CommentResponse addComment(@PathVariable UUID id, @RequestBody @Valid AddCommentRequest request) {
         AuthenticatedUser user = SecurityContext.get();
-        TicketComment comment = addCommentUseCase.addComment(id, user.userId(), request.content());
+        TicketComment comment = addCommentUseCase.addComment(user.tenantId(), id, user.userId(), request.content());
         return toCommentResponse(comment);
     }
 
@@ -207,7 +211,7 @@ public class TicketController {
                 t.getId(), t.getTitle(), t.getDescription(), t.getStatus().name(),
                 t.getInternalPriority().name(), t.getSlaLevel().name(), t.getDepartmentId(),
                 t.getProblemTypeId(), t.getRequesterId(), t.getAssigneeId(),
-                t.getParentTicketId(), t.getPauseReason(), t.getOpenedAt(),
+                t.getParentTicketId(), t.getPauseReason(), t.getResolution(), t.getOpenedAt(),
                 t.getAssignedAt(), t.getPausedAt(), t.getClosedAt(),
                 t.getSlaDeadline(), t.isSlaBreached(), t.getCreatedAt(), t.getUpdatedAt()
         );
@@ -217,7 +221,8 @@ public class TicketController {
         return new TicketSummaryResponse(
                 t.getId(), t.getTitle(), t.getStatus().name(), t.getSlaLevel().name(),
                 t.getDepartmentId(), t.getProblemTypeId(), t.getRequesterId(),
-                t.getAssigneeId(), t.getOpenedAt(), t.getSlaDeadline(), t.isSlaBreached()
+                t.getAssigneeId(), t.getOpenedAt(), t.getSlaDeadline(), t.isSlaBreached(),
+                t.getPauseReason()
         );
     }
 

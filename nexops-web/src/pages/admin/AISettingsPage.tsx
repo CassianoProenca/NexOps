@@ -59,7 +59,7 @@ export default function AISettingsPage() {
     try {
       await updateAi({ 
         provider, 
-        apiKey: apiKey === '********' ? undefined : apiKey,
+        apiKey: apiKey === '********' ? '' : apiKey,
         model, 
         enabled 
       })

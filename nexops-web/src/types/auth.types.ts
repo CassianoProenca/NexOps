@@ -6,6 +6,9 @@ export type PermissionCode =
   | 'TICKET_VIEW_OWN'
   | 'TICKET_VIEW_DEPT'
   | 'TICKET_VIEW_ALL'
+  | 'TICKET_ATTEND'
+  | 'TICKET_PAUSE'
+  | 'TICKET_CLOSE'
   | 'TICKET_MANAGE'
   | 'TICKET_ASSIGN'
   | 'TICKET_RESOLVE'
@@ -41,6 +44,9 @@ export const APP_PERMISSIONS: PermissionGroup[] = [
       { key: 'TICKET_VIEW_OWN', label: 'Consultar Meus Chamados' },
       { key: 'TICKET_VIEW_DEPT',label: 'Ver Chamados do Departamento' },
       { key: 'TICKET_VIEW_ALL', label: 'Ver Todos os Chamados (Global)' },
+      { key: 'TICKET_ATTEND',   label: 'Atender Chamados da Fila' },
+      { key: 'TICKET_PAUSE',    label: 'Pausar e Retomar Chamados' },
+      { key: 'TICKET_CLOSE',    label: 'Finalizar Chamados' },
       { key: 'TICKET_MANAGE',   label: 'Interagir e Comentar' },
       { key: 'TICKET_ASSIGN',   label: 'Atribuir Técnicos' },
       { key: 'TICKET_RESOLVE',  label: 'Resolver Chamados' },

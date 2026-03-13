@@ -164,8 +164,8 @@ export default function MyTicketsPage() {
   const navigate = useNavigate()
 
   const { data: allAssigned = [], isLoading } = useAssignedTickets()
-  const { data: departments = [] } = useDepartments()
-  const { data: problemTypes = [] } = useProblemTypes()
+  const { departments } = useDepartments()
+  const { problemTypes } = useProblemTypes()
 
   const deptMap = useMemo(() => Object.fromEntries(departments.map((d) => [d.id, d.name])), [departments])
   const ptMap   = useMemo(() => Object.fromEntries(problemTypes.map((p) => [p.id, p.name])), [problemTypes])
@@ -177,7 +177,6 @@ export default function MyTicketsPage() {
   const [activeTab, setActiveTab]         = useState<TabKey>('assigned')
   const [pauseTargetId, setPauseTarget]   = useState<string | null>(null)
   const [pauseReason, setPauseReason]     = useState('')
-  const [finalizeTargetId, setFinalizeId] = useState<string | null>(null)
   const [expandedIds, setExpandedIds]     = useState<Set<string>>(new Set())
 
   const assigned   = allAssigned.filter((t) => t.status === 'OPEN')
@@ -206,11 +205,6 @@ export default function MyTicketsPage() {
 
   function handleResume(id: string) {
     resumeTicket.mutate(id, { onSuccess: () => setActiveTab('inProgress') })
-  }
-
-  function confirmFinalize() {
-    if (!finalizeTargetId) return
-    closeTicket.mutate(finalizeTargetId, { onSuccess: () => setFinalizeId(null) })
   }
 
   function toggleExpanded(id: string) {
@@ -332,7 +326,9 @@ export default function MyTicketsPage() {
                       {isPaused && isExpanded ? (
                         <div className="flex items-start gap-2 mt-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                           <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-                          <p className="text-xs text-amber-800">Chamado pausado</p>
+                          <p className="text-xs text-amber-800">
+                            {ticket.pauseReason ?? 'Motivo não informado'}
+                          </p>
                         </div>
                       ) : null}
                     </td>
@@ -390,18 +386,10 @@ export default function MyTicketsPage() {
                               Pausar
                             </button>
                             <button
-                              onClick={() => setFinalizeId(ticket.id)}
-                              className="flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-semibold text-white hover:opacity-90 transition-opacity"
-                              style={{ background: SUCCESS }}
-                            >
-                              <CheckCircle className="w-3.5 h-3.5" />
-                              Finalizar
-                            </button>
-                            <button
                               onClick={() => navigate(`/app/helpdesk/chamado/${ticket.id}`)}
                               className="px-3 py-1.5 rounded-md text-xs font-medium text-zinc-600 border border-zinc-200 hover:bg-zinc-100 transition-colors"
                             >
-                              Ver
+                              Ver Detalhes
                             </button>
                           </>
                         )}
@@ -451,14 +439,6 @@ export default function MyTicketsPage() {
           onConfirm={confirmPause}
           onClose={() => setPauseTarget(null)}
           isPending={pauseTicket.isPending}
-        />
-      )}
-      {finalizeTargetId !== null && (
-        <FinalizeModal
-          ticketId={finalizeTargetId}
-          onConfirm={confirmFinalize}
-          onClose={() => setFinalizeId(null)}
-          isPending={closeTicket.isPending}
         />
       )}
 

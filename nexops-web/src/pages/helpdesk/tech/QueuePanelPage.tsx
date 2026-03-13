@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Building2, Clock, Sun, Moon } from 'lucide-react'
+import { Building2, Clock, Sun, Moon, Wifi, WifiOff, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useQueuePanelHttp } from '@/hooks/helpdesk/useTickets'
+import { useQueuePanel } from '@/hooks/helpdesk/useQueuePanel'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -79,7 +80,13 @@ const light = {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 export default function QueuePanelPage() {
-  const { data } = useQueuePanelHttp()
+  const { data: wsData, connected, isLoading: wsLoading } = useQueuePanel()
+  const { data: httpData, isLoading: httpLoading } = useQueuePanelHttp()
+  
+  // Prioriza WS se conectado, senão usa HTTP. Considera loading se ambos estiverem carregando.
+  const data = wsData && wsData.updatedAt ? wsData : httpData
+  const isLoading = (wsLoading && httpLoading) && !data
+  
   const [time,   setTime]   = useState(new Date())
   const [isDark, setIsDark] = useState(false)
 
@@ -87,6 +94,15 @@ export default function QueuePanelPage() {
     const id = setInterval(() => setTime(new Date()), 1000)
     return () => clearInterval(id)
   }, [])
+
+  if (isLoading) {
+    return (
+      <div className="h-screen w-screen bg-zinc-950 flex flex-col items-center justify-center gap-4">
+        <Loader2 className="w-10 h-10 text-brand animate-spin" />
+        <p className="text-zinc-500 font-medium animate-pulse uppercase tracking-widest text-xs">Iniciando Painel de Monitoramento...</p>
+      </div>
+    )
+  }
 
   const openTickets   = data?.openTickets   ?? []
   const activeTickets = data?.inProgressTickets ?? []
@@ -112,6 +128,17 @@ export default function QueuePanelPage() {
         </div>
 
         <div className="flex items-center gap-4">
+          {/* WS connection indicator */}
+          <div className="flex items-center gap-1.5">
+            {connected
+              ? <Wifi className={cn('h-4 w-4', isDark ? 'text-green-400' : 'text-green-500')} />
+              : <WifiOff className={cn('h-4 w-4', isDark ? 'text-zinc-600' : 'text-zinc-400')} />
+            }
+            <span className={cn('text-xs', isDark ? 'text-zinc-500' : 'text-zinc-400')}>
+              {connected ? 'Tempo real' : 'Polling'}
+            </span>
+          </div>
+
           <span className={cn('text-xl font-mono tracking-widest', T.clock)}>
             {hh}:{mm}:{ss}
           </span>
@@ -220,7 +247,9 @@ export default function QueuePanelPage() {
       {/* ── Footer ── */}
       <div className={cn('border-t shrink-0', T.separator)} />
       <div className="flex items-center justify-between shrink-0">
-        <p className={cn('text-xs', T.footer)}>Atualizado automaticamente a cada 30s · NexOps</p>
+        <p className={cn('text-xs', T.footer)}>
+        {connected ? 'Atualização em tempo real via WebSocket' : 'Polling HTTP a cada 30s'} · NexOps
+      </p>
         {data?.updatedAt && (
           <p className={cn('text-xs', T.footerRight)}>
             Última atualização: {new Date(data.updatedAt).toLocaleTimeString('pt-BR')}
